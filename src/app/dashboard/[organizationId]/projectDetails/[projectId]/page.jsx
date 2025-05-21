@@ -18,18 +18,21 @@ import {
 import { FaChalkboardTeacher } from "react-icons/fa";
 import StatsCard from "@/components/ProjectDetails/StatsCard";
 import SchoolModal from "@/components/ui/SchoolModal";
+import Modal from "@/components/ui/Modal";
 
 export default function ProjectDetails() {
   const { organizationId, projectId } = useParams();
-  const { project, loading, error, fetchProjectById } = useProjectDetails(organizationId);
+  const { project, schools, loading, error, fetchProjectById, fetchSchools, createCamp } = useProjectDetails(organizationId);
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false); // State for SchoolModal
+  const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false);
+  const [isCampModalOpen, setIsCampModalOpen] = useState(false);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
     if (organizationId && projectId) {
       fetchProjectById(projectId);
+      fetchSchools(projectId);
     }
 
     const handleClickOutside = (event) => {
@@ -41,6 +44,54 @@ export default function ProjectDetails() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [organizationId, projectId]);
+
+  const handleCreateCamp = async (values) => {
+    const { name, subject, schools, startDate, endDate } = values;
+    // console.log(values)
+
+    // Validation
+    if (!name || !subject || !schools || !startDate || !endDate) {
+      alert("All fields are required.");
+      return;
+    }
+
+    try {
+      const schoolIds = schools
+    //   console.log(schoolIds)
+      await createCamp(projectId, schoolIds, { name, subject, startDate, endDate });
+      alert("Camp created successfully!");
+      setIsCampModalOpen(false);
+    } catch (err) {
+      console.error("Error creating camp:", err);
+      alert(`Failed to create camp: ${err.message}`);
+    }
+  };
+
+  const campFields = [
+    { name: "name", label: "Camp Name", type: "text", required: true, placeholder: "Enter camp name" },
+    {
+      name: "subject",
+      label: "Subject",
+      type: "select",
+      required: true,
+      options: [
+        { value: "numeracy", label: "Numeracy" },
+        { value: "literacy", label: "Literacy" },
+      ],
+    },
+    {
+      name: "schools",
+      label: "Schools",
+      type: "multiselect",
+      required: true,
+      options: schools.map((school) => ({
+        value: school.id,
+        label: school.name,
+      })),
+    },
+    { name: "startDate", label: "Start Date", type: "date", required: true },
+    { name: "endDate", label: "End Date", type: "date", required: true },
+  ];
 
   return (
     <div className="flex min-h-screen">
@@ -54,7 +105,6 @@ export default function ProjectDetails() {
           </h1>
 
           <div className="flex gap-2 relative" ref={dropdownRef}>
-            {/* Download Button */}
             <button
               className="flex items-center px-4 py-2 border border-yellow-300 rounded-lg bg-yellow-200 hover:bg-yellow-300 text-sm text-gray-700"
               onClick={() => console.log("Download clicked")}
@@ -63,7 +113,6 @@ export default function ProjectDetails() {
               <Download className="w-4 h-4 ml-2" />
             </button>
 
-            {/* Actions Dropdown */}
             <div className="relative">
               <button
                 onClick={() => setDropdownOpen((prev) => !prev)}
@@ -79,8 +128,8 @@ export default function ProjectDetails() {
                     <li>
                       <button
                         onClick={() => {
-                          setIsSchoolModalOpen(true); // Open the SchoolModal
-                          setDropdownOpen(false); // Close the dropdown
+                          setIsSchoolModalOpen(true);
+                          setDropdownOpen(false);
                         }}
                         className="flex items-center justify-between w-full px-4 py-2 hover:bg-yellow-100"
                       >
@@ -90,7 +139,10 @@ export default function ProjectDetails() {
                     </li>
                     <li>
                       <button
-                        onClick={() => console.log("Add Camp")}
+                        onClick={() => {
+                          setIsCampModalOpen(true);
+                          setDropdownOpen(false);
+                        }}
                         className="flex items-center justify-between w-full px-4 py-2 hover:bg-yellow-100"
                       >
                         Create Camp
@@ -113,11 +165,9 @@ export default function ProjectDetails() {
           </div>
         </div>
 
-        {/* Loading / Error */}
         {loading && <p className="text-gray-500">Loading project details...</p>}
         {error && <p className="text-red-500">{error}</p>}
 
-        {/* Stats */}
         {project && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-blue-50 p-6 rounded-xl">
             <StatsCard
@@ -166,12 +216,19 @@ export default function ProjectDetails() {
         )}
       </div>
 
-      {/* SchoolModal */}
       <SchoolModal
         isOpen={isSchoolModalOpen}
         onClose={() => setIsSchoolModalOpen(false)}
         organizationId={organizationId}
         projectId={projectId}
+      />
+
+      <Modal
+        isOpen={isCampModalOpen}
+        onClose={() => setIsCampModalOpen(false)}
+        title="Create Camp"
+        fields={campFields}
+        onSubmit={handleCreateCamp}
       />
     </div>
   );
