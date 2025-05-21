@@ -18,15 +18,17 @@ import {
 import { FaChalkboardTeacher } from "react-icons/fa";
 import StatsCard from "@/components/ProjectDetails/StatsCard";
 import SchoolModal from "@/components/ui/SchoolModal";
+import InstructorModal from "@/components/ui/InstructorModal"; // Import new component
 import Modal from "@/components/ui/Modal";
 
 export default function ProjectDetails() {
   const { organizationId, projectId } = useParams();
-  const { project, schools, loading, error, fetchProjectById, fetchSchools, createCamp } = useProjectDetails(organizationId);
+  const { project, schools, loading, error, fetchProjectById, fetchSchools, fetchCampsByIds, createCamp, createInstructor } = useProjectDetails(organizationId);
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false);
   const [isCampModalOpen, setIsCampModalOpen] = useState(false);
+  const [isInstructorModalOpen, setIsInstructorModalOpen] = useState(false);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -47,23 +49,36 @@ export default function ProjectDetails() {
 
   const handleCreateCamp = async (values) => {
     const { name, subject, schools, startDate, endDate } = values;
-    // console.log(values)
-
-    // Validation
     if (!name || !subject || !schools || !startDate || !endDate) {
       alert("All fields are required.");
       return;
     }
-
     try {
-      const schoolIds = schools
-    //   console.log(schoolIds)
-      await createCamp(projectId, schoolIds, { name, subject, startDate, endDate });
+      const schoolIds = Array.isArray(schools) ? schools.map((school) => school.value) : [schools.value];
+      await createCamp(projectId, schoolIds, { name, subject: subject.value, startDate, endDate });
       alert("Camp created successfully!");
       setIsCampModalOpen(false);
+      await fetchSchools(projectId); // Refresh schools to get updated camps
     } catch (err) {
       console.error("Error creating camp:", err);
       alert(`Failed to create camp: ${err.message}`);
+    }
+  };
+
+  const handleAddInstructor = async (values) => {
+    const { name, email, phone, school, camp } = values;
+    if (!name || !email || !phone || !school || !camp) {
+      alert("All fields are required.");
+      return;
+    }
+    try {
+      const schoolId = school.value;
+      const campId = camp.value;
+      await createInstructor(organizationId, projectId, schoolId, campId, { name, email, phone });
+      alert("Instructor added successfully!");
+    } catch (err) {
+      console.error("Error adding instructor:", err);
+      alert(`Failed to add instructor: ${err.message}`);
     }
   };
 
@@ -98,7 +113,6 @@ export default function ProjectDetails() {
       <Sidebar title="Dashboard" organizationId={organizationId} />
 
       <div className="p-6 space-y-6 bg-blue-50 flex-1 overflow-auto">
-        {/* Header Section */}
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-800">
             {project?.name || "Project Details"}
@@ -151,7 +165,10 @@ export default function ProjectDetails() {
                     </li>
                     <li>
                       <button
-                        onClick={() => console.log("Add Instructor")}
+                        onClick={() => {
+                          setIsInstructorModalOpen(true);
+                          setDropdownOpen(false);
+                        }}
                         className="flex items-center justify-between w-full px-4 py-2 hover:bg-yellow-100"
                       >
                         Add Instructor
@@ -229,6 +246,15 @@ export default function ProjectDetails() {
         title="Create Camp"
         fields={campFields}
         onSubmit={handleCreateCamp}
+      />
+
+      <InstructorModal
+        isOpen={isInstructorModalOpen}
+        onClose={() => setIsInstructorModalOpen(false)}
+        onSubmit={handleAddInstructor}
+        schools={schools}
+        projectId={projectId}
+        fetchCampsByIds={fetchCampsByIds}
       />
     </div>
   );
