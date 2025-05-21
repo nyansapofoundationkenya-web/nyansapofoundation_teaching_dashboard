@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation"; 
 import { FaSchool } from "react-icons/fa";
 import { GiCampingTent } from "react-icons/gi";
 import { useProjects } from "@/hooks/UseProjects";
@@ -8,6 +9,7 @@ import { useProjects } from "@/hooks/UseProjects";
 export default function RecentProjects({ organizationId }) {
   const { fetchRecentProjects } = useProjects(organizationId);
   const [projects, setProjects] = useState([]);
+  const router = useRouter(); 
 
   useEffect(() => {
     const loadProjects = async () => {
@@ -17,6 +19,10 @@ export default function RecentProjects({ organizationId }) {
     };
     loadProjects();
   }, [organizationId]);
+
+  const handleViewDetails = (projectId) => {
+    router.push(`/dashboard/${organizationId}/projectDetails/${projectId}`);
+  };
 
   return (
     <section className="p-6">
@@ -34,7 +40,6 @@ export default function RecentProjects({ organizationId }) {
                 {project.name}
               </h3>
 
-              {/* Location tags */}
               <div className="flex gap-2 mb-4 flex-wrap">
                 {Array.isArray(project.location) &&
                   project.location.map((country, idx) => (
@@ -47,22 +52,23 @@ export default function RecentProjects({ organizationId }) {
                   ))}
               </div>
 
-              {/* Schools */}
               <div className="flex items-center text-sm text-gray-700 mb-1">
                 <FaSchool className="mr-2 text-gray-700" />
-                {project.schools || 0} School
-                {(project.schools || 0) !== 1 ? "s" : ""}
+                {project.total_schools || 0} School
+                {(project.total_schools || 0) !== 1 ? "s" : ""}
               </div>
 
-              {/* Camps */}
               <div className="flex items-center text-sm text-gray-700">
                 <GiCampingTent className="mr-2 text-gray-700" />
-                {project.camps || 0} Camp
-                {(project.camps || 0) !== 1 ? "s" : ""}
+                {project.total_camps || 0} Camp
+                {(project.total_camps || 0) !== 1 ? "s" : ""}
               </div>
             </div>
 
-            <button className="mt-4 self-start bg-yellow-400 text-black px-4 py-1.5 rounded hover:bg-yellow-500 transition text-sm font-semibold">
+            <button
+              onClick={() => handleViewDetails(project.id)}
+              className="mt-4 self-start bg-yellow-400 text-black px-4 py-1.5 rounded hover:bg-yellow-500 transition text-sm font-semibold"
+            >
               View Details
             </button>
           </div>

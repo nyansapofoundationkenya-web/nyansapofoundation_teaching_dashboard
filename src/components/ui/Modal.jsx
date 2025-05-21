@@ -30,7 +30,7 @@ export default function Modal({ isOpen, onClose, title, fields, onSubmit }) {
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="flex-grow" onClick={onClose}></div>
+      <div className="flex-grow " onClick={onClose}></div>
 
       <div className="w-full max-w-md bg-white shadow-lg h-full overflow-auto p-6 relative flex flex-col">
         <div className="flex justify-between items-center border-b pb-4 mb-6">

@@ -27,7 +27,7 @@ export default function ProjectList({ organizationId }) {
         <p className="text-gray-600 col-span-full">No projects found.</p>
       ) : (
         projects.map((project) => (
-          <ProjectCard key={project.id} project={project} />
+          <ProjectCard key={project.id} project={project} organizationId={organizationId}/>
         ))
       )}
     </div>

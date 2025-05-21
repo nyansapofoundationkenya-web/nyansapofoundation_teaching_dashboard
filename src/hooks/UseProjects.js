@@ -9,8 +9,10 @@ import {
   getDocs,
   getDoc,
   setDoc,
+  updateDoc,
   query,
   orderBy,
+  arrayUnion,
   limit
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -32,22 +34,30 @@ export function useProjects(organizationId) {
       const locationArray = location
         .split(",")
         .map((loc) => loc.trim())
-        .filter(Boolean); // remove empty strings
+        .filter(Boolean);
   
       const newProject = {
         name,
-        location: locationArray, // now an array
-        createdAt: new Date()
+        location: locationArray,
+        createdAt: new Date(),
       };
   
-      await addDoc(getProjectsCollectionRef(), newProject);
+      // Step 1: Create the project and get the document reference
+      const projectRef = await addDoc(getProjectsCollectionRef(), newProject);
+  
+      // Step 2: Update the organization's document to include this project ID
+      const orgRef = doc(db, "organization", organizationId);
+      await updateDoc(orgRef, {
+        projects: arrayUnion(projectRef.id),
+      });
     } catch (err) {
       setError(err.message);
       throw err;
     } finally {
       setLoading(false);
     }
-  };  
+  };
+  
 
   const fetchRecentProjects = async () => {
     if (!organizationId) throw new Error("Missing organization ID");
