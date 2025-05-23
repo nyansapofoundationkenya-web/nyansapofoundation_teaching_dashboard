@@ -5,7 +5,7 @@ import { collection, query, where, getDocs,getDoc ,setDoc,updateDoc,arrayUnion} 
 import { db } from "../firebase/config"; // Adjust path as needed
 
 export function useInstructors(organizationId) {
-    console.log(organizationId)
+    // console.log(organizationId)
   const [instructors, setInstructors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);

@@ -1,33 +1,39 @@
-"use client";
+"use client"
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { useOrganizations } from "@/hooks/useOrganization";
-import Header from "@/components/Welcome/Header";
-import DashboardLayout from "../DashboardLayout";
-import GetStarted from "@/components/Welcome/GetStarted";
-import HowItWorks from "@/components/Welcome/HowItWorks";
-import RecentProjects from "@/components/Welcome/RecentProjects";
+import { useEffect, useState } from "react"
+import { useParams } from "next/navigation"
+import { useOrganizations } from "@/hooks/useOrganization"
+import Header from "@/components/Welcome/Header"
+import DashboardLayout from "../DashboardLayout"
+import GetStarted from "@/components/Welcome/GetStarted"
+import HowItWorks from "@/components/Welcome/HowItWorks"
+import RecentProjects from "@/components/Welcome/RecentProjects"
 
 export default function WelcomePage() {
-  const { organizationId } = useParams(); // extract org ID from the URL
-  const { handleFetchOrganizationById } = useOrganizations();
-  const [organization, setOrganization] = useState(null);
+  const { organizationId } = useParams() // extract org ID from the URL
+  const { handleFetchOrganizationById } = useOrganizations()
+  const [organization, setOrganization] = useState(null)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   useEffect(() => {
     const fetchOrg = async () => {
       try {
-        const org = await handleFetchOrganizationById(organizationId);
-        setOrganization(org);
+        const org = await handleFetchOrganizationById(organizationId)
+        setOrganization(org)
       } catch (err) {
-        console.error("Error fetching organization:", err);
+        console.error("Error fetching organization:", err)
       }
-    };
+    }
 
     if (organizationId) {
-      fetchOrg();
+      fetchOrg()
     }
-  }, [organizationId]);
+  }, [organizationId])
+
+  // Function to refresh projects when a new one is created
+  const refreshProjects = () => {
+    setRefreshTrigger((prev) => prev + 1)
+  }
 
   return (
     <DashboardLayout organizationId={organizationId}>
@@ -35,13 +41,13 @@ export default function WelcomePage() {
         <Header organizationName={organization?.name || "Loading..."} />
         <main className="w-full max-w-6xl flex flex-col gap-8">
           <div className="bg-blue-50">
-            <GetStarted organizationId={organizationId} />
+            <GetStarted organizationId={organizationId} onProjectCreated={refreshProjects} />
             <hr className="border-t-2 border-gray-400 my-6 mx-6" />
             <HowItWorks />
           </div>
-          <RecentProjects organizationId={organizationId}/>
+          <RecentProjects organizationId={organizationId} refreshTrigger={refreshTrigger} />
         </main>
       </div>
     </DashboardLayout>
-  );
+  )
 }
