@@ -1,0 +1,288 @@
+"use client"
+
+import { useState } from "react"
+import { ChevronDown } from "lucide-react"
+import GradeLevelChart from "./GradeLevelChart"
+import AgeGradeChart from "./AgeGradeChart"
+import GenderGradeChart from "./GenderGradeChart"
+
+export default function ProjectCharts({ chartData, ageGenderData }) {
+  const [selectedType, setSelectedType] = useState("numeracy")
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+
+  // Color schemes for the charts based on the images
+  const colorSchemes = {
+    numeracy: {
+      above: "#3b82f6", // Blue
+      multiplication: "#a855f7", // Purple
+      addition: "#22c55e", // Green
+      numberRecognition: "#ef4444", // Red
+      division: "#f97316", // Orange
+      subtraction: "#eab308", // Yellow
+      countAndMatch: "#6b7280", // Gray
+      beginner: "#8b5cf6", // Violet
+      default: "#94a3b8", // Default gray
+    },
+    literacy: {
+      above: "#3b82f6", // Blue
+      paragraph: "#a855f7", // Purple
+      beginner: "#22c55e", // Green
+      story: "#ef4444", // Red
+      word: "#eab308", // Yellow
+      default: "#94a3b8", // Default gray
+    },
+  }
+
+  // Process the chart data from the database structure
+  const processChartData = (learningLevelData, type) => {
+    if (!learningLevelData) return []
+
+    const typeData = learningLevelData.find((item) => item.type === type)
+    if (!typeData || !typeData.data) return []
+
+    return typeData.data
+      .map((gradeData) => {
+        const chartItem = {
+          grade: `Grade ${gradeData.grade}`,
+          total_maleStudents: gradeData.total_maleStudents || 0,
+          total_femaleStudents: gradeData.total_femaleStudents || 0,
+          mean_age: gradeData.mean_age || null,
+        }
+
+        // Convert distribution array to object properties
+        gradeData.distribution.forEach((dist) => {
+          chartItem[dist.learning_level] = dist.value
+        })
+
+        return chartItem
+      })
+      .sort((a, b) => {
+        // Sort by grade number
+        const gradeA = Number.parseInt(a.grade.replace("Grade ", ""))
+        const gradeB = Number.parseInt(b.grade.replace("Grade ", ""))
+        return gradeA - gradeB
+      })
+  }
+
+  // Process age and gender data for the original combined chart
+  const processAgeGenderData = (ageGenderData) => {
+    if (!ageGenderData || !ageGenderData.data) return []
+
+    return ageGenderData.data
+      .map((ageData) => {
+        const chartItem = {
+          age: ageData.age,
+        }
+
+        // Convert distribution array to object properties
+        ageData.distribution.forEach((dist) => {
+          chartItem[dist.gender] = dist.value
+        })
+
+        return chartItem
+      })
+      .sort((a, b) => a.age - b.age)
+  }
+
+  // Process age by grade data
+  const processAgeGradeData = (learningLevelData) => {
+    if (!learningLevelData) return []
+
+    // Combine data from both numeracy and literacy to get complete grade coverage
+    const allGradeData = []
+
+    learningLevelData.forEach((typeData) => {
+      if (typeData.data) {
+        typeData.data.forEach((gradeData) => {
+          const existingGrade = allGradeData.find((item) => item.grade === gradeData.grade)
+          if (existingGrade) {
+            // Merge age data if grade already exists
+            gradeData.age_distribution?.forEach((ageDist) => {
+              if (existingGrade[ageDist.age]) {
+                existingGrade[ageDist.age] += ageDist.value
+              } else {
+                existingGrade[ageDist.age] = ageDist.value
+              }
+            })
+          } else {
+            // Create new grade entry
+            const chartItem = {
+              grade: `Grade ${gradeData.grade}`,
+            }
+
+            // Add age distribution
+            gradeData.age_distribution?.forEach((ageDist) => {
+              chartItem[ageDist.age] = ageDist.value
+            })
+
+            allGradeData.push(chartItem)
+          }
+        })
+      }
+    })
+
+    return allGradeData.sort((a, b) => {
+      const gradeA = Number.parseInt(a.grade.replace("Grade ", ""))
+      const gradeB = Number.parseInt(b.grade.replace("Grade ", ""))
+      return gradeA - gradeB
+    })
+  }
+
+  // Process gender by grade data
+  const processGenderGradeData = (learningLevelData) => {
+    if (!learningLevelData) return []
+
+    // Combine data from both numeracy and literacy to get complete grade coverage
+    const allGradeData = []
+
+    learningLevelData.forEach((typeData) => {
+      if (typeData.data) {
+        typeData.data.forEach((gradeData) => {
+          const existingGrade = allGradeData.find((item) => item.grade === gradeData.grade)
+          if (existingGrade) {
+            // Merge gender data if grade already exists
+            existingGrade.male = (existingGrade.male || 0) + (gradeData.total_maleStudents || 0)
+            existingGrade.female = (existingGrade.female || 0) + (gradeData.total_femaleStudents || 0)
+          } else {
+            // Create new grade entry
+            const chartItem = {
+              grade: `Grade ${gradeData.grade}`,
+              male: gradeData.total_maleStudents || 0,
+              female: gradeData.total_femaleStudents || 0,
+            }
+
+            allGradeData.push(chartItem)
+          }
+        })
+      }
+    })
+
+    return allGradeData.sort((a, b) => {
+      const gradeA = Number.parseInt(a.grade.replace("Grade ", ""))
+      const gradeB = Number.parseInt(b.grade.replace("Grade ", ""))
+      return gradeA - gradeB
+    })
+  }
+
+  // Get available chart types from the data
+  const availableTypes = chartData?.map((item) => item.type) || []
+  const hasAgeGenderData = ageGenderData && ageGenderData.data && ageGenderData.data.length > 0
+  const hasLearningData = chartData && chartData.length > 0
+
+  // Chart type options
+  const chartOptions = [
+    { value: "numeracy", label: "Numeracy Level Distribution", available: availableTypes.includes("numeracy") },
+    { value: "literacy", label: "Literacy Level Distribution", available: availableTypes.includes("literacy") },
+    { value: "ageGrade", label: "Age Distribution by Grade", available: hasLearningData },
+    { value: "genderGrade", label: "Gender Distribution by Grade", available: hasLearningData },
+  ]
+
+  const getCurrentData = () => {
+    switch (selectedType) {
+      case "ageGender":
+        return processAgeGenderData(ageGenderData)
+      case "ageGrade":
+        return processAgeGradeData(chartData)
+      case "genderGrade":
+        return processGenderGradeData(chartData)
+      default:
+        return processChartData(chartData, selectedType)
+    }
+  }
+
+  const currentData = getCurrentData()
+  const currentColors = colorSchemes[selectedType] || colorSchemes.numeracy
+  const currentTitle = (() => {
+    switch (selectedType) {
+      case "numeracy":
+        return "Numeracy Level Distribution By Grade"
+      case "literacy":
+        return "Literacy Level Distribution By Grade"
+      case "ageGender":
+        return "Age and Gender Distribution"
+      case "ageGrade":
+        return "Age Distribution by Grade"
+      case "genderGrade":
+        return "Gender Distribution by Grade"
+      default:
+        return "Learning Level Distribution"
+    }
+  })()
+
+  const renderChart = () => {
+    switch (selectedType) {
+     case "ageGrade":
+        return <AgeGradeChart data={currentData} showTitle={false} />
+      case "genderGrade":
+        return <GenderGradeChart data={currentData} showTitle={false} />
+      default:
+        // Define the order for literacy levels (bottom to top in stacked bars)
+        const literacyOrder = ["beginner", "word", "paragraph", "story", "above"]
+        return (
+          <GradeLevelChart
+            data={currentData}
+            title={currentTitle}
+            colors={currentColors}
+            showTitle={false}
+            levelOrder={selectedType === "literacy" ? literacyOrder : null}
+          />
+        )
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-start items-center">
+        {/* Left side - Dropdown Selector */}
+        <div className="relative">
+          <button
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 shadow-sm min-w-[250px] justify-between"
+          >
+            <span>{chartOptions.find((option) => option.value === selectedType)?.label || "Select Chart"}</span>
+            <ChevronDown className={`w-4 h-4 ml-2 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+          </button>
+
+          {dropdownOpen && (
+            <div className="absolute left-0 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+              <ul className="py-1">
+                {chartOptions.map((option) => (
+                  <li key={option.value}>
+                    <button
+                      onClick={() => {
+                        if (option.available) {
+                          setSelectedType(option.value)
+                          setDropdownOpen(false)
+                        }
+                      }}
+                      disabled={!option.available}
+                      className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                        option.available
+                          ? selectedType === option.value
+                            ? "bg-yellow-50 text-yellow-700 font-medium"
+                            : "text-gray-700 hover:bg-gray-50"
+                          : "text-gray-400 cursor-not-allowed"
+                      }`}
+                    >
+                      {option.label}
+                      {!option.available && <span className="text-xs text-gray-400 ml-2">(No data)</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Chart Container with Scroll - Fixed positioning issue */}
+      <div className="bg-white rounded-lg shadow-sm">
+        <div className="p-6">
+          <div className="overflow-x-auto">
+            <div className="min-w-[700px]">{renderChart()}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
