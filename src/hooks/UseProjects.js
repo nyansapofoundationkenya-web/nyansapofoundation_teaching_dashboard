@@ -82,7 +82,7 @@ export function useProjects(organizationId) {
 
   const fetchAllProjects = async () => {
     if (!organizationId) throw new Error("Missing organization ID");
-    console.log(organizationId)
+    // console.log(organizationId)
   
     setLoading(true);
     try {

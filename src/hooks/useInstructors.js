@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, query, where, getDocs,getDoc ,setDoc,updateDoc,arrayUnion} from "firebase/firestore";
+import { collection, query, where, getDocs,getDoc ,setDoc,updateDoc,arrayUnion,doc} from "firebase/firestore";
 import { db } from "../firebase/config"; // Adjust path as needed
 
 export function useInstructors(organizationId) {
@@ -81,7 +81,7 @@ export function useInstructors(organizationId) {
       let userRef;
       if (instructorId) {
         // Update existing instructor
-        userRef = doc(db, "users", instructorId);
+        userRef = doc(db, "user", instructorId);
         const userSnap = await getDoc(userRef);
         if (!userSnap.exists()) {
           setError("Instructor not found");
@@ -109,7 +109,7 @@ export function useInstructors(organizationId) {
         // Create new instructor
         instructorData = {
           ...instructorData,
-          uid: doc(collection(db, "users")).id,
+          uid: doc(collection(db, "user")).id,
           createdAt: new Date().toISOString(), // 12:05 PM EAT, May 22, 2025
           organizations: [
             {
@@ -137,7 +137,7 @@ export function useInstructors(organizationId) {
             },
           ],
         };
-        userRef = doc(db, "users", instructorData.uid);
+        userRef = doc(db, "user", instructorData.uid);
         await setDoc(userRef, instructorData);
       }
 

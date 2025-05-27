@@ -11,6 +11,7 @@ import SchoolModal from "@/components/ui/SchoolModal"
 import InstructorModal from "@/components/ui/InstructorModal"
 import Modal from "@/components/ui/Modal"
 import ProjectCharts from "@/components/Charts/ProjectCharts"
+import { FiMenu, FiX } from "react-icons/fi"
 
 export default function ProjectDetails() {
   const { organizationId, projectId } = useParams()
