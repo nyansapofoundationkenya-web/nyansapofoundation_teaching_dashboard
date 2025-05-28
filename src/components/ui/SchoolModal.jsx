@@ -36,6 +36,19 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
     }
   };
 
+  // Function to generate and download a CSV template
+  const handleDownloadTemplate = () => {
+    const csvContent = "name,location\nExample School,City Name";
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "school_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-grow" onClick={onClose}></div>
@@ -79,14 +92,15 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
         >
           <div className="text-left">
             <p className="text-sm text-gray-600 mb-4">
-              Upload a CSV file with school information. The file should have the following
-              column: name.
+              Upload a CSV file with school information. The file must have the following
+              columns: <span className="font-medium">name, location</span>.
             </p>
           </div>
 
           <div className="text-left flex gap-2">
             <button
               type="button"
+              onClick={handleDownloadTemplate}
               className="flex items-center text-sm px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded"
             >
               <Download className="w-4 h-4 mr-2" />
@@ -98,16 +112,16 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
               className="flex items-center text-sm px-4 py-2 border rounded text-gray-600 hover:bg-gray-100"
             >
               <Info className="w-4 h-4 mr-2" />
-              Info
               Info Requirements
             </button>
           </div>
 
           {showRequirements && (
             <div className="text-left bg-gray-100 p-4 rounded-lg">
-              <p className="text-sm font-medium text-gray-800">Required Field:</p>
+              <p className="text-sm font-medium text-gray-800">Required Fields:</p>
               <ul className="list-disc list-inside text-sm text-gray-600">
-                <li>name</li>
+                <li>name: The name of the school (e.g., "Springfield High")</li>
+                <li>location: The location of the school (e.g., "Springfield")</li>
               </ul>
             </div>
           )}

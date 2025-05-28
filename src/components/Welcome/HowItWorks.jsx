@@ -34,11 +34,11 @@ export default function HowItWorks() {
         How It Works
       </h2>
 
-      <div className="flex flex-col md:flex-row items-center justify-between space-y-6 md:space-y-0 md:space-x-6">
+      <div className="flex flex-col lg:flex-row items-center justify-between space-y-6 lg:space-y-0 lg:space-x-6">
         {steps.map((step, index) => (
           <div
             key={index}
-            className="flex flex-col md:flex-row items-center text-center md:text-left relative"
+            className="flex flex-col lg:flex-row items-center text-center lg:text-left relative"
           >
             {/* Icon + Text */}
             <div className="flex items-center space-x-3">
@@ -49,14 +49,14 @@ export default function HowItWorks() {
               </div>
             </div>
 
-            {/* Horizontal connector line for desktop */}
+            {/* Horizontal connector line for desktop (lg and above) */}
             {index < steps.length - 1 && (
-              <div className="hidden md:block absolute right-[-44px] top-1/2 transform -translate-y-1/2 w-11 h-px bg-black"></div>
+              <div className="hidden lg:block absolute right-[-44px] top-1/2 transform -translate-y-1/2 w-11 h-px bg-black"></div>
             )}
 
-            {/* Vertical connector for mobile */}
+            {/* Vertical connector for mobile and iPads (up to lg) */}
             {index < steps.length - 1 && (
-              <div className="block md:hidden w-px h-6 bg-gray-300 my-2 mx-auto"></div>
+              <div className="block lg:hidden w-px h-6 bg-gray-300 my-2 mx-auto"></div>
             )}
           </div>
         ))}

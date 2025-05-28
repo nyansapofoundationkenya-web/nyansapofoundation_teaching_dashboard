@@ -10,7 +10,7 @@ export default function ProjectCharts({ chartData, ageGenderData }) {
   const [selectedType, setSelectedType] = useState("numeracy")
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
-  // Color schemes for the charts based on the images
+  // Color schemes for the charts
   const colorSchemes = {
     numeracy: {
       above: "#3b82f6", // Blue
@@ -64,31 +64,10 @@ export default function ProjectCharts({ chartData, ageGenderData }) {
       })
   }
 
-  // Process age and gender data for the original combined chart
-  const processAgeGenderData = (ageGenderData) => {
-    if (!ageGenderData || !ageGenderData.data) return []
-
-    return ageGenderData.data
-      .map((ageData) => {
-        const chartItem = {
-          age: ageData.age,
-        }
-
-        // Convert distribution array to object properties
-        ageData.distribution.forEach((dist) => {
-          chartItem[dist.gender] = dist.value
-        })
-
-        return chartItem
-      })
-      .sort((a, b) => a.age - b.age)
-  }
-
   // Process age by grade data
   const processAgeGradeData = (learningLevelData) => {
     if (!learningLevelData) return []
 
-    // Combine data from both numeracy and literacy to get complete grade coverage
     const allGradeData = []
 
     learningLevelData.forEach((typeData) => {
@@ -96,7 +75,6 @@ export default function ProjectCharts({ chartData, ageGenderData }) {
         typeData.data.forEach((gradeData) => {
           const existingGrade = allGradeData.find((item) => item.grade === gradeData.grade)
           if (existingGrade) {
-            // Merge age data if grade already exists
             gradeData.age_distribution?.forEach((ageDist) => {
               if (existingGrade[ageDist.age]) {
                 existingGrade[ageDist.age] += ageDist.value
@@ -105,12 +83,10 @@ export default function ProjectCharts({ chartData, ageGenderData }) {
               }
             })
           } else {
-            // Create new grade entry
             const chartItem = {
               grade: `Grade ${gradeData.grade}`,
             }
 
-            // Add age distribution
             gradeData.age_distribution?.forEach((ageDist) => {
               chartItem[ageDist.age] = ageDist.value
             })
@@ -132,7 +108,6 @@ export default function ProjectCharts({ chartData, ageGenderData }) {
   const processGenderGradeData = (learningLevelData) => {
     if (!learningLevelData) return []
 
-    // Combine data from both numeracy and literacy to get complete grade coverage
     const allGradeData = []
 
     learningLevelData.forEach((typeData) => {
@@ -140,11 +115,9 @@ export default function ProjectCharts({ chartData, ageGenderData }) {
         typeData.data.forEach((gradeData) => {
           const existingGrade = allGradeData.find((item) => item.grade === gradeData.grade)
           if (existingGrade) {
-            // Merge gender data if grade already exists
             existingGrade.male = (existingGrade.male || 0) + (gradeData.total_maleStudents || 0)
             existingGrade.female = (existingGrade.female || 0) + (gradeData.total_femaleStudents || 0)
           } else {
-            // Create new grade entry
             const chartItem = {
               grade: `Grade ${gradeData.grade}`,
               male: gradeData.total_maleStudents || 0,
@@ -166,7 +139,6 @@ export default function ProjectCharts({ chartData, ageGenderData }) {
 
   // Get available chart types from the data
   const availableTypes = chartData?.map((item) => item.type) || []
-  const hasAgeGenderData = ageGenderData && ageGenderData.data && ageGenderData.data.length > 0
   const hasLearningData = chartData && chartData.length > 0
 
   // Chart type options
@@ -179,8 +151,6 @@ export default function ProjectCharts({ chartData, ageGenderData }) {
 
   const getCurrentData = () => {
     switch (selectedType) {
-      case "ageGender":
-        return processAgeGenderData(ageGenderData)
       case "ageGrade":
         return processAgeGradeData(chartData)
       case "genderGrade":
@@ -192,36 +162,19 @@ export default function ProjectCharts({ chartData, ageGenderData }) {
 
   const currentData = getCurrentData()
   const currentColors = colorSchemes[selectedType] || colorSchemes.numeracy
-  const currentTitle = (() => {
-    switch (selectedType) {
-      case "numeracy":
-        return "Numeracy Level Distribution By Grade"
-      case "literacy":
-        return "Literacy Level Distribution By Grade"
-      case "ageGender":
-        return "Age and Gender Distribution"
-      case "ageGrade":
-        return "Age Distribution by Grade"
-      case "genderGrade":
-        return "Gender Distribution by Grade"
-      default:
-        return "Learning Level Distribution"
-    }
-  })()
 
   const renderChart = () => {
     switch (selectedType) {
-     case "ageGrade":
+      case "ageGrade":
         return <AgeGradeChart data={currentData} showTitle={false} />
       case "genderGrade":
         return <GenderGradeChart data={currentData} showTitle={false} />
       default:
-        // Define the order for literacy levels (bottom to top in stacked bars)
         const literacyOrder = ["beginner", "word", "paragraph", "story", "above"]
         return (
           <GradeLevelChart
             data={currentData}
-            title={currentTitle}
+            title=""
             colors={currentColors}
             showTitle={false}
             levelOrder={selectedType === "literacy" ? literacyOrder : null}
@@ -231,20 +184,24 @@ export default function ProjectCharts({ chartData, ageGenderData }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Chart Selector */}
       <div className="flex justify-start items-center">
-        {/* Left side - Dropdown Selector */}
         <div className="relative">
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 shadow-sm min-w-[250px] justify-between"
+            className="flex items-center px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 shadow-sm w-full sm:w-auto min-w-[200px] justify-between"
           >
-            <span>{chartOptions.find((option) => option.value === selectedType)?.label || "Select Chart"}</span>
-            <ChevronDown className={`w-4 h-4 ml-2 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+            <span className="truncate">
+              {chartOptions.find((option) => option.value === selectedType)?.label || "Select Chart"}
+            </span>
+            <ChevronDown
+              className={`w-4 h-4 ml-2 transition-transform flex-shrink-0 ${dropdownOpen ? "rotate-180" : ""}`}
+            />
           </button>
 
           {dropdownOpen && (
-            <div className="absolute left-0 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+            <div className="absolute left-0 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-30">
               <ul className="py-1">
                 {chartOptions.map((option) => (
                   <li key={option.value}>
@@ -256,7 +213,7 @@ export default function ProjectCharts({ chartData, ageGenderData }) {
                         }
                       }}
                       disabled={!option.available}
-                      className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                      className={`w-full text-left px-3 py-2 text-sm transition-colors ${
                         option.available
                           ? selectedType === option.value
                             ? "bg-yellow-50 text-yellow-700 font-medium"
@@ -264,7 +221,7 @@ export default function ProjectCharts({ chartData, ageGenderData }) {
                           : "text-gray-400 cursor-not-allowed"
                       }`}
                     >
-                      {option.label}
+                      <span className="truncate">{option.label}</span>
                       {!option.available && <span className="text-xs text-gray-400 ml-2">(No data)</span>}
                     </button>
                   </li>
@@ -275,13 +232,9 @@ export default function ProjectCharts({ chartData, ageGenderData }) {
         </div>
       </div>
 
-      {/* Chart Container with Scroll - Fixed positioning issue */}
-      <div className="bg-white rounded-lg shadow-sm">
-        <div className="p-6">
-          <div className="overflow-x-auto">
-            <div className="min-w-[700px]">{renderChart()}</div>
-          </div>
-        </div>
+      {/* Chart Container */}
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div className="w-full">{renderChart()}</div>
       </div>
     </div>
   )

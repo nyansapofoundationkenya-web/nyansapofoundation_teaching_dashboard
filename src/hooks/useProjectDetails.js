@@ -85,62 +85,70 @@ export function useProjectDetails(organizationId) {
       setLoading(false);
     }
   };
+const addSchoolsByCsv = async (projectId, csvFile) => {
+  if (!organizationId || !projectId) {
+    setError("Missing organization ID or project ID");
+    return;
+  }
+  if (!csvFile) {
+    setError("No CSV file provided");
+    return;
+  }
 
-  const addSchoolsByCsv = async (projectId, csvFile) => {
-    if (!organizationId || !projectId) {
-      setError("Missing organization ID or project ID");
-      return;
-    }
-    if (!csvFile) {
-      setError("No CSV file provided");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const parseCsv = (file) =>
-        new Promise((resolve, reject) => {
-          Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: (result) => resolve(result.data),
-            error: (err) => reject(err),
-          });
+  setLoading(true);
+  try {
+    const parseCsv = (file) =>
+      new Promise((resolve, reject) => {
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (result) => resolve(result.data),
+          error: (err) => reject(err),
         });
-
-      const schoolsData = await parseCsv(csvFile);
-      const validSchools = schoolsData.filter((school) => school.name && school.name.trim() !== "");
-      if (validSchools.length === 0) {
-        setError("No valid schools found in CSV. Each row must have a 'name' column.");
-        return;
-      }
-
-      const schoolsCollectionRef = collection(db, `organization/${organizationId}/projects/${projectId}/schools`);
-      const schoolUids = [];
-      for (const school of validSchools) {
-        const docRef = await addDoc(schoolsCollectionRef, {
-          name: school.name,
-          createdAt: new Date().toISOString(), // 05:12 PM EAT, May 21, 2025
-        });
-        schoolUids.push(docRef.id);
-      }
-
-      const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
-      await updateDoc(projectRef, {
-        schools: arrayUnion(...schoolUids),
       });
 
-      await fetchSchools(projectId);
-      return { success: true, count: validSchools.length };
-    } catch (err) {
-      setError(`Failed to upload schools: ${err.message}`);
-      throw err;
-    } finally {
-      setLoading(false);
+    const schoolsData = await parseCsv(csvFile);
+    // Validate both name and location
+    const validSchools = schoolsData.filter(
+      (school) =>
+        school.name &&
+        school.name.trim() !== "" &&
+        school.location &&
+        school.location.trim() !== ""
+    );
+    if (validSchools.length === 0) {
+      setError("No valid schools found in CSV. Each row must have 'name' and 'location' columns.");
+      return;
     }
-  };
+
+    const schoolsCollectionRef = collection(db, `organization/${organizationId}/projects/${projectId}/schools`);
+    const schoolUids = [];
+    for (const school of validSchools) {
+      const docRef = await addDoc(schoolsCollectionRef, {
+        name: school.name.trim(),
+        location: [school.location.trim()], // Store as array for consistency
+        createdAt: new Date().toISOString(),
+      });
+      schoolUids.push(docRef.id);
+    }
+
+    const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
+    await updateDoc(projectRef, {
+      schools: arrayUnion(...schoolUids),
+    });
+
+    await fetchSchools(projectId);
+    return { success: true, count: validSchools.length };
+  } catch (err) {
+    setError(`Failed to upload schools: ${err.message}`);
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
 
   const createCamp = async (projectId, schoolIds, { name, subject, startDate, endDate }) => {
+    // console.log(projectId,schoolIds,name,subject,startDate,endDate)
     if (!organizationId || !projectId || !schoolIds || schoolIds.length === 0) {
       setError("Missing organization ID, project ID, or school IDs");
       return;

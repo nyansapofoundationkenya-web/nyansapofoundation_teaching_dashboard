@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useSchools } from "@/hooks/useSchools"
 import SchoolCard from "./SchoolCard"
-import { Search, Filter, School } from "lucide-react"
+import { School } from "lucide-react"
 
 export default function SchoolsList({ organizationId }) {
   const { schools, loading, error, fetchAllSchools } = useSchools(organizationId)
@@ -44,10 +44,10 @@ export default function SchoolsList({ organizationId }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-white">
+      <div className="flex items-center justify-center py-12">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading schools...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3"></div>
+          <p className="text-gray-600 text-sm sm:text-base">Loading schools...</p>
         </div>
       </div>
     )
@@ -55,12 +55,12 @@ export default function SchoolsList({ organizationId }) {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-        <p className="text-red-600 font-medium">Error loading schools</p>
-        <p className="text-red-500 text-sm mt-2">{error}</p>
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 sm:p-6 text-center">
+        <p className="text-red-600 font-medium text-sm sm:text-base">Error loading schools</p>
+        <p className="text-red-500 text-xs sm:text-sm mt-2">{error}</p>
         <button
           onClick={() => fetchAllSchools()}
-          className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
         >
           Try Again
         </button>
@@ -134,16 +134,16 @@ export default function SchoolsList({ organizationId }) {
       {/* Schools Grid - Responsive 3 columns */}
       {filteredSchools.length === 0 ? (
         <div className="text-center py-12">
-          <School className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <School className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No schools found</h3>
-          <p className="text-gray-500">
+          <p className="text-gray-500 text-sm sm:text-base">
             {schools.length === 0
               ? "No schools have been added to this organization yet."
               : "Try adjusting your search or filter criteria."}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {filteredSchools.map((school) => (
             <SchoolCard key={`${school.projectId}-${school.id}`} school={school} organizationId={organizationId} />
           ))}

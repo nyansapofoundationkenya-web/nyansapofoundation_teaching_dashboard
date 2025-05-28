@@ -9,9 +9,9 @@ export default function SchoolsPage() {
 
   return (
     <DashboardLayout organizationId={organizationId}>
-      
+      <div className="min-h-screen">
         <SchoolsList organizationId={organizationId} />
-      
+      </div>
     </DashboardLayout>
   )
 }
