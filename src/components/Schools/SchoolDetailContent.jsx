@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { ChevronDown, Upload } from "lucide-react"
 import SchoolDetailStats from "./SchoolDetailStats"
 import StudentUploadModal from "@/components/ui/StudentUploadModal"
+import SchoolCharts from "./charts/SchoolCharts"
 
 export default function SchoolDetailContent({ school, organizationId }) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -70,6 +71,7 @@ export default function SchoolDetailContent({ school, organizationId }) {
           <p className="text-sm">Additional school information and analytics will be displayed here.</p>
         </div>
       </div> */}
+      <SchoolCharts schoolData={school}/>
 
       {/* Student Upload Modal */}
       <StudentUploadModal

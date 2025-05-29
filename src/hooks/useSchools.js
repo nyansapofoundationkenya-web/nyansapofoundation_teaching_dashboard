@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { collection, getDocs, doc, getDoc, addDoc, updateDoc } from "firebase/firestore"
+import { collection, getDocs, doc, getDoc, addDoc, updateDoc, increment, writeBatch } from "firebase/firestore"
 import { db } from "../firebase/config"
 import Papa from "papaparse"
 
@@ -150,114 +150,127 @@ export function useSchools(organizationId) {
     }
   }
 
-  const addStudentsByCsv = async (projectId, schoolId, csvFile) => {
-    if (!organizationId || !projectId || !schoolId) {
-      setError("Missing organization ID, project ID, or school ID")
-      return
-    }
-    if (!csvFile) {
-      setError("No CSV file provided")
-      return
-    }
-
-    setLoading(true)
-    try {
-      const parseCsv = (file) =>
-        new Promise((resolve, reject) => {
-          Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: (result) => resolve(result.data),
-            error: (err) => reject(err),
-          })
-        })
-
-      const studentsData = await parseCsv(csvFile)
-
-      // Validate required fields
-      const requiredFields = ["first_name", "last_name", "age", "gender", "level", "grade"]
-      const validStudents = studentsData.filter((student) => {
-        return requiredFields.every((field) => student[field] && student[field].toString().trim() !== "")
-      })
-
-      if (validStudents.length === 0) {
-        setError(
-          "No valid students found in CSV. Each row must have all required fields: first_name, last_name, age, gender, level, grade.",
-        )
-        return
-      }
-
-      // Validate data types and values
-      const processedStudents = validStudents.map((student, index) => {
-        const errors = []
-
-        // Validate age is a number
-        const age = Number.parseInt(student.age)
-        if (isNaN(age) || age < 1 || age > 25) {
-          errors.push(`Row ${index + 2}: Age must be a valid number between 1 and 25`)
-        }
-
-        // Validate gender
-        const validGenders = ["male", "female", "other"]
-        if (!validGenders.includes(student.gender.toLowerCase())) {
-          errors.push(`Row ${index + 2}: Gender must be one of: male, female, other`)
-        }
-
-        // Validate level
-        const validLevels = ["beginner", "word", "paragraph", "story", "above"]
-        if (!validLevels.includes(student.level.toLowerCase())) {
-          errors.push(`Row ${index + 2}: Level must be one of: beginner, word, paragraph, story, above`)
-        }
-
-        // Validate grade is a number
-        const grade = Number.parseInt(student.grade)
-        if (isNaN(grade) || grade < 1 || grade > 12) {
-          errors.push(`Row ${index + 2}: Grade must be a valid number between 1 and 12`)
-        }
-
-        if (errors.length > 0) {
-          throw new Error(errors.join("\n"))
-        }
-
-        return {
-          first_name: student.first_name.trim(),
-          last_name: student.last_name.trim(),
-          age: age,
-          gender: student.gender.toLowerCase(),
-          level: student.level.toLowerCase(),
-          grade: grade,
-          createdAt: new Date().toISOString(),
-          lastUpdated: new Date().toISOString(),
-        }
-      })
-
-      const studentsCollectionRef = collection(
-        db,
-        `organization/${organizationId}/projects/${projectId}/schools/${schoolId}/students`,
-      )
-      const studentUids = []
-
-      for (const student of processedStudents) {
-        const docRef = await addDoc(studentsCollectionRef, student)
-        studentUids.push(docRef.id)
-      }
-
-      // Update school document with student count
-      const schoolRef = doc(db, `organization/${organizationId}/projects/${projectId}/schools`, schoolId)
-      await updateDoc(schoolRef, {
-        total_students: (await getDocs(studentsCollectionRef)).size,
-        lastUpdated: new Date().toISOString(),
-      })
-
-      return { success: true, count: processedStudents.length }
-    } catch (err) {
-      setError(`Failed to upload students: ${err.message}`)
-      throw err
-    } finally {
-      setLoading(false)
-    }
+ const addStudentsByCsv = async (projectId, schoolId, csvFile) => {
+  if (!organizationId || !projectId || !schoolId) {
+    setError("Missing organization ID, project ID, or school ID");
+    return;
+  }
+  if (!csvFile) {
+    setError("No CSV file provided");
+    return;
   }
 
+  setLoading(true);
+  try {
+    const parseCsv = (file) =>
+      new Promise((resolve, reject) => {
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (result) => resolve(result.data),
+          error: (err) => reject(err),
+        });
+      });
+
+    const studentsData = await parseCsv(csvFile);
+
+    // Validate required fields
+    const requiredFields = ["first_name", "last_name", "age", "gender", "level", "grade"];
+    const validStudents = studentsData.filter((student) =>
+      requiredFields.every((field) => student[field] && student[field].toString().trim() !== "")
+    );
+
+    if (validStudents.length === 0) {
+      setError(
+        "No valid students found in CSV. Each row must have all required fields: first_name, last_name, age, gender, level, grade."
+      );
+      return;
+    }
+
+    // Validate data types and values
+    const processedStudents = validStudents.map((student, index) => {
+      const errors = [];
+
+      // Validate age is a number
+      const age = Number.parseInt(student.age);
+      if (isNaN(age) || age < 1 || age > 25) {
+        errors.push(`Row ${index + 2}: Age must be a valid number between 1 and 25`);
+      }
+
+      // Validate gender
+      const validGenders = ["male", "female", "other"];
+      if (!validGenders.includes(student.gender.toLowerCase())) {
+        errors.push(`Row ${index + 2}: Gender must be one of: male, female, other`);
+      }
+
+      // Validate level
+      const validLevels = ["beginner", "word", "paragraph", "story", "above"];
+      if (!validLevels.includes(student.level.toLowerCase())) {
+        errors.push(`Row ${index + 2}: Level must be one of: beginner, word, paragraph, story, above`);
+      }
+
+      // Validate grade is a number
+      const grade = Number.parseInt(student.grade);
+      if (isNaN(grade) || grade < 1 || grade > 12) {
+        errors.push(`Row ${index + 2}: Grade must be a valid number between 1 and 12`);
+      }
+
+      if (errors.length > 0) {
+        throw new Error(errors.join("\n"));
+      }
+
+      return {
+        first_name: student.first_name.trim(),
+        last_name: student.last_name.trim(),
+        age: age,
+        gender: student.gender.toLowerCase(),
+        level: student.level.toLowerCase(),
+        grade: grade,
+        createdAt: new Date().toISOString(),
+        lastUpdated: new Date().toISOString(),
+      };
+    });
+
+    const studentsCollectionRef = collection(
+      db,
+      `organization/${organizationId}/projects/${projectId}/schools/${schoolId}/students`
+    );
+    const studentCount = processedStudents.length;
+
+    // Use batch for student creation and counter updates
+    const batch = writeBatch(db);
+
+    // Add student documents
+    for (const student of processedStudents) {
+      const docRef = doc(studentsCollectionRef);
+      batch.set(docRef, student);
+    }
+
+    // Update school document with total_students
+    const schoolRef = doc(db, `organization/${organizationId}/projects/${projectId}/schools`, schoolId);
+    batch.update(schoolRef, {
+      total_students: increment(studentCount),
+      lastUpdated: new Date().toISOString(),
+    });
+
+    // Update project document with total_students
+    const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
+    batch.update(projectRef, {
+      total_students: increment(studentCount),
+      lastUpdated: new Date().toISOString(),
+    });
+
+    // Commit the batch
+    await batch.commit();
+
+    return { success: true, count: studentCount };
+  } catch (err) {
+    setError(`Failed to upload students: ${err.message}`);
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+}
   return {
     schools,
     loading,

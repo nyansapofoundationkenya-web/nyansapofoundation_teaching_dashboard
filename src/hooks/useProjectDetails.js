@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { doc, getDoc, collection, addDoc, updateDoc, arrayUnion, setDoc, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, addDoc, updateDoc, arrayUnion, setDoc, getDocs, increment } from "firebase/firestore";
 import { db } from "../firebase/config";
 import Papa from "papaparse";
 
@@ -126,15 +126,17 @@ const addSchoolsByCsv = async (projectId, csvFile) => {
     for (const school of validSchools) {
       const docRef = await addDoc(schoolsCollectionRef, {
         name: school.name.trim(),
-        location: [school.location.trim()], // Store as array for consistency
+        location: school.location.trim(), 
         createdAt: new Date().toISOString(),
       });
       schoolUids.push(docRef.id);
     }
 
+    // Update project with school UIDs and increment total_schools
     const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
     await updateDoc(projectRef, {
       schools: arrayUnion(...schoolUids),
+      total_schools: increment(schoolUids.length), // Increment total_schools by number of valid schools
     });
 
     await fetchSchools(projectId);
@@ -146,144 +148,164 @@ const addSchoolsByCsv = async (projectId, csvFile) => {
     setLoading(false);
   }
 };
+const createCamp = async (projectId, schoolIds, { name, subject, startDate, endDate }) => {
+  if (!organizationId || !projectId || !schoolIds || schoolIds.length === 0) {
+    setError("Missing organization ID, project ID, or school IDs");
+    return;
+  }
 
-  const createCamp = async (projectId, schoolIds, { name, subject, startDate, endDate }) => {
-    // console.log(projectId,schoolIds,name,subject,startDate,endDate)
-    if (!organizationId || !projectId || !schoolIds || schoolIds.length === 0) {
-      setError("Missing organization ID, project ID, or school IDs");
-      return;
-    }
+  if (!name || !subject || !startDate || !endDate) {
+    setError("Missing required camp details (name, subject, startDate, or endDate)");
+    return;
+  }
 
-    if (!name || !subject || !startDate || !endDate) {
-      setError("Missing required camp details (name, subject, startDate, or endDate)");
-      return;
-    }
+  setLoading(true);
+  try {
+    const campData = {
+      name,
+      subject,
+      startDate,
+      endDate,
+      createdAt: new Date().toISOString(), // 11:31 AM EAT, May 29, 2025
+    };
 
-    setLoading(true);
-    try {
-      const campData = {
-        name,
-        subject,
-        startDate,
-        endDate,
-        createdAt: new Date().toISOString(), // 05:12 PM EAT, May 21, 2025
-      };
+    // Create camp document
+    const campsCollectionRef = collection(db, `organization/${organizationId}/projects/${projectId}/camps`);
+    const campRef = await addDoc(campsCollectionRef, campData);
+    const campId = campRef.id;
 
-      const campsCollectionRef = collection(db, `organization/${organizationId}/projects/${projectId}/camps`);
-      const campRef = await addDoc(campsCollectionRef, campData);
-      const campId = campRef.id;
+    // Update project with camp ID and increment total_camps
+    const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
+    await updateDoc(projectRef, {
+      camps: arrayUnion(campId),
+      total_camps: increment(1), // Increment total_camps for project
+    });
 
-      const updatePromises = schoolIds.map(async (schoolId) => {
-        const schoolRef = doc(db, `organization/${organizationId}/projects/${projectId}/schools`, schoolId);
-        await updateDoc(schoolRef, {
-          camps: arrayUnion(campId),
-        });
-      });
-
-      await Promise.all(updatePromises);
-
-      return { success: true, campId };
-    } catch (err) {
-      setError(`Failed to create camp: ${err.message}`);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const createInstructor = async (organizationId, projectId, schoolId, campId, { name, email, phone }) => {
-    if (!organizationId || !projectId || !schoolId || !campId || !name || !email || !phone) {
-      setError("Missing required instructor details (organizationId, projectId, schoolId, campId, name, email, or phone)");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const organizationRef = doc(db, "organization", organizationId);
-      const organizationSnap = await getDoc(organizationRef);
-      const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
-      const projectSnap = await getDoc(projectRef);
+    // Update each school with camp ID and increment total_camps
+    const updatePromises = schoolIds.map(async (schoolId) => {
       const schoolRef = doc(db, `organization/${organizationId}/projects/${projectId}/schools`, schoolId);
-      const schoolSnap = await getDoc(schoolRef);
-      const campRef = doc(db, `organization/${organizationId}/projects/${projectId}/camps`, campId);
-      const campSnap = await getDoc(campRef);
-
-      if (!organizationSnap.exists() || !projectSnap.exists() || !schoolSnap.exists() || !campSnap.exists()) {
-        setError("Organization, project, school, or camp not found");
-        return;
-      }
-
-      const organizationData = organizationSnap.data();
-      const projectData = projectSnap.data();
-      const schoolData = schoolSnap.data();
-      const campData = campSnap.data();
-
-      const instructorData = {
-        uid: doc(collection(db, "user")).id,
-        name,
-        email,
-        phone,
-        class: "instructor",
-        createdAt: new Date().toISOString(), // 05:12 PM EAT, May 21, 2025
-        lastUpdated: new Date().toISOString(),
-        organizations: [
-          {
-            name: organizationData.name || "Unknown Organization",
-            id: organizationId,
-            projects: [
-              {
-                name: projectData.name || "Unknown Project",
-                id: projectId,
-                is_manager: false,
-                schools: [
-                  {
-                    name: schoolData.name || "Unknown School",
-                    id: schoolId,
-                    camps: [
-                      {
-                        name: campData.name || "Unknown Camp",
-                        id: campId,
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      };
-
-      const userRef = doc(db, "user", instructorData.uid);
-      await setDoc(userRef, instructorData);
-
-      const orgRef = doc(db, "organization", organizationId);
-      await updateDoc(orgRef, {
-        teachers: arrayUnion(instructorData.uid),
+      await updateDoc(schoolRef, {
+        camps: arrayUnion(campId),
+        total_camps: increment(1), // Increment total_camps for school
       });
+    });
 
-      const projRef = doc(db, `organization/${organizationId}/projects`, projectId);
-      await updateDoc(projRef, {
-        teachers: arrayUnion(instructorData.uid),
-      });
+    await Promise.all(updatePromises);
 
-      const schoolUpdateRef = doc(db, `organization/${organizationId}/projects/${projectId}/schools`, schoolId);
-      await updateDoc(schoolUpdateRef, {
-        teachers: arrayUnion(instructorData.uid),
-      });
+    return { success: true, campId };
+  } catch (err) {
+    setError(`Failed to create camp: ${err.message}`);
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
 
-      const campUpdateRef = doc(db, `organization/${organizationId}/projects/${projectId}/camps`, campId);
-      await updateDoc(campUpdateRef, {
-        teachers: arrayUnion(instructorData.uid),
-      });
+const createInstructor = async (organizationId, projectId, schoolId, campId, { name, email, phone }) => {
+  if (!organizationId || !projectId || !schoolId || !campId || !name || !email || !phone) {
+    setError("Missing required instructor details (organizationId, projectId, schoolId, campId, name, email, or phone)");
+    return;
+  }
 
-      return { success: true, instructorId: instructorData.uid };
-    } catch (err) {
-      setError(`Failed to create instructor: ${err.message}`);
-      throw err;
-    } finally {
-      setLoading(false);
+  setLoading(true);
+  try {
+    // Fetch documents
+    const organizationRef = doc(db, "organization", organizationId);
+    const organizationSnap = await getDoc(organizationRef);
+    const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
+    const projectSnap = await getDoc(projectRef);
+    const schoolRef = doc(db, `organization/${organizationId}/projects/${projectId}/schools`, schoolId);
+    const schoolSnap = await getDoc(schoolRef);
+    const campRef = doc(db, `organization/${organizationId}/projects/${projectId}/camps`, campId);
+    const campSnap = await getDoc(campRef);
+
+    // Validate documents exist
+    if (!organizationSnap.exists() || !projectSnap.exists() || !schoolSnap.exists() || !campSnap.exists()) {
+      setError("Organization, project, school, or camp not found");
+      return;
     }
-  };
+
+    const organizationData = organizationSnap.data();
+    const projectData = projectSnap.data();
+    const schoolData = schoolSnap.data();
+    const campData = campSnap.data();
+
+    // Create instructor data
+    const instructorData = {
+      uid: doc(collection(db, "user")).id,
+      name,
+      email,
+      phone,
+      class: "instructor",
+      createdAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString(),
+      organizations: [
+        {
+          name: organizationData.name || "Unknown Organization",
+          id: organizationId,
+          projects: [
+            {
+              name: projectData.name || "Unknown Project",
+              id: projectId,
+              is_manager: false,
+              schools: [
+                {
+                  name: schoolData.name || "Unknown School",
+                  id: schoolId,
+                  camps: [
+                    {
+                      name: campData.name || "Unknown Camp",
+                      id: campId,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    // Save instructor document
+    const userRef = doc(db, "user", instructorData.uid);
+    await setDoc(userRef, instructorData);
+
+    // Update teachers array and total_teachers for organization
+    const orgRef = doc(db, "organization", organizationId);
+    await updateDoc(orgRef, {
+      teachers: arrayUnion(instructorData.uid),
+      total_teachers: increment(1), // Increment total_teachers
+    });
+
+    // Update teachers array and total_teachers for project
+    const projRef = doc(db, `organization/${organizationId}/projects`, projectId);
+    await updateDoc(projRef, {
+      teachers: arrayUnion(instructorData.uid),
+      total_teachers: increment(1), // Increment total_teachers
+    });
+
+    // Update teachers array and total_teachers for school
+    const schoolUpdateRef = doc(db, `organization/${organizationId}/projects/${projectId}/schools`, schoolId);
+    await updateDoc(schoolUpdateRef, {
+      teachers: arrayUnion(instructorData.uid),
+      total_teachers: increment(1), // Increment total_teachers
+    });
+
+    // Update teachers array and total_teachers for camp
+    const campUpdateRef = doc(db, `organization/${organizationId}/projects/${projectId}/camps`, campId);
+    await updateDoc(campUpdateRef, {
+      teachers: arrayUnion(instructorData.uid),
+      total_teachers: increment(1), // Increment total_teachers
+    });
+
+    return { success: true, instructorId: instructorData.uid };
+  } catch (err) {
+    setError(`Failed to create instructor: ${err.message}`);
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
 
   return {
     project,

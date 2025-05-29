@@ -13,7 +13,8 @@ import {
   query,
   orderBy,
   arrayUnion,
-  limit
+  limit,
+  increment
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
@@ -49,6 +50,7 @@ export function useProjects(organizationId) {
       const orgRef = doc(db, "organization", organizationId);
       await updateDoc(orgRef, {
         projects: arrayUnion(projectRef.id),
+        total_projects: increment(1) 
       });
     } catch (err) {
       setError(err.message);

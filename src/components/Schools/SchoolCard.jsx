@@ -71,7 +71,7 @@ export default function SchoolCard({ school, organizationId }) {
       >
         <GraduationCap size={14} className="sm:w-4 sm:h-4" />
         <span className="hidden sm:inline">View Dashboard</span>
-        <span className="sm:hidden">Dashboard</span>
+        <span className="sm:hidden">View Dashboard</span>
       </button>
     </div>
   );
