@@ -5,6 +5,7 @@ import { FaChalkboardTeacher } from "react-icons/fa";
 import { GraduationCap, Tent } from "lucide-react";
 
 export default function SchoolCard({ school, organizationId }) {
+  console.log(school)
   const router = useRouter();
 
   const handleViewDashboard = () => {
@@ -41,24 +42,24 @@ export default function SchoolCard({ school, organizationId }) {
         <div className="flex items-center gap-2 text-sm sm:text-base">
           <FaChalkboardTeacher size={16} className="sm:w-5 sm:h-5 flex-shrink-0" />
           <span className="truncate">
-            <span className="font-medium">{school.instructorCount || 0}</span>
-            <span className="hidden sm:inline"> Instructor{school.instructorCount !== 1 ? "s" : ""}</span>
+            <span className="font-medium">{school.total_instructors || 0}</span>
+            <span className="hidden sm:inline"> Instructor{school.total_instructors !== 1 ? "s" : ""}</span>
             <span className="sm:hidden"> Inst</span>
           </span>
         </div>
         <div className="flex items-center gap-2 text-sm sm:text-base">
           <GraduationCap size={16} className="sm:w-5 sm:h-5 flex-shrink-0" />
           <span className="truncate">
-            <span className="font-medium">{school.studentCount || 0}</span>
-            <span className="hidden sm:inline"> Student{school.studentCount !== 1 ? "s" : ""}</span>
+            <span className="font-medium">{school.total_students || 0}</span>
+            <span className="hidden sm:inline"> Student{school.total_students !== 1 ? "s" : ""}</span>
             <span className="sm:hidden"> Std</span>
           </span>
         </div>
         <div className="flex items-center gap-2 text-sm sm:text-base">
           <Tent size={16} className="sm:w-5 sm:h-5 flex-shrink-0" />
           <span className="truncate">
-            <span className="font-medium">{school.campCount || 0}</span>
-            <span className="hidden sm:inline"> Camp{school.campCount !== 1 ? "s" : ""}</span>
+            <span className="font-medium">{school.total_camps || 0}</span>
+            <span className="hidden sm:inline"> Camp{school.total_camps !== 1 ? "s" : ""}</span>
             <span className="sm:hidden"> Camps</span>
           </span>
         </div>

@@ -12,6 +12,7 @@ import InstructorModal from "@/components/ui/InstructorModal"
 import Modal from "@/components/ui/Modal"
 import ProjectCharts from "@/components/Charts/ProjectCharts"
 import { FiMenu, FiX } from "react-icons/fi"
+import MultiSheetUploadModal from "@/components/ui/MultipleSheetUploadModal"
 
 export default function ProjectDetails() {
   const { organizationId, projectId } = useParams()
@@ -33,6 +34,7 @@ export default function ProjectDetails() {
   const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false)
   const [isCampModalOpen, setIsCampModalOpen] = useState(false)
   const [isInstructorModalOpen, setIsInstructorModalOpen] = useState(false)
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const dropdownRef = useRef(null)
 
   useEffect(() => {
@@ -55,7 +57,6 @@ export default function ProjectDetails() {
     const checkIfMobile = () => {
       const mobile = window.innerWidth < 768
       setIsMobile(mobile)
-      // On desktop, sidebar should be open by default
       setSidebarOpen(!mobile)
     }
 
@@ -70,7 +71,6 @@ export default function ProjectDetails() {
 
   const handleCreateCamp = async (values) => {
     const { name, subject, schools, startDate, endDate } = values
-    // console.log(values)
     if (!name || !subject || !schools || !startDate || !endDate) {
       alert("All fields are required.")
       return
@@ -104,6 +104,13 @@ export default function ProjectDetails() {
     }
   }
 
+  const handleUploadComplete = async () => {
+    // Refresh project data after upload
+    await fetchProjectById(projectId)
+    await fetchSchools(projectId)
+    setIsUploadModalOpen(false)
+  }
+
   const campFields = [
     { name: "name", label: "Camp Name", type: "text", required: true, placeholder: "Enter camp name" },
     {
@@ -132,17 +139,14 @@ export default function ProjectDetails() {
 
   return (
     <div className="flex min-h-screen bg-blue-50">
-      {/* Mobile Overlay - Removed opacity */}
       {isMobile && sidebarOpen && <div className="fixed inset-0 bg-black z-40" onClick={toggleSidebar} />}
 
-      {/* Sidebar */}
       <div
         className={`
           fixed left-0 top-0 h-full z-50 transition-transform duration-300 ease-in-out
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
-        {/* Close button for sidebar - Added inside sidebar */}
         {isMobile && sidebarOpen && (
           <button
             onClick={toggleSidebar}
@@ -155,7 +159,6 @@ export default function ProjectDetails() {
         <Sidebar title="Dashboard" organizationId={organizationId} />
       </div>
 
-      {/* Main Content */}
       <div
         className={`
           flex-1 transition-all duration-300 ease-in-out
@@ -163,10 +166,8 @@ export default function ProjectDetails() {
         `}
       >
         <div className="min-h-screen p-4 sm:p-6">
-          {/* Project Title and Action Buttons */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div className="flex items-center gap-3">
-              {/* Menu button moved inside this container with project name */}
               {isMobile && !sidebarOpen && (
                 <button onClick={toggleSidebar} className="p-2 rounded-md shadow-sm" aria-label="Open menu">
                   <FiMenu className="w-5 h-5 text-indigo-600" />
@@ -234,6 +235,18 @@ export default function ProjectDetails() {
                           <FaChalkboardTeacher className="w-4 h-4 ml-2" />
                         </button>
                       </li>
+                      <li>
+                        <button
+                          onClick={() => {
+                            setIsUploadModalOpen(true)
+                            setDropdownOpen(false)
+                          }}
+                          className="flex items-center justify-between w-full px-4 py-2 hover:bg-yellow-100 transition-colors"
+                        >
+                          Upload Students
+                          <Users className="w-4 h-4 ml-2" />
+                        </button>
+                      </li>
                     </ul>
                   </div>
                 )}
@@ -246,7 +259,6 @@ export default function ProjectDetails() {
 
           {project && (
             <>
-              {/* Stats Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 <StatsCard
                   icon={<School />}
@@ -292,7 +304,6 @@ export default function ProjectDetails() {
                 />
               </div>
 
-              {/* Charts Section */}
               <div className="w-full overflow-hidden">
                 <ProjectCharts
                   chartData={project.learning_level_distribution || []}
@@ -304,7 +315,6 @@ export default function ProjectDetails() {
         </div>
       </div>
 
-      {/* Modals */}
       <SchoolModal
         isOpen={isSchoolModalOpen}
         onClose={() => setIsSchoolModalOpen(false)}
@@ -327,6 +337,14 @@ export default function ProjectDetails() {
         schools={schools}
         projectId={projectId}
         fetchCampsByIds={fetchCampsByIds}
+      />
+
+      <MultiSheetUploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        organizationId={organizationId}
+        projectId={projectId}
+        onUploadComplete={handleUploadComplete}
       />
     </div>
   )

@@ -171,12 +171,15 @@ export default function ProjectCharts({ chartData, ageGenderData }) {
         return <GenderGradeChart data={currentData} showTitle={false} />
       default:
         const literacyOrder = ["beginner", "word", "paragraph", "story", "above"]
+        const chartTitle =
+          selectedType === "literacy" ? "Literacy Level Distribution by Grade" : "Numeracy Level Distribution by Grade"
+
         return (
           <GradeLevelChart
             data={currentData}
-            title=""
+            title={chartTitle}
             colors={currentColors}
-            showTitle={false}
+            showTitle={true}
             levelOrder={selectedType === "literacy" ? literacyOrder : null}
           />
         )

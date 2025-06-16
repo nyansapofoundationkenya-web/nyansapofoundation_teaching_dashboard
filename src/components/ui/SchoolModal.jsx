@@ -146,7 +146,7 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
               <input
                 type="file"
                 name="file"
-                accept=".csv"
+                accept=".xlsx,.xls,.csv"
                 className="hidden"
                 onChange={(e) => handleChange("file", e.target.files[0])}
               />

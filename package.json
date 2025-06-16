@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.8.2",
+    "exceljs": "^4.4.0",
     "firebase": "^11.7.3",
     "formik": "^2.4.6",
     "js-cookie": "^3.0.5",
@@ -22,6 +23,7 @@
     "react-redux": "^9.2.0",
     "react-select": "^5.10.1",
     "recharts": "^2.15.3",
+    "xlsx": "^0.18.5",
     "yup": "^1.6.1"
   },
   "devDependencies": {

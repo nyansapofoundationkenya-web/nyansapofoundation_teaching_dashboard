@@ -1,8 +1,16 @@
 "use client"
 
+import { useRouter, useParams } from "next/navigation"
 import { GraduationCap, Target, Tent, Users, BarChart3 } from "lucide-react"
 
 export default function SchoolDetailStats({ school }) {
+  const router = useRouter()
+  const { organizationId, projectId } = useParams()
+
+  const handleStudentsClick = () => {
+    router.push(`/dashboard/${organizationId}/schools/${projectId}/${school.id}/students`)
+  }
+
   const stats = [
     {
       label: "Total Students",
@@ -10,6 +18,8 @@ export default function SchoolDetailStats({ school }) {
       icon: <GraduationCap className="w-5 h-5" />,
       iconColor: "text-green-500",
       valueColor: "text-green-500",
+      clickable: true,
+      onClick: handleStudentsClick,
     },
     {
       label: "Sessions Completion Rate",
@@ -44,7 +54,13 @@ export default function SchoolDetailStats({ school }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
       {stats.map((stat, index) => (
-        <div key={index} className="bg-white rounded-lg p-4 shadow-sm border">
+        <div
+          key={index}
+          className={`bg-white rounded-lg p-4 shadow-sm border ${
+            stat.clickable ? "cursor-pointer hover:shadow-md transition-shadow" : ""
+          }`}
+          onClick={stat.onClick}
+        >
           {/* Label at the top */}
           <div className="text-sm text-gray-600 mb-3 font-medium">{stat.label}</div>
 

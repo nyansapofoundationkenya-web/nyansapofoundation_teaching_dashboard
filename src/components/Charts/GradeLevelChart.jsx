@@ -32,54 +32,45 @@ export default function GradeLevelChart({ data, title, colors, showTitle = true,
     levels = [...levels, ...remainingLevels]
   }
 
-  // Custom tooltip
+  // Custom tooltip that shows all levels but highlights the hovered one
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
-      const dataPoint = payload[0]?.payload
-      const total = payload.reduce((sum, entry) => sum + entry.value, 0)
+      // Filter out entries with zero values
+      const activeEntries = payload.filter((entry) => entry.value > 0)
+
+      if (activeEntries.length === 0) return null
+
+      // Try to determine which segment is being hovered by finding the topmost segment
+      // This is an approximation since Recharts doesn't provide exact segment hover info
+      const hoveredEntry = activeEntries[activeEntries.length - 1]
 
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg min-w-[180px] max-w-[250px]">
+        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg min-w-[160px]">
           <p className="font-medium text-gray-800 mb-2 text-center border-b pb-1 text-sm">{label}</p>
-
-          {/* Gender and Age Information */}
-          <div className="mb-2 space-y-1">
-            <div className="flex justify-between text-xs">
-              <span className="text-blue-600 font-medium">Male:</span>
-              <span className="font-medium">{dataPoint?.total_maleStudents || 0}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-pink-600 font-medium">Female:</span>
-              <span className="font-medium">{dataPoint?.total_femaleStudents || 0}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-600 font-medium">Mean Age:</span>
-              <span className="font-medium">{dataPoint?.mean_age ? `${dataPoint.mean_age}y` : "N/A"}</span>
-            </div>
-          </div>
-
-          {/* Learning Levels */}
-          <div className="border-t pt-2">
-            <p className="text-xs text-gray-500 mb-1">Learning Levels:</p>
-            <div className="space-y-1">
-              {payload.map((entry, index) => (
-                <div key={index} className="flex items-center justify-between">
+          <div className="space-y-1">
+            {activeEntries.map((entry, index) => {
+              const isHovered = entry.name === hoveredEntry.name
+              return (
+                <div
+                  key={index}
+                  className={`flex items-center justify-between p-1 rounded ${
+                    isHovered ? "bg-gray-100 border border-gray-300" : ""
+                  }`}
+                >
                   <div className="flex items-center">
-                    <div className="w-2 h-2 rounded mr-1" style={{ backgroundColor: entry.color }} />
-                    <span className="text-xs text-gray-600 capitalize truncate">
+                    <div className="w-3 h-3 rounded mr-2" style={{ backgroundColor: entry.color }} />
+                    <span
+                      className={`text-sm capitalize ${isHovered ? "font-semibold text-gray-800" : "text-gray-600"}`}
+                    >
                       {entry.name.replace(/([A-Z])/g, " $1")}:
                     </span>
                   </div>
-                  <span className="text-xs font-medium ml-1">{entry.value}</span>
+                  <span className={`text-sm ml-2 ${isHovered ? "font-bold text-black" : "font-medium text-black"}`}>
+                    {entry.value}
+                  </span>
                 </div>
-              ))}
-              <div className="border-t pt-1 mt-1">
-                <div className="flex justify-between">
-                  <span className="text-xs font-medium text-gray-700">Total:</span>
-                  <span className="text-xs font-bold">{total}</span>
-                </div>
-              </div>
-            </div>
+              )
+            })}
           </div>
         </div>
       )
@@ -122,11 +113,14 @@ export default function GradeLevelChart({ data, title, colors, showTitle = true,
               axisLine={{ stroke: "#374151" }}
               label={{ value: "Students", angle: -90, position: "insideLeft", style: { fontSize: 11 } }}
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0, 0, 0, 0.1)" }} />
             <Legend
+              verticalAlign="top"
+              align="right"
               wrapperStyle={{
                 fontSize: "10px",
-                paddingTop: "10px",
+                paddingTop: "0px",
+                paddingBottom: "20px",
               }}
               formatter={(value) => <span className="capitalize text-xs">{value.replace(/([A-Z])/g, " $1")}</span>}
               iconType="rect"
