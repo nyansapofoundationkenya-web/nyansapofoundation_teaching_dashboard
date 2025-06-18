@@ -123,8 +123,32 @@ const addSchoolsByCsv = async (projectId, csvFile) => {
     }
 
     const schoolsCollectionRef = collection(db, `organization/${organizationId}/projects/${projectId}/schools`);
-    const schoolUids = [];
+    const existingSchoolsQuery = await getDocs(schoolsCollectionRef);
+    const existingSchools = new Set(
+      existingSchoolsQuery.docs.map(doc => 
+        `${doc.data().name.trim().toLowerCase()}|${doc.data().location.trim().toLowerCase()}`
+      )
+    );
+
+    const newSchools = [];
+    const duplicates = [];
+    
     for (const school of validSchools) {
+      const schoolKey = `${school.name.trim().toLowerCase()}|${school.location.trim().toLowerCase()}`;
+      if (!existingSchools.has(schoolKey)) {
+        newSchools.push(school);
+      } else {
+        duplicates.push(school);
+      }
+    }
+
+    if (newSchools.length === 0) {
+      setError("All schools in the CSV already exist.");
+      return;
+    }
+
+    const schoolUids = [];
+    for (const school of newSchools) {
       const docRef = await addDoc(schoolsCollectionRef, {
         name: school.name.trim(),
         location: school.location.trim(), 
@@ -137,11 +161,18 @@ const addSchoolsByCsv = async (projectId, csvFile) => {
     const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
     await updateDoc(projectRef, {
       schools: arrayUnion(...schoolUids),
-      total_schools: increment(schoolUids.length), // Increment total_schools by number of valid schools
+      total_schools: increment(schoolUids.length),
     });
 
     await fetchSchools(projectId);
-    return { success: true, count: validSchools.length };
+    return { 
+      success: true, 
+      count: newSchools.length,
+      duplicates: duplicates.length,
+      message: duplicates.length > 0 
+        ? `${newSchools.length} new schools added. ${duplicates.length} duplicate schools skipped.`
+        : `${newSchools.length} new schools added.`
+    };
   } catch (err) {
     setError(`Failed to upload schools: ${err.message}`);
     throw err;
@@ -307,233 +338,6 @@ const createInstructor = async (organizationId, projectId, schoolId, campId, { n
     setLoading(false);
   }
 };
-const addStudentsByCsv = async (organizationId, projectId, csvFile) => {
-  console.log("addStudentsByCsv called with:", organizationId, projectId, csvFile);
-  if (!organizationId || !projectId) {
-    setError("Missing organization ID or project ID");
-    return;
-  }
-  if (!csvFile) {
-    setError("No CSV file provided");
-    return;
-  }
-
-  if (!(csvFile instanceof File)) {
-    setError("Invalid file provided. Please upload a valid file.");
-    return;
-  }
-
-  setLoading(true);
-  try {
-    // Fetch schools for the project
-    const schoolsCollectionRef = collection(db, `organization/${organizationId}/projects/${projectId}/schools`);
-    const schoolsSnapshot = await getDocs(schoolsCollectionRef);
-    const schools = schoolsSnapshot.docs.map((doc) => ({ id: doc.id, name: doc.data().name }));
-    console.log("Schools:", schools); // Debug log
-    if (!schools || schools.length === 0) {
-      setError("No schools found for the project");
-      return;
-    }
-
-    // Use ExcelJS to parse the .xlsx file
-    const { default: ExcelJS } = await import("exceljs");
-    const fileReader = new FileReader();
-    const studentsData = await new Promise((resolve, reject) => {
-      fileReader.onload = async (e) => {
-        const data = e.target.result;
-        console.log("File data loaded, length:", data.byteLength); // Debug file load
-        const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.load(data);
-        console.log("Workbook loaded, number of sheets:", workbook.worksheets.length); // Debug sheets
-        const allStudentsData = [];
-
-        for (const worksheet of workbook.worksheets) {
-          console.log("Processing sheet:", worksheet.name);
-          const rows = worksheet.getRows({ includeEmpty: true }) || [];
-          console.log("Rows retrieved, length:", rows.length); // Debug rows
-          if (rows.length < 3) {
-            console.warn("Insufficient rows in sheet:", worksheet.name);
-            continue;
-          }
-
-          const schoolName = rows[0]?.getCell(1)?.value; // School name from row 1, column 1
-          console.log("School Name from Sheet:", schoolName);
-
-          if (!schoolName) {
-            console.warn("No school name found in sheet:", worksheet.name);
-            continue;
-          }
-
-          const schoolMatch = schools.find((school) =>
-            school.name.toLowerCase().includes(schoolName.toString().toLowerCase())
-          );
-          if (!schoolMatch) {
-            console.warn(`No matching school found for: ${schoolName}, skipping sheet...`);
-            continue;
-          }
-          const schoolId = schoolMatch.id;
-
-          // Headers from row 2
-          const headers = rows[1]?.values.slice(1) || []; // Skip the first cell (empty or "No")
-          console.log("Headers:", headers);
-
-          // Data from row 3 onward
-          const dataRows = rows.slice(2).filter(row => row.values.some(cell => cell !== null && cell !== undefined));
-          console.log("Data rows length:", dataRows.length);
-          const sheetData = dataRows.map(row => {
-            const values = row.values.slice(1); // Skip the first cell (row number)
-            const student = {};
-            headers.forEach((header, index) => {
-              student[header] = values[index] || "";
-            });
-            student.School = schoolName.toString(); // Add school name to each student
-            return student;
-          });
-          allStudentsData.push(...sheetData);
-        }
-        resolve(allStudentsData);
-      };
-      fileReader.onerror = (e) => reject(new Error(`Failed to read file: ${e.message}`));
-      fileReader.readAsArrayBuffer(csvFile);
-    });
-
-    console.log("Students Data:", studentsData); // Debug log
-    if (!studentsData || studentsData.length === 0) {
-      setError("No valid student data found in sheets.");
-      return;
-    }
-
-    let totalStudentCount = 0;
-
-    // Map of schoolId to attendance data for batch processing
-    const attendanceBySchoolAndDate = {};
-
-    for (const student of studentsData) {
-      const schoolPrefix = student.School;
-      console.log("School Prefix:", schoolPrefix);
-      const group = student.Group || "1";
-
-      const schoolMatch = schools.find((school) => {
-        const schoolName = school.name || "";
-        const prefix = schoolPrefix || "";
-        return schoolName.toLowerCase().includes(prefix.toLowerCase());
-      });
-      if (!schoolMatch) {
-        console.warn(`No matching school found for student with school prefix: ${schoolPrefix}, skipping...`);
-        continue;
-      }
-      const schoolId = schoolMatch.id;
-
-      // Use new fields from sheet
-      const name = student.Name || "";
-      const classValue = student.Class || "";
-      const sex = student.Sex || "";
-      const baseline = student.Baseline || "";
-
-      const processedStudent = {
-        name: name,
-        class: classValue,
-        sex: sex,
-        baseline: baseline,
-        group: group,
-        createdAt: new Date().toISOString(),
-        lastUpdated: new Date().toISOString(),
-      };
-
-      const studentsCollectionRef = collection(
-        db,
-        `organization/${organizationId}/projects/${projectId}/schools/${schoolId}/students`
-      );
-      const docRef = doc(studentsCollectionRef);
-      await setDoc(docRef, processedStudent); // Save student document
-
-      // Initialize attendance structure for this school if not exists
-      if (!attendanceBySchoolAndDate[schoolId]) {
-        attendanceBySchoolAndDate[schoolId] = {};
-      }
-
-      // Process attendance sessions with session identifier
-      const attendanceSessions = {
-        "20-May": student["20-May"],
-        "21-May": student["21-May"],
-        "22-May": student["22-May"],
-        "23-May": student["23-May"],
-        "26-May": student["26-May"],
-        "27-May": student["27-May"],
-        "28-May": student["28-May"],
-        "29-May": student["29-May"],
-        "30-May": student["30-May"],
-        "3-Jun": student["3-Jun"],
-        "4-Jun": student["4-Jun"],
-        "5-Jun": student["5-Jun"],
-        "9-Jun": student["9-Jun"],
-        "10-Jun": student["10-Jun"],
-        "11-Jun": student["11-Jun"],
-        "12-Jun": student["12-Jun"],
-        "13-Jun": student["13-Jun"],
-        "2025-06-15": student["2025-06-15"], // Today's date at 06:38 PM EAT
-      };
-
-      for (const [date, attended] of Object.entries(attendanceSessions)) {
-        if (attended !== undefined) {
-          const attendedBool = attended === 1 || attended === true;
-          if (!attendanceBySchoolAndDate[schoolId][date]) {
-            attendanceBySchoolAndDate[schoolId][date] = {
-              date: date,
-              students: [],
-            };
-          }
-          attendanceBySchoolAndDate[schoolId][date].students.push({
-            studentId: docRef.id,
-            name: name,
-            attended: attendedBool,
-            session: date,
-          });
-        }
-      }
-
-      const schoolRef = doc(db, `organization/${organizationId}/projects/${projectId}/schools`, schoolId);
-      await updateDoc(schoolRef, {
-        total_students: increment(1),
-        lastUpdated: new Date().toISOString(),
-      });
-
-      const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
-      await updateDoc(projectRef, {
-        total_students: increment(1),
-        lastUpdated: new Date().toISOString(),
-      });
-
-      totalStudentCount += 1;
-    }
-
-    // Save attendance documents in batch
-    const batch = writeBatch(db);
-    for (const [schoolId, dates] of Object.entries(attendanceBySchoolAndDate)) {
-      for (const [date, data] of Object.entries(dates)) {
-        const attendanceCollectionRef = collection(
-          db,
-          `organization/${organizationId}/projects/${projectId}/schools/${schoolId}/attendance`
-        );
-        const attendanceDocRef = doc(attendanceCollectionRef, date);
-        batch.set(attendanceDocRef, {
-          date: data.date,
-          students: data.students,
-          createdAt: new Date().toISOString(),
-          lastUpdated: new Date().toISOString(),
-        });
-      }
-    }
-    await batch.commit();
-
-    return { success: true, count: totalStudentCount };
-  } catch (err) {
-    setError(`Failed to upload students: ${err.message}`);
-    throw err;
-  } finally {
-    setLoading(false);
-  }
-};
 return {
     project,
     schools,
@@ -544,7 +348,6 @@ return {
     fetchCampsByIds,
     addSchoolsByCsv,
     createCamp,
-    createInstructor,
-    addStudentsByCsv
+    createInstructor
   };
 }

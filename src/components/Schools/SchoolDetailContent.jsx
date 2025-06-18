@@ -5,11 +5,13 @@ import { ChevronDown, Upload } from "lucide-react"
 import SchoolDetailStats from "./SchoolDetailStats"
 import StudentUploadModal from "@/components/ui/StudentUploadModal"
 import SchoolCharts from "./charts/SchoolCharts"
+import { useSchools } from "@/hooks/useSchools"
 
-export default function SchoolDetailContent({ school, organizationId }) {
+export default function SchoolDetailContent({ school, organizationId, onSchoolUpdated }) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [showStudentUploadModal, setShowStudentUploadModal] = useState(false)
   const dropdownRef = useRef(null)
+  const { getSchoolById } = useSchools(organizationId)
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -25,6 +27,15 @@ export default function SchoolDetailContent({ school, organizationId }) {
   const handleUploadStudents = () => {
     setShowStudentUploadModal(true)
     setDropdownOpen(false)
+  }
+
+  const handleStudentsAdded = async () => {
+    try {
+      const updatedSchool = await getSchoolById(school.projectId, school.id)
+      onSchoolUpdated(updatedSchool)
+    } catch (err) {
+      console.error("Error refetching school data:", err)
+    }
   }
 
   return (
@@ -65,12 +76,6 @@ export default function SchoolDetailContent({ school, organizationId }) {
       <SchoolDetailStats school={school} />
 
       {/* Additional content can be added here later */}
-      {/* <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="text-center text-gray-500 py-12">
-          <p className="text-lg font-medium mb-2">School Dashboard</p>
-          <p className="text-sm">Additional school information and analytics will be displayed here.</p>
-        </div>
-      </div> */}
       <SchoolCharts schoolData={school}/>
 
       {/* Student Upload Modal */}
@@ -80,6 +85,7 @@ export default function SchoolDetailContent({ school, organizationId }) {
         organizationId={organizationId}
         projectId={school?.projectId}
         schoolId={school?.id}
+        onStudentsAdded={handleStudentsAdded}
       />
     </div>
   )

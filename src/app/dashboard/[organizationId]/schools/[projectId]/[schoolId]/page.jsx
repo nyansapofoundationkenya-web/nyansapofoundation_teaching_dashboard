@@ -46,6 +46,10 @@ export default function SchoolDetailPage() {
     setSidebarOpen(!sidebarOpen)
   }
 
+  const handleSchoolUpdated = (updatedSchool) => {
+    setSchool(updatedSchool)
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen bg-blue-50">
@@ -197,10 +201,9 @@ export default function SchoolDetailPage() {
                   <FiMenu className="w-5 h-5 text-indigo-600" />
                 </button>
               )}
-              {/* <h1 className="text-xl sm:text-2xl font-bold text-gray-800">{school?.name || "School Details"}</h1> */}
             </div>
 
-            <SchoolDetailContent school={school} organizationId={organizationId} />
+            <SchoolDetailContent school={school} organizationId={organizationId} onSchoolUpdated={handleSchoolUpdated} />
           </div>
         </div>
       </div>

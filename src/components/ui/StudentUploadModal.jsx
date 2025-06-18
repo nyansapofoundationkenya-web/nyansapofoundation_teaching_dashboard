@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useSchools } from "@/hooks/useSchools"
 import { Download, Info } from "lucide-react"
 
-export default function StudentUploadModal({ isOpen, onClose, organizationId, projectId, schoolId }) {
+export default function StudentUploadModal({ isOpen, onClose, organizationId, projectId, schoolId, onStudentsAdded }) {
   const [formState, setFormState] = useState({})
   const [showRequirements, setShowRequirements] = useState(false)
   const { addStudentsByCsv, loading, error } = useSchools(organizationId)
@@ -27,8 +27,12 @@ export default function StudentUploadModal({ isOpen, onClose, organizationId, pr
     try {
       const result = await addStudentsByCsv(projectId, schoolId, file)
       if (result) {
-        alert(`${result.count} students added successfully!`)
+        alert(result.message)
         setFormState({})
+        // Refetch school data after successful upload
+        if (onStudentsAdded) {
+          await onStudentsAdded()
+        }
         onClose()
       }
     } catch (err) {
@@ -39,7 +43,7 @@ export default function StudentUploadModal({ isOpen, onClose, organizationId, pr
   const downloadTemplate = () => {
     // Create a sample CSV template
     const csvContent =
-      "first_name,last_name,age,gender,level,grade\nJohn,Doe,8,male,beginner,3\nJane,Smith,9,female,word,4"
+      "name,class,sex,baseline,group\nJohn Doe,3,male,beginner,Group A\nJane Smith,4,female,intermediate,Group B"
     const blob = new Blob([csvContent], { type: "text/csv" })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement("a")
@@ -88,8 +92,8 @@ export default function StudentUploadModal({ isOpen, onClose, organizationId, pr
           <div className="text-left">
             <h3 className="text-lg font-semibold text-gray-800 mb-2">Bulk Upload Students</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Upload an Excel or CSV file with students information. The file should have the following columns:
-              first_name, last_name, age, gender, level, grade
+              Upload an Excel or CSV file with student information. The file should have the following columns
+              (case-insensitive): name, class, sex, baseline, group
             </p>
           </div>
 
@@ -114,25 +118,22 @@ export default function StudentUploadModal({ isOpen, onClose, organizationId, pr
 
           {showRequirements && (
             <div className="text-left bg-gray-100 p-4 rounded-lg">
-              <p className="text-sm font-medium text-gray-800 mb-2">Required Fields:</p>
+              <p className="text-sm font-medium text-gray-800 mb-2">Required Fields (case-insensitive):</p>
               <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
                 <li>
-                  <strong>first_name</strong> - Student's first name
+                  <strong>name</strong> - Student's full name
                 </li>
                 <li>
-                  <strong>last_name</strong> - Student's last name
+                  <strong>class</strong> - Student's class (number between 1 and 12)
                 </li>
                 <li>
-                  <strong>age</strong> - Student's age (number)
+                  <strong>sex</strong> - Student's sex (male/female/other)
                 </li>
                 <li>
-                  <strong>gender</strong> - Student's gender (male/female/other)
+                  <strong>baseline</strong> - Student's learning baseline (e.g., beginner, intermediate, advanced)
                 </li>
                 <li>
-                  <strong>level</strong> - Learning level (beginner/word/paragraph/story/above)
-                </li>
-                <li>
-                  <strong>grade</strong> - Student's grade (number)
+                  <strong>group</strong> - Student's group (e.g., Group A, Group B)
                 </li>
               </ul>
             </div>

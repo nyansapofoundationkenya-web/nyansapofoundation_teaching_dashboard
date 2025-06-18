@@ -149,8 +149,7 @@ export function useSchools(organizationId) {
       setLoading(false)
     }
   }
-
- const addStudentsByCsv = async (projectId, schoolId, csvFile) => {
+const addStudentsByCsv = async (projectId, schoolId, csvFile) => {
   if (!organizationId || !projectId || !schoolId) {
     setError("Missing organization ID, project ID, or school ID");
     return;
@@ -167,6 +166,7 @@ export function useSchools(organizationId) {
         Papa.parse(file, {
           header: true,
           skipEmptyLines: true,
+          transformHeader: (header) => header.toLowerCase(), // Normalize headers to lowercase
           complete: (result) => resolve(result.data),
           error: (err) => reject(err),
         });
@@ -175,73 +175,83 @@ export function useSchools(organizationId) {
     const studentsData = await parseCsv(csvFile);
 
     // Validate required fields
-    const requiredFields = ["first_name", "last_name", "age", "gender", "level", "grade"];
+    const requiredFields = ["name", "class", "sex", "baseline", "group"];
     const validStudents = studentsData.filter((student) =>
       requiredFields.every((field) => student[field] && student[field].toString().trim() !== "")
     );
 
     if (validStudents.length === 0) {
       setError(
-        "No valid students found in CSV. Each row must have all required fields: first_name, last_name, age, gender, level, grade."
+        "No valid students found in CSV. Each row must have all required fields: name, class, sex, baseline, group (case-insensitive)."
       );
       return;
     }
+
+    // Check for existing students to prevent duplicates
+    const studentsCollectionRef = collection(
+      db,
+      `organization/${organizationId}/projects/${projectId}/schools/${schoolId}/students`
+    );
+    const existingStudentsQuery = await getDocs(studentsCollectionRef);
+    const existingStudents = new Set(
+      existingStudentsQuery.docs.map(doc => 
+        `${doc.data().name.trim().toLowerCase()}|${doc.data().class.toString()}` // Convert class to string
+      )
+    );
+
+    const newStudents = [];
+    const duplicates = [];
 
     // Validate data types and values
     const processedStudents = validStudents.map((student, index) => {
       const errors = [];
 
-      // Validate age is a number
-      const age = Number.parseInt(student.age);
-      if (isNaN(age) || age < 1 || age > 25) {
-        errors.push(`Row ${index + 2}: Age must be a valid number between 1 and 25`);
+      // Validate sex
+      const validSexes = ["male", "female", "other"];
+      if (!validSexes.includes(student.sex.toLowerCase())) {
+        errors.push(`Row ${index + 2}: Sex must be one of: male, female, other`);
       }
 
-      // Validate gender
-      const validGenders = ["male", "female", "other"];
-      if (!validGenders.includes(student.gender.toLowerCase())) {
-        errors.push(`Row ${index + 2}: Gender must be one of: male, female, other`);
-      }
-
-      // Validate level
-      const validLevels = ["beginner", "word", "paragraph", "story", "above"];
-      if (!validLevels.includes(student.level.toLowerCase())) {
-        errors.push(`Row ${index + 2}: Level must be one of: beginner, word, paragraph, story, above`);
-      }
-
-      // Validate grade is a number
-      const grade = Number.parseInt(student.grade);
-      if (isNaN(grade) || grade < 1 || grade > 12) {
-        errors.push(`Row ${index + 2}: Grade must be a valid number between 1 and 12`);
+      // Validate class is a number
+      const classNum = Number.parseInt(student.class);
+      if (isNaN(classNum) || classNum < 1 || classNum > 12) {
+        errors.push(`Row ${index + 2}: Class must be a valid number between 1 and 12`);
       }
 
       if (errors.length > 0) {
         throw new Error(errors.join("\n"));
       }
 
-      return {
-        first_name: student.first_name.trim(),
-        last_name: student.last_name.trim(),
-        age: age,
-        gender: student.gender.toLowerCase(),
-        level: student.level.toLowerCase(),
-        grade: grade,
+      const studentData = {
+        name: student.name.trim(),
+        class: classNum,
+        sex: student.sex.toLowerCase(),
+        baseline: student.baseline.trim(),
+        group: student.group.trim(),
         createdAt: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
       };
+
+      const studentKey = `${studentData.name.toLowerCase()}|${studentData.class}`;
+      if (!existingStudents.has(studentKey)) {
+        newStudents.push(studentData);
+      } else {
+        duplicates.push(studentData);
+      }
+
+      return studentData;
     });
 
-    const studentsCollectionRef = collection(
-      db,
-      `organization/${organizationId}/projects/${projectId}/schools/${schoolId}/students`
-    );
-    const studentCount = processedStudents.length;
+    if (newStudents.length === 0) {
+      setError("All students in the CSV already exist.");
+      return;
+    }
 
     // Use batch for student creation and counter updates
     const batch = writeBatch(db);
 
     // Add student documents
-    for (const student of processedStudents) {
+    for (const student of newStudents) {
       const docRef = doc(studentsCollectionRef);
       batch.set(docRef, student);
     }
@@ -249,28 +259,35 @@ export function useSchools(organizationId) {
     // Update school document with total_students
     const schoolRef = doc(db, `organization/${organizationId}/projects/${projectId}/schools`, schoolId);
     batch.update(schoolRef, {
-      total_students: increment(studentCount),
+      total_students: increment(newStudents.length),
       lastUpdated: new Date().toISOString(),
     });
 
     // Update project document with total_students
     const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
     batch.update(projectRef, {
-      total_students: increment(studentCount),
+      total_students: increment(newStudents.length),
       lastUpdated: new Date().toISOString(),
     });
 
     // Commit the batch
     await batch.commit();
 
-    return { success: true, count: studentCount };
+    return { 
+      success: true, 
+      count: newStudents.length,
+      duplicates: duplicates.length,
+      message: duplicates.length > 0 
+        ? `${newStudents.length} new students added. ${duplicates.length} duplicate students skipped.`
+        : `${newStudents.length} new students added.`
+    };
   } catch (err) {
     setError(`Failed to upload students: ${err.message}`);
     throw err;
   } finally {
     setLoading(false);
   }
-}
+};
   return {
     schools,
     loading,

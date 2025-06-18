@@ -5,7 +5,7 @@ import { FaChalkboardTeacher } from "react-icons/fa";
 import { GraduationCap, Tent } from "lucide-react";
 
 export default function SchoolCard({ school, organizationId }) {
-  console.log(school)
+  // console.log(school)
   const router = useRouter();
 
   const handleViewDashboard = () => {
