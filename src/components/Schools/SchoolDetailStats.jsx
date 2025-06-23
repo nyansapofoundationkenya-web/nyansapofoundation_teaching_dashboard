@@ -8,7 +8,7 @@ export default function SchoolDetailStats({ school }) {
   const { organizationId, projectId } = useParams()
 
   const handleStudentsClick = () => {
-    router.push(`/dashboard/${organizationId}/schools/${projectId}/${school.id}/analytics`)
+    router.push(`/dashboard/${organizationId}/projects/${projectId}/schools/${school.id}/attendance`)
   }
 
   const stats = [

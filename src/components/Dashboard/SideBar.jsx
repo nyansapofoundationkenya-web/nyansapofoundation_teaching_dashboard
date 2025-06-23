@@ -2,27 +2,25 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
-import { FiHome, FiBookOpen, FiUsers, FiUserCheck, FiSettings, FiLogOut } from "react-icons/fi"; // Feather icons
-import Image from "next/image";
-import { useAuth } from "@/hooks/useAuth"; // assuming you have this
+import { FiHome, FiBookOpen, FiUsers, FiUserCheck, FiSettings, FiLogOut } from "react-icons/fi";
+import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/icons/logo";
 
-const Sidebar = ({ title: initialTitle,organizationId }) => {
+const Sidebar = ({ initialTitle, organizationId }) => {
   const router = useRouter();
   const pathname = usePathname();
   const [title, setTitle] = useState(initialTitle || "");
   const [hoveredItem, setHoveredItem] = useState(null);
-  const { handleLogout } = useAuth(); 
+  const { handleLogout } = useAuth();
 
   const menuItems = [
     { name: "Home", icon: <FiHome size={20} />, path: `/dashboard/${organizationId}/welcome` },
     { name: "Projects", icon: <FiBookOpen size={20} />, path: `/dashboard/${organizationId}/projects` },
-    // { name: "Dashboard", icon: <FiUsers size={20} />, path: `/dashboard/${organizationId}/projects` },
     { name: "Instructors", icon: <FiUserCheck size={20} />, path: `/dashboard/${organizationId}/instructors` },
     { name: "Schools", icon: <FiUsers size={20} />, path: `/dashboard/${organizationId}/schools` },
     { name: "Settings", icon: <FiSettings size={20} />, path: `/dashboard/${organizationId}/settings` },
   ];
-  
+
   useEffect(() => {
     const matchingItem = menuItems.find((item) => item.path === pathname);
     if (matchingItem) {
@@ -35,15 +33,14 @@ const Sidebar = ({ title: initialTitle,organizationId }) => {
     router.push(item.path);
   };
 
+  console.log(title);
+
   return (
     <div className="w-64 h-screen bg-[#162947] text-white flex flex-col justify-between">
       {/* Top: Logo */}
       <div>
         <div className="flex flex-col items-center mb-6 p-4">
-          <div>
-            {/* <Image src="/images/nyansapo_logo.jpeg" alt="Nyansapo Logo" width={300} height={300} /> */}
-            <Logo/>
-          </div>
+          <Logo />
         </div>
         <hr className="w-full mb-6" />
 

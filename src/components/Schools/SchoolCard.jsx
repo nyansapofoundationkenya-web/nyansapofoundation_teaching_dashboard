@@ -9,7 +9,7 @@ export default function SchoolCard({ school, organizationId }) {
   const router = useRouter();
 
   const handleViewDashboard = () => {
-    router.push(`/dashboard/${organizationId}/schools/${school.projectId}/${school.id}`);
+    router.push(`/dashboard/${organizationId}/projects/${school.projectId}/schools/${school.id}/schoolDetails`);
   };
 
   const locations = Array.isArray(school.location) ? school.location : school.location ? [school.location] : ["Unknown"];

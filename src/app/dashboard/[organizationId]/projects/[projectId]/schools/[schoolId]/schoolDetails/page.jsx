@@ -73,7 +73,7 @@ export default function SchoolDetailPage() {
               <FiX className="w-5 h-5 text-indigo-600" />
             </button>
           )}
-          <Sidebar organizationId={organizationId} />
+          <Sidebar initialTitle="Schools" organizationId={organizationId} />
         </div>
 
         {/* Main Content */}
@@ -129,7 +129,7 @@ export default function SchoolDetailPage() {
               <FiX className="w-5 h-5 text-indigo-600" />
             </button>
           )}
-          <Sidebar title="Dashboard" organizationId={organizationId} />
+          <Sidebar initialTitle="Schools" organizationId={organizationId} />
         </div>
 
         {/* Main Content */}
@@ -182,7 +182,7 @@ export default function SchoolDetailPage() {
             <FiX className="w-5 h-5 text-indigo-600" />
           </button>
         )}
-        <Sidebar organizationId={organizationId} />
+        <Sidebar initialTitle="Schools" organizationId={organizationId} />
       </div>
 
       {/* Main Content */}

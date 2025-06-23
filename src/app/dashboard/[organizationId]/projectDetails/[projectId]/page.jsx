@@ -156,7 +156,7 @@ export default function ProjectDetails() {
             <FiX className="w-5 h-5 text-indigo-600" />
           </button>
         )}
-        <Sidebar title="Dashboard" organizationId={organizationId} />
+        <Sidebar initialTitle="Projects" organizationId={organizationId} />
       </div>
 
       <div
