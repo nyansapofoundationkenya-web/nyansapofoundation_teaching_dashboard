@@ -114,7 +114,6 @@ const AttendanceDashboard = () => {
     schoolId
   );
 
-  const sessions = useMemo(() => getAllSessions(), [attendance]);
   const groups = useMemo(() => ["Group 1", "Group 2", "Group 3"], []);
 
   // Get all unique students from attendance data

@@ -35,25 +35,14 @@ export default function SchoolMatcher({ organizationId, projectId, sheetNames, o
 
       setExistingSchools(schools)
 
-      // Validate sheet names against existing schools
       const results = sheetNames.map((sheetName) => {
-        // Extract only the school name part (before the dash)
         const schoolNameFromSheet = sheetName.split("-")[0]?.trim()
-
-        console.log(`Processing sheet: ${sheetName}`)
-        console.log(`Extracted school name: "${schoolNameFromSheet}"`)
 
         const matchedSchool = schools.find((school) => {
           const dbSchoolName = school.name?.toLowerCase().trim()
           const extractedName = schoolNameFromSheet?.toLowerCase()
-          console.log(`Comparing "${extractedName}" with "${dbSchoolName}"`)
           return dbSchoolName === extractedName
         })
-
-        console.log(`Match found: ${!!matchedSchool}`)
-        if (matchedSchool) {
-          console.log(`Matched with: ${matchedSchool.name}`)
-        }
 
         return {
           sheetName,
@@ -65,7 +54,6 @@ export default function SchoolMatcher({ organizationId, projectId, sheetNames, o
 
       setMatchingResults(results)
 
-      // Check if all sheets have matching schools
       const allMatched = results.every((result) => result.matched)
       onValidationComplete(allMatched, results)
     } catch (error) {
@@ -102,9 +90,11 @@ export default function SchoolMatcher({ organizationId, projectId, sheetNames, o
                   <span className="font-medium text-gray-800">{result.sheetName}</span>
                 </div>
                 <div className="text-xs text-gray-500">
-                  Extracted: "{result.schoolNameFromSheet}"
+                  Extracted: &quot;{result.schoolNameFromSheet}&quot;
                   {result.matched && result.matchedSchool && (
-                    <span className="ml-2 text-green-600">→ Matches "{result.matchedSchool.name}"</span>
+                    <span className="ml-2 text-green-600">
+                      &rarr; Matches &quot;{result.matchedSchool.name}&quot;
+                    </span>
                   )}
                 </div>
               </div>
@@ -128,7 +118,7 @@ export default function SchoolMatcher({ organizationId, projectId, sheetNames, o
         {matchingResults.some((result) => !result.matched) && (
           <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded">
             <p className="text-sm text-red-800">
-              <strong>Warning:</strong> Some sheets don't match existing schools. The school name before the dash must
+              <strong>Warning:</strong> Some sheets don&apos;t match existing schools. The school name before the dash must
               exactly match an existing school name.
             </p>
             <div className="mt-2">
@@ -138,7 +128,7 @@ export default function SchoolMatcher({ organizationId, projectId, sheetNames, o
                   .filter((result) => !result.matched)
                   .map((result, index) => (
                     <li key={index}>
-                      "{result.schoolNameFromSheet}" (from sheet: {result.sheetName})
+                      &quot;{result.schoolNameFromSheet}&quot; (from sheet: {result.sheetName})
                     </li>
                   ))}
               </ul>
