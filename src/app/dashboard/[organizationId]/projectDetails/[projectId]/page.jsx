@@ -138,9 +138,11 @@ export default function ProjectDetails() {
   ]
 
   return (
-    <div className="flex min-h-screen bg-blue-50">
-      {isMobile && sidebarOpen && <div className="fixed inset-0 bg-black z-40" onClick={toggleSidebar} />}
+    <div className="flex min-h-screen bg-blue-50 overflow-x-hidden">
+      {/* Mobile backdrop */}
+      {isMobile && sidebarOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={toggleSidebar} />}
 
+      {/* Sidebar */}
       <div
         className={`
           fixed left-0 top-0 h-full z-50 transition-transform duration-300 ease-in-out
@@ -150,7 +152,7 @@ export default function ProjectDetails() {
         {isMobile && sidebarOpen && (
           <button
             onClick={toggleSidebar}
-            className="absolute top-4 right-4 z-50 p-2 rounded-full shadow-md"
+            className="absolute top-4 right-4 z-50 p-2 rounded-full bg-white shadow-md"
             aria-label="Close menu"
           >
             <FiX className="w-5 h-5 text-indigo-600" />
@@ -159,45 +161,54 @@ export default function ProjectDetails() {
         <Sidebar initialTitle="Projects" organizationId={organizationId} />
       </div>
 
+      {/* Main content */}
       <div
         className={`
-          flex-1 transition-all duration-300 ease-in-out
+          flex-1 w-full max-w-full transition-all duration-300 ease-in-out
           ${!isMobile && sidebarOpen ? "ml-64" : "ml-0"}
         `}
       >
-        <div className="min-h-screen p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <div className="flex items-center gap-3">
-              {isMobile && !sidebarOpen && (
-                <button onClick={toggleSidebar} className="p-2 rounded-md shadow-sm" aria-label="Open menu">
-                  <FiMenu className="w-5 h-5 text-indigo-600" />
-                </button>
-              )}
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-800 truncate">
-                {project?.name || "Project Details"}
-              </h1>
+        <div className="min-h-screen w-full max-w-full p-3 sm:p-4 lg:p-6">
+          {/* Header */}
+          <div className="flex flex-col gap-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                {isMobile && !sidebarOpen && (
+                  <button
+                    onClick={toggleSidebar}
+                    className="p-2 rounded-md bg-white shadow-sm flex-shrink-0"
+                    aria-label="Open menu"
+                  >
+                    <FiMenu className="w-5 h-5 text-indigo-600" />
+                  </button>
+                )}
+                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 truncate">
+                  {project?.name || "Project Details"}
+                </h1>
+              </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 w-full sm:w-auto" ref={dropdownRef}>
+            {/* Action buttons - Full width on mobile */}
+            <div className="flex flex-col sm:flex-row gap-2 w-full" ref={dropdownRef}>
               <button
-                className="flex items-center justify-center px-3 py-2 border border-yellow-300 rounded-lg bg-yellow-200 hover:bg-yellow-300 text-sm text-gray-700 transition-colors"
+                className="flex items-center justify-center px-3 py-2 border border-yellow-300 rounded-lg bg-yellow-200 hover:bg-yellow-300 text-sm text-gray-700 transition-colors w-full sm:w-auto"
                 onClick={() => console.log("Download clicked")}
               >
                 <span>Download Data</span>
-                <Download className="w-4 h-4 ml-2" />
+                <Download className="w-4 h-4 ml-2 flex-shrink-0" />
               </button>
 
-              <div className="relative">
+              <div className="relative w-full sm:w-auto">
                 <button
                   onClick={() => setDropdownOpen((prev) => !prev)}
-                  className="flex items-center justify-center px-3 py-2 bg-yellow-400 text-gray-800 rounded-lg hover:bg-yellow-500 text-sm transition-colors"
+                  className="flex items-center justify-center px-3 py-2 bg-yellow-400 text-gray-800 rounded-lg hover:bg-yellow-500 text-sm transition-colors w-full sm:w-auto"
                 >
-                  Actions
-                  <ChevronDown className="w-4 h-4 ml-2" />
+                  <span>Actions</span>
+                  <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
                 </button>
 
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-30">
+                  <div className="absolute left-0 right-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-30">
                     <ul className="py-1 text-sm text-gray-700">
                       <li>
                         <button
@@ -207,8 +218,8 @@ export default function ProjectDetails() {
                           }}
                           className="flex items-center justify-between w-full px-4 py-2 hover:bg-yellow-100 transition-colors"
                         >
-                          Add Schools
-                          <Building2 className="w-4 h-4 ml-2" />
+                          <span>Add Schools</span>
+                          <Building2 className="w-4 h-4 flex-shrink-0" />
                         </button>
                       </li>
                       <li>
@@ -219,8 +230,8 @@ export default function ProjectDetails() {
                           }}
                           className="flex items-center justify-between w-full px-4 py-2 hover:bg-yellow-100 transition-colors"
                         >
-                          Create Camp
-                          <MapPin className="w-4 h-4 ml-2" />
+                          <span>Create Camp</span>
+                          <MapPin className="w-4 h-4 flex-shrink-0" />
                         </button>
                       </li>
                       <li>
@@ -231,8 +242,8 @@ export default function ProjectDetails() {
                           }}
                           className="flex items-center justify-between w-full px-4 py-2 hover:bg-yellow-100 transition-colors"
                         >
-                          Add Instructor
-                          <FaChalkboardTeacher className="w-4 h-4 ml-2" />
+                          <span>Add Instructor</span>
+                          <FaChalkboardTeacher className="w-4 h-4 flex-shrink-0" />
                         </button>
                       </li>
                       <li>
@@ -243,8 +254,8 @@ export default function ProjectDetails() {
                           }}
                           className="flex items-center justify-between w-full px-4 py-2 hover:bg-yellow-100 transition-colors"
                         >
-                          Upload Students
-                          <Users className="w-4 h-4 ml-2" />
+                          <span>Upload Students</span>
+                          <Users className="w-4 h-4 flex-shrink-0" />
                         </button>
                       </li>
                     </ul>
@@ -254,12 +265,15 @@ export default function ProjectDetails() {
             </div>
           </div>
 
-          {loading && <p className="text-gray-500">Loading project details...</p>}
-          {error && <p className="text-red-500">{error}</p>}
+          {/* Loading and error states */}
+          {loading && <p className="text-gray-500 text-sm sm:text-base">Loading project details...</p>}
+          {error && <p className="text-red-500 text-sm sm:text-base">{error}</p>}
 
+          {/* Project content */}
           {project && (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <div className="w-full max-w-full">
+              {/* Stats cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6">
                 <StatsCard
                   icon={<School />}
                   label="Schools"
@@ -304,17 +318,19 @@ export default function ProjectDetails() {
                 />
               </div>
 
-              <div className="w-full overflow-hidden">
+              {/* Charts section */}
+              <div className="w-full max-w-full">
                 <ProjectCharts
                   chartData={project.learning_level_distribution || []}
                   ageGenderData={project.age_gender_distribution || null}
                 />
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>
 
+      {/* Modals */}
       <SchoolModal
         isOpen={isSchoolModalOpen}
         onClose={() => setIsSchoolModalOpen(false)}
@@ -330,14 +346,13 @@ export default function ProjectDetails() {
         onSubmit={handleCreateCamp}
       />
 
-      <InstructorModal
-        isOpen={isInstructorModalOpen}
-        onClose={() => setIsInstructorModalOpen(false)}
-        onSubmit={handleAddInstructor}
-        schools={schools}
-        projectId={projectId}
-        fetchCampsByIds={fetchCampsByIds}
-      />
+    <InstructorModal
+  isOpen={isInstructorModalOpen}
+  onClose={() => setIsInstructorModalOpen(false)}
+  organizationId={organizationId}
+  projectId={projectId}
+/>
+
 
       <MultiSheetUploadModal
         isOpen={isUploadModalOpen}

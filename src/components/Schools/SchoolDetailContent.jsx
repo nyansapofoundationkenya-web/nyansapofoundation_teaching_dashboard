@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { ChevronDown, Upload } from "lucide-react"
 import SchoolDetailStats from "./SchoolDetailStats"
 import StudentUploadModal from "@/components/ui/StudentUploadModal"
-import SchoolCharts from "./charts/SchoolCharts"
+import ProjectCharts from "@/components/Charts/ProjectCharts"
 import { useSchools } from "@/hooks/useSchools"
 
 export default function SchoolDetailContent({ school, organizationId, onSchoolUpdated }) {
@@ -37,6 +37,9 @@ export default function SchoolDetailContent({ school, organizationId, onSchoolUp
       console.error("Error refetching school data:", err)
     }
   }
+
+  // Get the learning_level_distribution array directly from school data
+  const chartData = school?.learning_level_distribution || []
 
   return (
     <div className="p-6 bg-blue-50 min-h-screen">
@@ -75,8 +78,21 @@ export default function SchoolDetailContent({ school, organizationId, onSchoolUp
       {/* Stats Cards */}
       <SchoolDetailStats school={school} />
 
-      {/* Additional content can be added here later */}
-      <SchoolCharts schoolData={school}/>
+      {/* Charts Section */}
+      <div className="mt-8">
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          {chartData.length > 0 ? (
+            <ProjectCharts chartData={chartData} />
+          ) : (
+            <div className="flex items-center justify-center h-64 text-gray-500 bg-gray-50 rounded-lg">
+              <div className="text-center">
+                <div className="text-lg font-medium mb-2">No Chart Data Available</div>
+                <div className="text-sm">Upload student data to see learning level distributions.</div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Student Upload Modal */}
       <StudentUploadModal

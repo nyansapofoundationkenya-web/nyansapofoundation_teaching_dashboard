@@ -6,7 +6,7 @@ import { Chart as ChartJS, BarElement, CategoryScale, LinearScale, Tooltip, Lege
 // Register the required components
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend, BarController)
 
-export default function GradeLevelChart({ data, title, colors, showTitle = true, levelOrder = null }) {
+export default function LevelDistributionByAgeChart({ data, title, colors, showTitle = true, levelOrder = null }) {
   const chartRef = useRef(null)
   const chartInstanceRef = useRef(null)
   const [chartData, setChartData] = useState(null)
@@ -43,9 +43,9 @@ export default function GradeLevelChart({ data, title, colors, showTitle = true,
 
     // Get all learning levels from the data
     const learningLevels = new Set()
-    data.forEach((gradeData) => {
-      Object.keys(gradeData).forEach((key) => {
-        if (key !== "grade") {
+    data.forEach((ageData) => {
+      Object.keys(ageData).forEach((key) => {
+        if (key !== "age") {
           learningLevels.add(key)
         }
       })
@@ -62,7 +62,7 @@ export default function GradeLevelChart({ data, title, colors, showTitle = true,
     // Create datasets for each learning level
     const datasets = levels.map((level, index) => ({
       label: level.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase()),
-      data: data.map((gradeData) => gradeData[level] || 0),
+      data: data.map((ageData) => ageData[level] || 0),
       backgroundColor: colorPalette[level] || colorPalette.default,
       barPercentage: 0.65, // Adjusted bar width
       categoryPercentage: 0.75, // Adjusted category spacing
@@ -75,7 +75,7 @@ export default function GradeLevelChart({ data, title, colors, showTitle = true,
     }))
 
     setChartData({
-      labels: data.map((item) => item.grade),
+      labels: data.map((item) => item.age),
       datasets: datasets,
     })
   }, [data, levelOrder, colors])

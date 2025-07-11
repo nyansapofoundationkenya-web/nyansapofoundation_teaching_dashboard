@@ -6,7 +6,7 @@ import { Chart as ChartJS, BarElement, CategoryScale, LinearScale, Tooltip, Lege
 // Register the required components
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend, BarController)
 
-export default function GradeLevelChart({ data, title, colors, showTitle = true, levelOrder = null }) {
+export default function LevelDistributionByGenderChart({ data, title, colors, showTitle = true, levelOrder = null }) {
   const chartRef = useRef(null)
   const chartInstanceRef = useRef(null)
   const [chartData, setChartData] = useState(null)
@@ -43,9 +43,9 @@ export default function GradeLevelChart({ data, title, colors, showTitle = true,
 
     // Get all learning levels from the data
     const learningLevels = new Set()
-    data.forEach((gradeData) => {
-      Object.keys(gradeData).forEach((key) => {
-        if (key !== "grade") {
+    data.forEach((genderData) => {
+      Object.keys(genderData).forEach((key) => {
+        if (key !== "gender") {
           learningLevels.add(key)
         }
       })
@@ -62,10 +62,10 @@ export default function GradeLevelChart({ data, title, colors, showTitle = true,
     // Create datasets for each learning level
     const datasets = levels.map((level, index) => ({
       label: level.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase()),
-      data: data.map((gradeData) => gradeData[level] || 0),
+      data: data.map((genderData) => genderData[level] || 0),
       backgroundColor: colorPalette[level] || colorPalette.default,
-      barPercentage: 0.65, // Adjusted bar width
-      categoryPercentage: 0.75, // Adjusted category spacing
+      barPercentage: 0.65, // Increased from 0.5 to 0.65
+      categoryPercentage: 0.75, // Increased from 0.6 to 0.75
       borderRadius: {
         bottomLeft: index === 0 ? 4 : 0,
         bottomRight: index === 0 ? 4 : 0,
@@ -75,7 +75,7 @@ export default function GradeLevelChart({ data, title, colors, showTitle = true,
     }))
 
     setChartData({
-      labels: data.map((item) => item.grade),
+      labels: data.map((item) => item.gender.charAt(0).toUpperCase() + item.gender.slice(1)),
       datasets: datasets,
     })
   }, [data, levelOrder, colors])
@@ -113,8 +113,6 @@ export default function GradeLevelChart({ data, title, colors, showTitle = true,
                     size: isMobile ? 10 : 11,
                   },
                   color: "#374151",
-                  maxRotation: isMobile ? 45 : 45,
-                  minRotation: isMobile ? 45 : 45,
                 },
               },
               y: {

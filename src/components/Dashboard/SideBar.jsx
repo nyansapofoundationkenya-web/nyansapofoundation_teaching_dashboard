@@ -33,7 +33,7 @@ const Sidebar = ({ initialTitle, organizationId }) => {
     router.push(item.path);
   };
 
-  console.log(title);
+  // console.log(title);
 
   return (
     <div className="w-64 h-screen bg-[#162947] text-white flex flex-col justify-between">

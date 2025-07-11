@@ -30,12 +30,12 @@ export default function OrganizationPage({
     fetchData();
   }, [router]);
 
-  // ✅ Updated to include organization ID in the route
+  // Updated to include organization ID in the route
   const handleOrganizationClick = (organization) => {
     router.push(`/dashboard/${organization.id}/welcome`);
   };
 
-  // ✅ Updated demo click to route properly
+  //Updated demo click to route properly
   const handleDemoClick = () => {
     router.push("/dashboard/demo/welcome");
   };
