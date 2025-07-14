@@ -1,52 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import * as Yup from "yup";
-import { RecaptchaVerifier } from "firebase/auth";
-import { auth } from "@/firebase/config";
 
-const signUpValidationSchema = Yup.object({
+const validationSchemaStep1 = Yup.object({
   name: Yup.string().required("Organization name is required"),
   email: Yup.string().email("Invalid email address").required("Email is required"),
   phone: Yup.string()
-    .matches(/^\+?[1-9]\d{1,14}$/, "Invalid phone number. Please include country code (e.g., +12345678900)")
+    .matches(/^\+?[1-9]\d{1,14}$/, "Invalid phone number. Include country code (e.g., +2547xxxxxxx)")
     .required("Phone number is required"),
-  password: Yup.string()
-    .min(6, "Password must be at least 6 characters")
-    .required("Password is required"),
-  verificationCode: Yup.string().when("step", {
-    is: 2,
-    then: Yup.string()
-      .length(6, "Verification code must be 6 digits")
-      .required("Verification code is required"),
-  }),
+  password: Yup.string().min(6, "Password must be at least 6 characters").required("Password is required"),
+});
+
+const validationSchemaStep2 = Yup.object({
+  verificationCode: Yup.string().length(6, "Must be 6 digits").required("Verification code is required"),
 });
 
 export default function SignupForm() {
-  const { handleSignup, verifyPhoneCode, error } = useAuth();
+  const { handleSignup, verifyPhoneCode, error, recaptchaVerifier } = useAuth();
   const router = useRouter();
-  const [signupSuccess, setSignupSuccess] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState(1);
-  const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
-  const [signupData, setSignupData] = useState(null); // Store user data for verification step
-
-  useEffect(() => {
-  if (typeof window !== "undefined") {
-    const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-      size: "invisible",
-      callback: () => console.log("reCAPTCHA verified"),
-      "expired-callback": () => console.log("reCAPTCHA expired"),
-    });
-    setRecaptchaVerifier(verifier);
-
-    return () => verifier.clear();
-  }
-}, []);
+  const [showPassword, setShowPassword] = useState(false);
+  const [signupData, setSignupData] = useState(null);
+  const [signupSuccess, setSignupSuccess] = useState(false);
 
   const formik = useFormik({
     initialValues: {
@@ -55,23 +35,22 @@ export default function SignupForm() {
       phone: "",
       password: "",
       verificationCode: "",
-      step: 1,
     },
-    validationSchema: signUpValidationSchema,
+    validationSchema: step === 1 ? validationSchemaStep1 : validationSchemaStep2,
     onSubmit: async (values, { setSubmitting, setErrors, resetForm }) => {
       try {
         if (step === 1) {
           setSignupSuccess(false);
-          const { user, confirmation, email, name, phone } = await handleSignup(
+          const { user, email, name, phone } = await handleSignup(
             {
               email: values.email,
               password: values.password,
               name: values.name,
               phone: values.phone,
             },
-            recaptchaVerifier,
+            recaptchaVerifier
           );
-          setSignupData({ user, email, name, phone }); // Store for verification step
+          setSignupData({ user, email, name, phone });
           setStep(2);
         } else {
           await verifyPhoneCode(
@@ -79,7 +58,7 @@ export default function SignupForm() {
             signupData.user,
             signupData.email,
             signupData.name,
-            signupData.phone,
+            signupData.phone
           );
           setSignupSuccess(true);
           resetForm();
@@ -87,12 +66,9 @@ export default function SignupForm() {
             router.push("/noorganization");
           }, 2000);
         }
-      } catch (error) {
-        console.error("Signup error:", error);
-        setErrors({
-          general: error?.message || "Signup failed. Please try again.",
-          errorCode: error?.code || "auth/error",
-        });
+      } catch (err) {
+        console.error("Signup error:", err);
+        setErrors({ general: err.message || "Signup failed. Try again." });
       } finally {
         setSubmitting(false);
       }
@@ -100,20 +76,23 @@ export default function SignupForm() {
   });
 
   return (
-    <div className="w-full max-w-lg p-6 bg-gray-300 rounded-2xl">
+    <div className="w-full max-w-lg p-6 bg-gray-300 rounded-2xl shadow-md">
       <div id="recaptcha-container"></div>
+
       {signupSuccess && (
-        <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-lg">
+        <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-lg text-center">
           Account created successfully! Redirecting...
         </div>
       )}
-      {/* {formik.errors.general && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
-          {formik.errors.general} (Error code: {formik.errors.errorCode})
+
+      {formik.errors.general && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-center">
+          {formik.errors.general}
         </div>
-      )} */}
+      )}
+
       {error && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-center">
           {error}
         </div>
       )}
@@ -121,100 +100,43 @@ export default function SignupForm() {
       <form onSubmit={formik.handleSubmit}>
         {step === 1 ? (
           <>
-            <div className="mb-4">
-              <label className="block mb-1 text-gray-800">Organization Name</label>
-              <input
-                type="text"
-                name="name"
-                value={formik.values.name}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                className="w-full p-2 rounded-lg border border-gray-400 bg-gray-100 text-gray-800"
-                placeholder="Enter organization name"
-              />
-              {formik.touched.name && formik.errors.name && (
-                <p className="text-red-500 text-sm">{formik.errors.name}</p>
-              )}
-            </div>
-
-            <div className="mb-4">
-              <label className="block mb-1 text-gray-800">Email</label>
-              <input
-                type="email"
-                name="email"
-                value={formik.values.email}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                className="w-full p-2 rounded-lg border border-gray-400 bg-gray-100 text-gray-800"
-                placeholder="Enter email"
-              />
-              {formik.touched.email && formik.errors.email && (
-                <p className="text-red-500 text-sm">{formik.errors.email}</p>
-              )}
-            </div>
-
-            <div className="mb-4">
-              <label className="block mb-1 text-gray-800">Phone</label>
-              <input
-                type="text"
-                name="phone"
-                value={formik.values.phone}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                className="w-full p-2 rounded-lg border border-gray-400 bg-gray-100 text-gray-800"
-                placeholder="Enter phone number with country code (e.g., +12345678900)"
-              />
-              {formik.touched.phone && formik.errors.phone && (
-                <p className="text-red-500 text-sm">{formik.errors.phone}</p>
-              )}
-            </div>
-
-            <div className="mb-4">
-              <label className="block mb-1 text-gray-800">Password</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  value={formik.values.password}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  className="w-full p-2 pr-10 rounded-lg border border-gray-400 bg-gray-100 text-gray-800"
-                  placeholder="Enter password"
-                />
-                <div
+            <FormField label="Organization Name" name="name" type="text" formik={formik} placeholder="Enter organization name" />
+            <FormField label="Email" name="email" type="email" formik={formik} placeholder="Enter email" />
+            <FormField label="Phone Number" name="phone" type="text" formik={formik} placeholder="e.g., +254712345678" />
+            <FormField
+              label="Password"
+              name="password"
+              type={showPassword ? "text" : "password"}
+              formik={formik}
+              placeholder="Enter a strong password"
+              rightIcon={
+                <span
                   className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-600"
                   onClick={() => setShowPassword((prev) => !prev)}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </div>
-              </div>
-              {formik.touched.password && formik.errors.password && (
-                <p className="text-red-500 text-sm">{formik.errors.password}</p>
-              )}
-            </div>
+                </span>
+              }
+            />
           </>
         ) : (
-          <div className="mb-4">
-            <label className="block mb-1 text-gray-800">Verification Code</label>
-            <input
-              type="text"
-              name="verificationCode"
-              value={formik.values.verificationCode}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              className="w-full p-2 rounded-lg border border-gray-400 bg-gray-100 text-gray-800"
-              placeholder="Enter 6-digit code"
-            />
-            {formik.touched.verificationCode && formik.errors.verificationCode && (
-              <p className="text-red-500 text-sm">{formik.errors.verificationCode}</p>
-            )}
-          </div>
+          <FormField
+            label="Verification Code"
+            name="verificationCode"
+            type="text"
+            formik={formik}
+            placeholder="Enter 6-digit code"
+          />
         )}
 
         <button
           type="submit"
-          className="block mx-auto bg-yellow-400 text-black py-2 px-10 mt-6 rounded-lg"
           disabled={formik.isSubmitting}
+          className={`block w-full py-3 mt-6 rounded-lg font-medium ${
+            formik.isSubmitting
+              ? "bg-gray-400 text-gray-700 cursor-not-allowed"
+              : "bg-yellow-400 hover:bg-yellow-500 text-black"
+          }`}
         >
           {formik.isSubmitting
             ? step === 1
@@ -225,6 +147,30 @@ export default function SignupForm() {
             : "Verify Code"}
         </button>
       </form>
+    </div>
+  );
+}
+
+function FormField({ label, name, type, formik, placeholder, rightIcon = null }) {
+  const hasError = formik.touched[name] && formik.errors[name];
+  return (
+    <div className="mb-4">
+      <label className="block mb-1 text-gray-800">{label}</label>
+      <div className="relative">
+        <input
+          type={type}
+          name={name}
+          value={formik.values[name]}
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          placeholder={placeholder}
+          className={`w-full p-2 pr-10 rounded-lg border ${
+            hasError ? "border-red-500 bg-red-50" : "border-gray-400 bg-gray-100"
+          } text-gray-800`}
+        />
+        {rightIcon}
+      </div>
+      {hasError && <p className="text-red-500 text-sm">{formik.errors[name]}</p>}
     </div>
   );
 }
