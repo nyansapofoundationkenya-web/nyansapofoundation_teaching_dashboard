@@ -41,17 +41,17 @@ export default function LoginForm() {
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-        size: "normal",
-        callback: () => console.log("Verified"),
-        "expired-callback": () => console.log("Expired"),
-      });
-      setRecaptchaVerifier(verifier);
-      return () => verifier.clear();
-    }
-  }, []);
+  // useEffect(() => {
+  //   if (typeof window !== "undefined") {
+  //     const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+  //       size: "normal",
+  //       callback: () => console.log("Verified"),
+  //       "expired-callback": () => console.log("Expired"),
+  //     });
+  //     setRecaptchaVerifier(verifier);
+  //     return () => verifier.clear();
+  //   }
+  // }, []);
 
   const formik = useFormik({
     initialValues: {
