@@ -107,7 +107,7 @@ export default function LoginForm() {
           <>
             {/* Login Method */}
             <div className="mb-4">
-              <label className="block mb-1 font-medium">Login Method</label>
+              <label className="block mb-1 font-medium text-black">Login Method</label>
               <div className="flex gap-4">
                 <label className="flex items-center font-semibold text-black">
                   <input
@@ -116,7 +116,7 @@ export default function LoginForm() {
                     value="email"
                     checked={formik.values.loginMethod === "email"}
                     onChange={formik.handleChange}
-                    className="mr-2"
+                    className="mr-2 text-black"
                   />
                   Email
                 </label>
@@ -137,7 +137,7 @@ export default function LoginForm() {
             {formik.values.loginMethod === "email" && (
               <>
                 <div className="mb-4">
-                  <label className="block mb-1 font-medium">Email</label>
+                  <label className="block mb-1 font-medium text-black">Email</label>
                   <input
                     type="email"
                     name="email"
@@ -148,7 +148,7 @@ export default function LoginForm() {
                   />
                 </div>
                 <div className="mb-4">
-                  <label className="block mb-1 font-medium">Password</label>
+                  <label className="block mb-1 font-medium text-black">Password</label>
                   <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
@@ -185,7 +185,7 @@ export default function LoginForm() {
           </>
         ) : (
           <div className="mb-4">
-            <label className="block mb-1 font-medium">Verification Code</label>
+            <label className="block mb-1 font-medium text-black">Verification Code</label>
             <input
               type="text"
               name="verificationCode"
