@@ -8,6 +8,7 @@ import {
   signOut,
   onAuthStateChanged,
   deleteUser,
+  RecaptchaVerifier,
 } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import Cookies from "js-cookie";
@@ -19,6 +20,7 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [confirmationResult, setConfirmationResult] = useState(null);
+  const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -32,7 +34,27 @@ export function useAuth() {
     return () => unsubscribe();
   }, []);
 
-  const handleSignup = async ({ email, password, name, phone }, recaptchaVerifier) => {
+  // Setup invisible reCAPTCHA once on mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && !window.recaptchaVerifier) {
+      const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+        size: "invisible",
+        callback: (response) => {
+          console.log("reCAPTCHA solved:", response);
+        },
+        "expired-callback": () => {
+          console.warn("reCAPTCHA expired. Please try again.");
+        },
+      });
+
+      verifier.render().then((widgetId) => {
+        window.recaptchaWidgetId = widgetId;
+        setRecaptchaVerifier(verifier);
+      });
+    }
+  }, []);
+
+  const handleSignup = async ({ email, password, name, phone }) => {
     setError(null);
     let user = null;
     try {
@@ -70,7 +92,7 @@ export function useAuth() {
       const phoneCredential = PhoneAuthProvider.credential(confirmationResult.verificationId, code);
       await linkWithCredential(user, phoneCredential);
 
-      const userRef = doc(db, "users", user.uid);
+      const userRef = doc(db, "user", user.uid);
       await setDoc(userRef, {
         uid: user.uid,
         email,
@@ -97,7 +119,7 @@ export function useAuth() {
     }
   };
 
-  const handleLogin = async ({ loginMethod, email, password, phone }, recaptchaVerifier) => {
+  const handleLogin = async ({ loginMethod, email, password, phone }) => {
     setError(null);
     try {
       if (loginMethod === "email") {
@@ -159,5 +181,6 @@ export function useAuth() {
     verifyPhoneLoginCode,
     handleLogout,
     confirmationResult,
+    recaptchaVerifier,
   };
 }
