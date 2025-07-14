@@ -47,14 +47,18 @@ export default function LoginForm() {
   const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
 
   useEffect(() => {
+  if (typeof window !== "undefined") {
     const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
       size: "invisible",
       callback: () => console.log("reCAPTCHA verified"),
       "expired-callback": () => console.log("reCAPTCHA expired"),
     });
     setRecaptchaVerifier(verifier);
+
     return () => verifier.clear();
-  }, []);
+  }
+}, []);
+
 
   const formik = useFormik({
     initialValues: {

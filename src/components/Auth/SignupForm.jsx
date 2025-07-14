@@ -36,14 +36,17 @@ export default function SignupForm() {
   const [signupData, setSignupData] = useState(null); // Store user data for verification step
 
   useEffect(() => {
+  if (typeof window !== "undefined") {
     const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
       size: "invisible",
       callback: () => console.log("reCAPTCHA verified"),
       "expired-callback": () => console.log("reCAPTCHA expired"),
     });
     setRecaptchaVerifier(verifier);
+
     return () => verifier.clear();
-  }, []);
+  }
+}, []);
 
   const formik = useFormik({
     initialValues: {
@@ -104,11 +107,11 @@ export default function SignupForm() {
           Account created successfully! Redirecting...
         </div>
       )}
-      {formik.errors.general && (
+      {/* {formik.errors.general && (
         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
           {formik.errors.general} (Error code: {formik.errors.errorCode})
         </div>
-      )}
+      )} */}
       {error && (
         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
           {error}
