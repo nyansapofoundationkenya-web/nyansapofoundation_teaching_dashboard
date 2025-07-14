@@ -14,6 +14,7 @@ import { doc, setDoc } from "firebase/firestore";
 import Cookies from "js-cookie";
 import { parsePhoneNumber } from "libphonenumber-js";
 import { auth, db } from "@/firebase/config";
+import { useRouter } from "next/navigation";
 
 export function useAuth() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -21,6 +22,8 @@ export function useAuth() {
   const [error, setError] = useState(null);
   const [confirmationResult, setConfirmationResult] = useState(null);
   const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
+  const [recaptchaReady, setRecaptchaReady] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -37,29 +40,51 @@ export function useAuth() {
   // Setup invisible reCAPTCHA once on mount
   useEffect(() => {
     if (typeof window !== "undefined" && !window.recaptchaVerifier) {
-      const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-        size: "invisible",
-        callback: (response) => {
-          console.log("reCAPTCHA solved:", response);
-        },
-        "expired-callback": () => {
-          console.warn("reCAPTCHA expired. Please try again.");
-        },
-      });
+      try {
+        const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+          size: "invisible",
+          callback: (response) => {
+            console.log("reCAPTCHA solved:", response);
+          },
+          "expired-callback": () => {
+            console.warn("reCAPTCHA expired. Please try again.");
+            setRecaptchaReady(false);
+          },
+        });
 
-      verifier.render().then((widgetId) => {
-        window.recaptchaWidgetId = widgetId;
-        setRecaptchaVerifier(verifier);
-      });
+        verifier.render().then((widgetId) => {
+          window.recaptchaWidgetId = widgetId;
+          window.recaptchaVerifier = verifier;
+          setRecaptchaVerifier(verifier);
+          setRecaptchaReady(true);
+        }).catch(err => {
+          console.error("reCAPTCHA render error:", err);
+          setError("Failed to initialize reCAPTCHA. Please refresh the page.");
+        });
+
+      } catch (err) {
+        console.error("reCAPTCHA initialization error:", err);
+        setError("Failed to initialize security verification. Please refresh the page.");
+      }
     }
+
+    return () => {
+      if (window.recaptchaWidgetId) {
+        window.grecaptcha?.reset(window.recaptchaWidgetId);
+      }
+    };
   }, []);
 
   const handleSignup = async ({ email, password, name, phone }) => {
     setError(null);
     let user = null;
     try {
-      const phoneNumber = parsePhoneNumber(phone);
-      if (!phoneNumber.isValid()) {
+      if (!recaptchaReady) {
+        throw new Error("Security verification is not ready yet. Please try again.");
+      }
+
+      const phoneNumber = parsePhoneNumber(phone || "");
+      if (!phoneNumber || !phoneNumber.isValid()) {
         throw new Error("Invalid phone number format. Please include country code.");
       }
       const formattedPhone = phoneNumber.format("E.164");
@@ -89,10 +114,14 @@ export function useAuth() {
     setError(null);
     try {
       if (!confirmationResult) throw new Error("No phone verification in progress.");
-      const phoneCredential = PhoneAuthProvider.credential(confirmationResult.verificationId, code);
+      
+      const phoneCredential = PhoneAuthProvider.credential(
+        confirmationResult.verificationId, 
+        code
+      );
       await linkWithCredential(user, phoneCredential);
 
-      const userRef = doc(db, "user", user.uid);
+      const userRef = doc(db, "user", user.uid); 
       await setDoc(userRef, {
         uid: user.uid,
         email,
@@ -129,15 +158,26 @@ export function useAuth() {
         Cookies.set("auth_token", token, { expires: 7 });
         return user;
       } else {
-        const phoneNumber = parsePhoneNumber(phone);
-        if (!phoneNumber.isValid()) throw new Error("Invalid phone number format.");
+        if (!recaptchaReady) {
+          throw new Error("Security verification is not ready yet. Please try again.");
+        }
+
+        const phoneNumber = parsePhoneNumber(phone || "");
+        if (!phoneNumber || !phoneNumber.isValid()) {
+          throw new Error("Invalid phone number format. Please include country code.");
+        }
         const formattedPhone = phoneNumber.format("E.164");
-        const confirmation = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
+
+        const confirmation = await signInWithPhoneNumber(
+          auth, 
+          formattedPhone, 
+          recaptchaVerifier
+        );
         setConfirmationResult(confirmation);
         return { confirmation };
       }
     } catch (err) {
-      console.error("Login error:", err);
+      console.error("Login error:", err.code, err.message);
       setError(err.message);
       throw err;
     }
@@ -146,14 +186,17 @@ export function useAuth() {
   const verifyPhoneLoginCode = async (code) => {
     setError(null);
     try {
-      if (!confirmationResult) throw new Error("No verification in progress.");
+      if (!confirmationResult || !confirmationResult.verificationId) {
+        throw new Error("No verification in progress or session expired.");
+      }
+      
       const result = await confirmationResult.confirm(code);
       const user = result.user;
       const token = await user.getIdToken();
       Cookies.set("auth_token", token, { expires: 7 });
       return user;
     } catch (err) {
-      console.error("Phone login verification error:", err);
+      console.error("Phone login verification error:", err.code, err.message);
       setError(err.message);
       throw err;
     }
@@ -164,6 +207,7 @@ export function useAuth() {
       await signOut(auth);
       Cookies.remove("auth_token");
       setCurrentUser(null);
+      router.push("/"); 
     } catch (err) {
       console.error("Logout error:", err);
       setError(err.message);
@@ -175,12 +219,12 @@ export function useAuth() {
     currentUser,
     loading,
     error,
+    recaptchaReady,
     handleSignup,
     verifyPhoneCode,
     handleLogin,
     verifyPhoneLoginCode,
     handleLogout,
     confirmationResult,
-    recaptchaVerifier,
   };
 }

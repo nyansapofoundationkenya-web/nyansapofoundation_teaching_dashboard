@@ -1,13 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import * as Yup from "yup";
-import { RecaptchaVerifier } from "firebase/auth";
-import { auth } from "@/firebase/config";
 
 // Validation schemas
 const baseValidationSchema = Yup.object({
@@ -34,24 +32,18 @@ const verificationValidationSchema = Yup.object({
 });
 
 export default function LoginForm() {
-  const { handleLogin, verifyPhoneLoginCode, error } = useAuth();
+  const { 
+    handleLogin, 
+    verifyPhoneLoginCode, 
+    error,
+    loading: authLoading,
+    recaptchaReady
+  } = useAuth();
+  
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
-  const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-        size: "normal",
-        callback: () => console.log("Verified"),
-        "expired-callback": () => console.log("Expired"),
-      });
-      setRecaptchaVerifier(verifier);
-      return () => verifier.clear();
-    }
-  }, []);
 
   const formik = useFormik({
     initialValues: {
@@ -65,15 +57,13 @@ export default function LoginForm() {
     onSubmit: async (values, { setSubmitting, resetForm }) => {
       try {
         if (step === 1) {
-          const result = await handleLogin(
-            {
-              loginMethod: values.loginMethod,
-              email: values.email,
-              password: values.password,
-              phone: values.phone,
-            },
-            recaptchaVerifier
-          );
+          const result = await handleLogin({
+            loginMethod: values.loginMethod,
+            email: values.email,
+            password: values.password,
+            phone: values.phone,
+          });
+
           if (values.loginMethod === "phone") {
             setStep(2);
           } else {
@@ -89,7 +79,7 @@ export default function LoginForm() {
           router.push("/organization");
         }
       } catch (e) {
-        console.error("Error:", e.message);
+        console.error("Login error:", e);
       } finally {
         setSubmitting(false);
       }
@@ -98,14 +88,30 @@ export default function LoginForm() {
 
   return (
     <div className="w-full max-w-lg p-6 bg-gray-100 rounded-2xl shadow-md">
+      {/* Invisible reCAPTCHA container - must be in the DOM */}
       <div id="recaptcha-container" />
-      {loginSuccess && <div className="mb-4 p-3 bg-green-100">Login successful!</div>}
-      {error && <div className="mb-4 p-3 bg-red-100 text-red-700">{error}</div>}
+      
+      {loginSuccess && (
+        <div className="mb-4 p-3 bg-green-100 text-green-800 rounded">
+          Login successful!
+        </div>
+      )}
+      
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
+          {error}
+        </div>
+      )}
+
+      {authLoading && !recaptchaReady && (
+        <div className="mb-4 p-3 bg-blue-100 text-blue-700 rounded">
+          Initializing security verification...
+        </div>
+      )}
 
       <form onSubmit={formik.handleSubmit}>
         {step === 1 ? (
           <>
-            {/* Login Method */}
             <div className="mb-4">
               <label className="block mb-1 font-medium text-black">Login Method</label>
               <div className="flex gap-4">
@@ -116,7 +122,7 @@ export default function LoginForm() {
                     value="email"
                     checked={formik.values.loginMethod === "email"}
                     onChange={formik.handleChange}
-                    className="mr-2 text-black"
+                    className="mr-2"
                   />
                   Email
                 </label>
@@ -141,10 +147,11 @@ export default function LoginForm() {
                   <input
                     type="email"
                     name="email"
-                    className="w-full p-3 rounded border border-gray-300"
+                    className="w-full p-3 rounded border border-gray-300 text-black placeholder-gray-700"
                     placeholder="Enter your email"
                     value={formik.values.email}
                     onChange={formik.handleChange}
+                    disabled={!recaptchaReady}
                   />
                 </div>
                 <div className="mb-4">
@@ -153,16 +160,17 @@ export default function LoginForm() {
                     <input
                       type={showPassword ? "text" : "password"}
                       name="password"
-                      className="w-full p-3 pr-10 rounded border border-gray-300"
+                      className="w-full p-3 pr-10 rounded border border-gray-300 text-black placeholder-gray-700"
                       placeholder="Enter your password"
                       value={formik.values.password}
                       onChange={formik.handleChange}
+                      disabled={!recaptchaReady}
                     />
                     <div
                       className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer"
                       onClick={() => setShowPassword((prev) => !prev)}
                     >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      {showPassword ? <EyeOff size={18} className="text-black" /> : <Eye size={18} className="text-black" />}
                     </div>
                   </div>
                 </div>
@@ -171,14 +179,15 @@ export default function LoginForm() {
 
             {formik.values.loginMethod === "phone" && (
               <div className="mb-4">
-                <label className="block mb-1 font-medium">Phone</label>
+                <label className="block mb-1 font-medium text-black">Phone</label>
                 <input
                   type="text"
                   name="phone"
-                  className="w-full p-3 rounded border border-gray-300"
-                  placeholder="Enter phone number with country code"
+                  className="w-full p-3 rounded border border-gray-300 text-black placeholder-gray-700"
+                  placeholder="Enter phone number with country code (e.g., +25434567890)"
                   value={formik.values.phone}
                   onChange={formik.handleChange}
+                  disabled={!recaptchaReady}
                 />
               </div>
             )}
@@ -189,7 +198,7 @@ export default function LoginForm() {
             <input
               type="text"
               name="verificationCode"
-              className="w-full p-3 rounded border border-gray-300"
+              className="w-full p-3 rounded border border-gray-300 text-black placeholder-gray-700"
               placeholder="Enter 6-digit code"
               value={formik.values.verificationCode}
               onChange={formik.handleChange}
@@ -199,7 +208,12 @@ export default function LoginForm() {
 
         <button
           type="submit"
-          className="block w-full py-3 mt-4 rounded bg-yellow-400 hover:bg-yellow-500 font-semibold text-black"
+          className={`block w-full py-3 mt-4 rounded font-semibold text-black ${
+            formik.isSubmitting || !recaptchaReady
+              ? "bg-gray-300 cursor-not-allowed"
+              : "bg-yellow-400 hover:bg-yellow-500"
+          }`}
+          disabled={formik.isSubmitting || !recaptchaReady}
         >
           {formik.isSubmitting
             ? step === 1

@@ -3,31 +3,25 @@
 import { useEffect, useState } from "react";
 import Select from "react-select";
 import { db } from "@/firebase/config";
-import {
-  collection,
-  getDocs,
-  doc,
-  getDoc,
-  updateDoc,
-} from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
+import { useAssignInstructor } from "@/hooks/useAssignInstructor"; // Import the hook
 
 export default function InstructorModal({ isOpen, onClose, organizationId, projectId }) {
   const [instructors, setInstructors] = useState([]);
   const [schools, setSchools] = useState([]);
-  const [camps, setCamps] = useState([]);
   const [formState, setFormState] = useState({
     instructor: null,
     school: null,
-    camp: null,
   });
+
+  const { assignInstructor } = useAssignInstructor();
 
   useEffect(() => {
     if (isOpen) {
       fetchInstructors();
       fetchSchools();
     } else {
-      setFormState({ instructor: null, school: null, camp: null });
-      setCamps([]);
+      setFormState({ instructor: null, school: null });
     }
   }, [isOpen]);
 
@@ -38,99 +32,39 @@ export default function InstructorModal({ isOpen, onClose, organizationId, proje
   };
 
   const fetchSchools = async () => {
-    const snapshot = await getDocs(collection(db, `organization/${organizationId}/projects/${projectId}/schools`));
+    const snapshot = await getDocs(
+      collection(db, `organization/${organizationId}/projects/${projectId}/schools`)
+    );
     const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     setSchools(data);
   };
 
-  const fetchCamps = async (schoolId) => {
-    const school = schools.find((s) => s.id === schoolId);
-    const campIds = school?.camps || [];
-    const campDocs = await Promise.all(
-      campIds.map(async (campId) => {
-        const snap = await getDoc(doc(db, `organization/${organizationId}/projects/${projectId}/camps`, campId));
-        return snap.exists() ? { id: snap.id, ...snap.data() } : null;
-      })
-    );
-    setCamps(campDocs.filter(Boolean));
-  };
-
   const handleChange = (field, value) => {
     setFormState((prev) => ({ ...prev, [field]: value }));
-    if (field === "school" && value) {
-      fetchCamps(value.value);
-    }
   };
 
   const handleSubmit = async () => {
-    const { instructor, school, camp } = formState;
+    const { instructor, school } = formState;
+
     if (!instructor || !school) {
       alert("Instructor and school are required.");
       return;
     }
 
-    const instructorRef = doc(db, "user", instructor.value);
-    const instructorSnap = await getDoc(instructorRef);
-    if (!instructorSnap.exists()) {
-      alert("Instructor not found.");
-      return;
+    try {
+      await assignInstructor({
+        instructorId: instructor.value,
+        organizationId,
+        projectId,
+        schoolId: school.value,
+        schools,
+      });
+
+      alert("Instructor assigned successfully.");
+      onClose();
+    } catch (error) {
+      alert(error.message || "Failed to assign instructor.");
     }
-
-    const instructorData = instructorSnap.data();
-    const schoolData = schools.find((s) => s.id === school.value);
-    const campData = camps.find((c) => c.id === camp?.value);
-
-    const schoolEntry = {
-      id: school.value,
-      name: schoolData?.name || "",
-      camps: camp ? [{ id: camp.value, name: campData?.name || "" }] : [],
-    };
-
-    const newOrg = {
-      id: organizationId,
-      name: "Organization",
-      projects: [
-        {
-          id: projectId,
-          name: "Project",
-          is_manager: false,
-          schools: [schoolEntry],
-        },
-      ],
-    };
-
-    const existingOrgs = instructorData.organizations || [];
-    const existingOrgIndex = existingOrgs.findIndex((org) => org.id === organizationId);
-
-    if (existingOrgIndex !== -1) {
-      const existingProjectIndex = existingOrgs[existingOrgIndex].projects.findIndex((proj) => proj.id === projectId);
-
-      if (existingProjectIndex !== -1) {
-        const schoolIndex = existingOrgs[existingOrgIndex].projects[existingProjectIndex].schools.findIndex((s) => s.id === school.value);
-        if (schoolIndex !== -1) {
-          if (camp) {
-            existingOrgs[existingOrgIndex].projects[existingProjectIndex].schools[schoolIndex].camps.push({
-              id: camp.value,
-              name: campData?.name || "",
-            });
-          }
-        } else {
-          existingOrgs[existingOrgIndex].projects[existingProjectIndex].schools.push(schoolEntry);
-        }
-      } else {
-        existingOrgs[existingOrgIndex].projects.push(newOrg.projects[0]);
-      }
-    } else {
-      existingOrgs.push(newOrg);
-    }
-
-    await updateDoc(instructorRef, {
-      organizations: existingOrgs,
-      lastUpdated: new Date().toISOString(),
-    });
-
-    alert("Instructor assigned successfully.");
-    onClose();
   };
 
   if (!isOpen) return null;
@@ -169,25 +103,19 @@ export default function InstructorModal({ isOpen, onClose, organizationId, proje
               className="text-sm text-gray-700"
             />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Assign Camp (optional)</label>
-            <Select
-              options={camps.map((c) => ({ value: c.id, label: c.name }))}
-              value={formState.camp}
-              onChange={(val) => handleChange("camp", val)}
-              styles={customStyles}
-              placeholder="Choose camp (optional)"
-              className="text-sm text-gray-700"
-            />
-          </div>
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-black bg-gray-100 hover:bg-gray-200 rounded"
+          >
             Cancel
           </button>
-          <button onClick={handleSubmit} className="px-4 py-2 text-sm bg-yellow-400 hover:bg-yellow-500 rounded font-semibold">
+          <button
+            onClick={handleSubmit}
+            className="px-4 py-2 text-sm text-black bg-yellow-400 hover:bg-yellow-500 rounded font-semibold"
+          >
             Assign
           </button>
         </div>
