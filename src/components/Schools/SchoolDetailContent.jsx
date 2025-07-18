@@ -82,7 +82,12 @@ export default function SchoolDetailContent({ school, organizationId, onSchoolUp
       <div className="mt-8">
         <div className="bg-white rounded-lg shadow-sm p-6">
           {chartData.length > 0 ? (
-            <ProjectCharts chartData={chartData} />
+            <div className="w-full max-w-full">
+                            <ProjectCharts
+                              chartData={project.learning_level_distribution || []}
+                              ageGenderData={project.age_gender_distribution || null}
+                            />
+                          </div>
           ) : (
             <div className="flex items-center justify-center h-64 text-gray-500 bg-gray-50 rounded-lg">
               <div className="text-center">

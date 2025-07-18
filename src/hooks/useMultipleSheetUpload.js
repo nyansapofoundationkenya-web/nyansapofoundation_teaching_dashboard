@@ -144,19 +144,26 @@ export function useMultiSheetUpload(organizationId) {
     for (let rowIndex = 0; rowIndex < studentRows.length; rowIndex++) {
       const row = studentRows[rowIndex]
 
-      const name = row[1]?.toString().trim()
-      const studentClass = row[2]?.toString().trim()
+      const fullName = row[1]?.toString().trim()
+      const gradeStr = row[2]?.toString().trim()
       const sex = row[3]?.toString().trim()
 
-      // Required: name, class, and sex
-      if (!name || !studentClass || !sex) continue
+      if (!fullName || !gradeStr || !sex) continue
 
       const baseline = row[4]?.toString().trim() || null
       const group = row[5]?.toString().trim() || cleanGroupName || null
 
+      const nameParts = fullName.split(" ")
+      const first_name = nameParts[0]
+      const last_name = nameParts.slice(1).join(" ") || ""
+
+      const grade = Number(gradeStr)
+      if (isNaN(grade)) continue
+
       const studentData = {
-        name,
-        class: studentClass,
+        first_name,
+        last_name,
+        grade,
         sex,
         baseline,
         group,
@@ -172,7 +179,8 @@ export function useMultiSheetUpload(organizationId) {
 
       studentsData.push({
         id: studentRef.id,
-        name,
+        first_name,
+        last_name,
         group,
         rowData: row,
       })
@@ -205,7 +213,8 @@ export function useMultiSheetUpload(organizationId) {
 
             attendanceBySession.get(sessionKey).students.push({
               studentId: student.id,
-              name: student.name,
+              first_name: student.first_name,
+              last_name: student.last_name,
               group: student.group,
               attended,
             })
@@ -225,7 +234,6 @@ export function useMultiSheetUpload(organizationId) {
       }
     })
 
-    // Update counts
     if (studentsCount > 0) {
       const schoolRef = doc(db, `organization/${organizationId}/projects/${projectId}/schools/${schoolId}`)
       const projectRef = doc(db, `organization/${organizationId}/projects/${projectId}`)

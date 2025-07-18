@@ -18,6 +18,7 @@ const Sidebar = ({ initialTitle, organizationId }) => {
     { name: "Projects", icon: <FiBookOpen size={20} />, path: `/dashboard/${organizationId}/projects` },
     { name: "Instructors", icon: <FiUserCheck size={20} />, path: `/dashboard/${organizationId}/instructors` },
     { name: "Schools", icon: <FiUsers size={20} />, path: `/dashboard/${organizationId}/schools` },
+    {name: "Analysis", icon: <FiUsers size={20}/>, path: `/dashboard/${organizationId}/analysis`},
     { name: "Settings", icon: <FiSettings size={20} />, path: `/dashboard/${organizationId}/settings` },
   ];
 
