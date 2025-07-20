@@ -84,8 +84,7 @@ export default function SchoolDetailContent({ school, organizationId, onSchoolUp
           {chartData.length > 0 ? (
             <div className="w-full max-w-full">
                             <ProjectCharts
-                              chartData={project.learning_level_distribution || []}
-                              ageGenderData={project.age_gender_distribution || null}
+                              chartData={school.learning_level_distribution || []}
                             />
                           </div>
           ) : (
