@@ -5,6 +5,7 @@ import { useSelector } from "react-redux";
 import { FiHome, FiBookOpen, FiUsers, FiUserCheck, FiSettings, FiLogOut } from "react-icons/fi";
 import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/icons/logo";
+import { FileAudio } from "lucide-react";
 
 const Sidebar = ({ initialTitle, organizationId }) => {
   const router = useRouter();
@@ -18,6 +19,7 @@ const Sidebar = ({ initialTitle, organizationId }) => {
     { name: "Projects", icon: <FiBookOpen size={20} />, path: `/dashboard/${organizationId}/projects` },
     { name: "Instructors", icon: <FiUserCheck size={20} />, path: `/dashboard/${organizationId}/instructors` },
     { name: "Schools", icon: <FiUsers size={20} />, path: `/dashboard/${organizationId}/schools` },
+    {name: "Moderations", icon:<FileAudio size={20}/>, path: `/dashboard/${organizationId}/moderations`},
     {name: "Analysis", icon: <FiUsers size={20}/>, path: `/dashboard/${organizationId}/analysis`},
     { name: "Settings", icon: <FiSettings size={20} />, path: `/dashboard/${organizationId}/settings` },
   ];

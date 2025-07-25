@@ -127,7 +127,7 @@ export default function StudentUploadModal({ isOpen, onClose, organizationId, pr
                   <strong>class</strong> - Student's class (number between 1 and 12)
                 </li>
                 <li>
-                  <strong>sex</strong> - Student's sex (male/female/other)
+                  <strong>gender</strong> - Student's sex (male/female/other)
                 </li>
                 <li>
                   <strong>baseline</strong> - Student's learning baseline (e.g., beginner, intermediate, advanced)
