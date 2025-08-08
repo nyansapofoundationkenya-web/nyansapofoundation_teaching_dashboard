@@ -9,7 +9,7 @@ export default function Signup() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#162947] text-white">
       <Logo />
       <div>
-        <h1 className="mb-5 font-semibold">Welcome, create your Organization account</h1>
+        <h1 className="mb-5 font-semibold">Welcome to Nyansapo Teaching Dashboard, create your Organization account</h1>
       </div>
 
       <SignupForm />
