@@ -319,7 +319,6 @@ export default function InstructorsPage() {
                   <tr className="bg-gray-100">
                     <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Name</th>
                     <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Email</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Phone</th>
                     <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Projects</th>
                     <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Manager</th>
                   </tr>

@@ -9,7 +9,7 @@ export default function Login() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#162947] text-white">
       <Logo />
       <div>
-        <h1 className="mb-5 font-semibold">Welcome Back to Nyansapo Teaching Dashboard Your Organization Portal</h1>
+        <h1 className="mb-5 font-semibold">Welcome Back to Nyansapo Teaching Your Organization Portal</h1>
       </div>
 
       <LoginForm />
