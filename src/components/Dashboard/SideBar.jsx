@@ -20,8 +20,8 @@ const Sidebar = ({ initialTitle, organizationId }) => {
     { name: "Instructors", icon: <FiUserCheck size={20} />, path: `/dashboard/${organizationId}/instructors` },
     { name: "Schools", icon: <FiUsers size={20} />, path: `/dashboard/${organizationId}/schools` },
     {name: "Moderations", icon:<FileAudio size={20}/>, path: `/dashboard/${organizationId}/moderations`},
-    {name: "Analysis", icon: <FiUsers size={20}/>, path: `/dashboard/${organizationId}/analysis`},
-    
+    // {name: "Analysis", icon: <FiUsers size={20}/>, path: `/dashboard/${organizationId}/analysis`},
+    // { name: "Settings", icon: <FiSettings size={20} />, path: `/dashboard/${organizationId}/settings` },
   ];
 
   useEffect(() => {
