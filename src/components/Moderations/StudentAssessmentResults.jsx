@@ -9,23 +9,17 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const router = useRouter(); // Fixed: added parentheses
+  const router = useRouter();
 
-  const handleResultsClick = (item, type, index) => {
-  const selectedItem = {
-    type,
-    content: item.content,
-    transcript: item.metadata?.transcript || "",
-    index,
-    audio_url: item.metadata?.audio_url || ""
+  const handleResultsClick = (result, type, filteredIndex) => {
+    // Calculate the original index in reading_results
+    const readingResults = results?.literacy_results?.reading_results || [];
+    const originalIndex = readingResults.findIndex((r) => r === result);
+
+    router.push(
+      `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?round=${originalIndex}`
+    );
   };
-
-  const searchParams = new URLSearchParams(selectedItem).toString();
-
-  router.push(
-    `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?${searchParams}`
-  );
-};
 
   const fetchStudentResults = async () => {
     try {
@@ -226,38 +220,33 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
       </div>
 
       {/* Comprehension Questions */}
-    <div className="mb-4">
-  <h2 className="text-xl font-semibold mb-4 text-yellow-300">
-    Comprehension Questions
-  </h2>
-  {results?.literacy_results?.multiple_choice_questions?.length > 0 ? (
-    results.literacy_results.multiple_choice_questions.map((question, index) => (
-      <div key={index} className="mb-4">
-        <p className="font-medium mb-2 text-gray-600">{question.question}</p>
-        <ul className="list-none pl-0 text-gray-500">
-          {question.options.map((option, optIndex) => (
-            <li
-              key={optIndex}
-              className={`flex items-center justify-between text-gray-600 ${
-                option === question.student_answer ? "font-bold" : ""
-              }`}
-            >
-              <span>{option}</span>
-              {option === question.student_answer && (
-                <span>{question.passed ? "✓" : "✗"}</span>
-              )}
-            </li>
-          ))}
-        </ul>
+      <div className="mb-4">
+        <h2 className="text-xl font-semibold mb-4 text-yellow-300">Comprehension Questions</h2>
+        {results?.literacy_results?.multiple_choice_questions?.length > 0 ? (
+          results.literacy_results.multiple_choice_questions.map((question, index) => (
+            <div key={index} className="mb-4">
+              <p className="font-medium mb-2 text-gray-600">{question.question}</p>
+              <ul className="list-none pl-0 text-gray-500">
+                {question.options.map((option, optIndex) => (
+                  <li
+                    key={optIndex}
+                    className={`flex items-center justify-between text-gray-600 ${
+                      option === question.student_answer ? "font-bold" : ""
+                    }`}
+                  >
+                    <span>{option}</span>
+                    {option === question.student_answer && (
+                      <span>{question.passed ? "✓" : "✗"}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        ) : (
+          <div className="text-gray-500">No comprehension questions available</div>
+        )}
       </div>
-    ))
-  ) : (
-    <div className="text-gray-500">No comprehension questions available</div>
-  )}
-</div>
-
-
-
     </div>
   );
 }
