@@ -521,7 +521,7 @@ export default function AudioModerationPage() {
                             type="text"
                             value={editedTranscript}
                             onChange={(e) => setEditedTranscript(e.target.value)}
-                            className="w-full p-2 border rounded max-w-full"
+                            className="w-full p-2 border rounded max-w-full text-gray-600"
                             placeholder="Enter transcript"
                           />
                           {error && <p className="text-red-500 text-sm mt-2 max-w-full break-words">{error}</p>}
