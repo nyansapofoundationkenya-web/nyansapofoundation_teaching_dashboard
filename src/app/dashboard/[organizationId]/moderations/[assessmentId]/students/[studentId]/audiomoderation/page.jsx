@@ -30,9 +30,9 @@ export default function AudioModerationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Helper function to check if a result is moderated
+  // Helper function to check if a result is moderated (has modeltranscriptionverified)
   const isResultModerated = (result) => {
-    return result.metadata?.badaudio !== undefined;
+    return result.metadata?.modeltranscriptionverified === true;
   };
 
   // Helper function to get next unmoderated index
@@ -244,10 +244,13 @@ export default function AudioModerationPage() {
         ...updatedResult,
       };
 
-      // Check if all results are validated
-      const allValidated = areAllResultsModerated(updatedData.literacy_results.reading_results);
-      if (allValidated) {
+      // Check if all results have modeltranscriptionverified set to true
+      const allVerified = areAllResultsModerated(updatedData.literacy_results.reading_results);
+      if (allVerified) {
         updatedData.verified = true;
+      } else {
+        // If not all are verified, make sure verified is false
+        updatedData.verified = false;
       }
 
       setAssessmentData(updatedData);
@@ -265,8 +268,8 @@ export default function AudioModerationPage() {
   const handleBadAudio = () => {
     setValidationStatus("bad_audio");
     updateAssessmentResult({
-      passed: false,
       badaudio: true,
+      modeltranscriptionverified: true,
     });
   };
 
@@ -275,6 +278,7 @@ export default function AudioModerationPage() {
     updateAssessmentResult({
       passed: true,
       badaudio: false,
+      modeltranscriptionverified: true,
     });
   };
 
@@ -287,9 +291,17 @@ export default function AudioModerationPage() {
       setError("Transcript cannot be empty");
       return;
     }
+    
+    // Save original transcript if it doesn't exist
+    const currentResult = assessmentData.literacy_results.reading_results[currentIndex];
+    const originalTranscript = currentResult.metadata?.transcript || "";
+    
     await updateAssessmentResult({
       transcript: editedTranscript,
+      originalmodeltranscript: originalTranscript,
+      modeltranscriptionverified: true,
     });
+    
     setEditMode(false);
     setError(null);
   };
