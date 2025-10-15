@@ -94,19 +94,19 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
   if (!results) return <div>No data available</div>;
 
   const letterResults = results?.literacy_results?.reading_results?.filter(
-    (result) => result.type === "Letter Recognition"
+    (result) => result?.metadata?.type === "Letter" || result?.type === "Letter"
   ) || [];
 
   const wordResults = results?.literacy_results?.reading_results?.filter(
-    (result) => result.type === "Word"
+    (result) => result?.metadata?.type === "Word"|| result?.type === "Word"
   ) || [];
 
   const paragraphResults = Array.isArray(results?.literacy_results?.reading_results)
-    ? results.literacy_results.reading_results.filter((r) => r.type === "Paragraph")
+    ? results.literacy_results.reading_results.filter((r) => r?.metadata?.type === "Paragraph" || r?.type === "Paragraph")
     : [];
 
   const storyResults = Array.isArray(results?.literacy_results?.reading_results)
-    ? results.literacy_results.reading_results.filter((r) => r.type === "Story")
+    ? results.literacy_results.reading_results.filter((r) => r?.metadata?.type === "Story" || r?.type === "Story")
     : [];
 
   return (
