@@ -10,7 +10,11 @@ import AssessmentList from "@/components/Moderations/AssessmentList"
 
 export default function ModerationsPage() {
   const { organizationId } = useParams()
-  const [filters, setFilters] = useState({ projectId: null, schoolId: null })
+  const [filters, setFilters] = useState({ 
+    projectId: null, 
+    schoolId: null,
+    date: "" // Add date to filters
+  })
   const [searchQuery, setSearchQuery] = useState("")
 
   const handleFilterChange = (newFilters) => {
@@ -44,7 +48,11 @@ export default function ModerationsPage() {
           </div>
 
           {/* Assessment List */}
-          <AssessmentList organizationId={organizationId} filters={filters} searchQuery={searchQuery} />
+          <AssessmentList 
+            organizationId={organizationId} 
+            filters={filters} 
+            searchQuery={searchQuery} 
+          />
         </main>
       </div>
     </div>

@@ -10,7 +10,7 @@ import {
   deleteUser,
   RecaptchaVerifier,
 } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import Cookies from "js-cookie";
 import { parsePhoneNumber } from "libphonenumber-js";
 import { auth, db } from "@/firebase/config";
@@ -127,6 +127,7 @@ export function useAuth() {
         email,
         phone,
         name,
+        role: "teacher", // Add default role here
         createdAt: new Date().toISOString(),
       });
 
@@ -215,6 +216,48 @@ export function useAuth() {
     }
   };
 
+  // Fetch user by ID from Firestore
+  const fetchUserById = async (userId) => {
+    setError(null);
+    try {
+      if (!userId) {
+        throw new Error("User ID is required");
+      }
+
+      const userRef = doc(db, "user", userId);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        throw new Error("User not found");
+      }
+
+      return {
+        id: userSnap.id,
+        ...userSnap.data()
+      };
+    } catch (err) {
+      console.error("Fetch user error:", err);
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  // Fetch current user's profile data from Firestore
+  // const fetchCurrentUserProfile = async () => {
+  //   setError(null);
+  //   try {
+  //     if (!currentUser) {
+  //       throw new Error("No user is currently logged in");
+  //     }
+
+  //     return await fetchUserById(currentUser.uid);
+  //   } catch (err) {
+  //     console.error("Fetch current user profile error:", err);
+  //     setError(err.message);
+  //     throw err;
+  //   }
+  // };
+
   return {
     currentUser,
     loading,
@@ -226,5 +269,7 @@ export function useAuth() {
     verifyPhoneLoginCode,
     handleLogout,
     confirmationResult,
+    fetchUserById, // Add the new function to the return object
+    // fetchCurrentUserProfile, // Add convenience function for current user
   };
 }

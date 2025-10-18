@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Sidebar from "@/components/Dashboard/SideBar";
 import { useInstructors } from "@/hooks/useInstructors";
-import { Search } from "lucide-react";
+import { useInstructorActions } from "@/hooks/useInstructorActions";
+import { Search, MoreVertical, Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import InstructorModal from "@/components/Instructors/InstructorsModal";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/firebase/config";
@@ -12,7 +13,13 @@ import { FiMenu, FiX } from "react-icons/fi";
 
 export default function InstructorsPage() {
   const { organizationId } = useParams();
-  const { instructors, loading, error } = useInstructors(organizationId);
+  const { instructors, loading, error, refetchInstructors } = useInstructors(organizationId);
+  const { 
+    loading: actionLoading, 
+    error: actionError, 
+    deleteInstructor 
+  } = useInstructorActions();
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedInstructor, setSelectedInstructor] = useState(null);
@@ -22,19 +29,11 @@ export default function InstructorsPage() {
   const [fetchError, setFetchError] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-
-  const fetchCampsByIds = async (projectId, campIds) => {
-    try {
-      const campRef = collection(db, `organization/${organizationId}/projects/${projectId}/camps`);
-      const snapshot = await getDocs(campRef);
-      return snapshot.docs
-        .filter((doc) => campIds.includes(doc.id))
-        .map((doc) => ({ id: doc.id, ...doc.data() }));
-    } catch (err) {
-      console.error("Error fetching camps:", err);
-      return [];
-    }
-  };
+  const [actionMenuOpen, setActionMenuOpen] = useState(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -62,7 +61,6 @@ export default function InstructorsPage() {
               schoolSnapshot.docs.map((doc) => ({
                 id: doc.id,
                 name: doc.data().name || `School ${doc.id.slice(0, 8)}`,
-                camps: doc.data().camps || [],
                 projectId,
               }))
             );
@@ -109,19 +107,67 @@ export default function InstructorsPage() {
   };
 
   const filteredInstructors = instructors.filter((instructor) =>
-    instructor.name.toLowerCase().includes(searchTerm.toLowerCase())
+    instructor.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleAddInstructor = (instructorId) => {
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredInstructors.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentInstructors = filteredInstructors.slice(startIndex, endIndex);
+
+  const handleUpdateInstructor = (instructorId) => {
     console.log("Instructor updated with ID:", instructorId);
     setSelectedInstructor(null);
     setIsModalOpen(false);
+    refetchInstructors();
   };
 
   const handleEditInstructor = (instructor) => {
     setSelectedInstructor(instructor);
     setIsModalOpen(true);
+    setActionMenuOpen(null);
   };
+
+  const handleDeleteInstructor = async (instructorId) => {
+    if (!confirm('Are you sure you want to delete this instructor? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await deleteInstructor(instructorId);
+      setActionMenuOpen(null);
+      refetchInstructors();
+      alert('Instructor deleted successfully!');
+    } catch (err) {
+      alert(`Error deleting instructor: ${err.message}`);
+    }
+  };
+
+  // Pagination handlers
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    setActionMenuOpen(null);
+  };
+
+  const handleItemsPerPageChange = (value) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
+    setActionMenuOpen(null);
+  };
+
+  // Close action menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Check if click is outside the action menu
+      if (actionMenuOpen && !event.target.closest('.action-menu-container')) {
+        setActionMenuOpen(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [actionMenuOpen]);
 
   if (isLoadingData) {
     return (
@@ -285,78 +331,183 @@ export default function InstructorsPage() {
                   <FiMenu className="w-5 h-5 text-indigo-600" />
                 </button>
               )}
-              <h1 className="text-2xl font-bold text-gray-800">Instructors</h1>
+              <h1 className="text-2xl font-bold text-gray-800">Instructors Management</h1>
             </div>
-            <button
-              onClick={() => {
-                setSelectedInstructor(null);
-                setIsModalOpen(true);
-              }}
-              className="text-sm px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded"
-            >
-              Add Instructor
-            </button>
           </div>
 
-          <div className="relative w-full max-w-md">
-            <input
-              type="text"
-              placeholder="Search instructors by name..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-            />
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+            {/* Search Input - Improved Visibility */}
+            <div className="relative w-full sm:w-auto sm:max-w-md">
+              <input
+                type="text"
+                placeholder="Search instructors by name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg 
+                          focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400
+                          bg-white text-gray-900 placeholder-gray-500"
+              />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+            </div>
+
+            {/* Items per page selector - Improved Visibility */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-700 font-medium">Show:</label>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => handleItemsPerPageChange(e.target.value)}
+                className="border border-gray-300 rounded px-3 py-2 text-sm 
+                          focus:outline-none focus:ring-1 focus:ring-yellow-400 focus:border-yellow-400
+                          bg-white text-gray-900 cursor-pointer"
+              >
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+              <span className="text-sm text-gray-700">per page</span>
+            </div>
           </div>
 
           {loading && <p className="text-gray-500">Loading instructors...</p>}
           {error && <p className="text-red-500">{error}</p>}
+          {actionError && <p className="text-red-500">{actionError}</p>}
 
           {!loading && !error && (
-            <div className="overflow-x-auto">
-              <table className="min-w-full bg-white border rounded-lg">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Name</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Email</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Projects</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Manager</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredInstructors.length > 0 ? (
-                    filteredInstructors.map((instructor) => {
-                      const org = instructor.organizations?.find((org) => org.id === organizationId);
-                      const isManager = org?.projects?.some((project) => project.is_manager) || false;
-
-                      return (
-                        <tr
-                          key={instructor.uid}
-                          className="border-t cursor-pointer hover:bg-gray-100"
-                          onClick={() => handleEditInstructor(instructor)}
-                        >
-                          <td className="px-4 py-2 text-sm text-gray-600">{instructor.name}</td>
-                          <td className="px-4 py-2 text-sm text-gray-600">{instructor.email}</td>
-                          <td className="px-4 py-2 text-sm text-gray-600">{instructor.phone}</td>
-                          <td className="px-4 py-2 text-sm text-gray-600">
-                            {org?.projects?.map((project) => project.name).join(", ") || "None"}
+            <>
+              <div className="overflow-x-auto bg-white rounded-lg shadow">
+                <table className="min-w-full">
+                  <thead>
+                    <tr className="bg-gray-100 border-b">
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Name</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Role</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Organizations</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Projects</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Schools</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentInstructors.length > 0 ? (
+                      currentInstructors.map((instructor) => (
+                        <tr key={instructor.uid} className="border-b hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                            {instructor.name || 'N/A'}
                           </td>
-                          <td className="px-4 py-2 text-sm text-gray-600">
-                            {isManager ? "Yes" : "No"}
+                          <td className="px-4 py-3 text-sm">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              instructor.role === 'admin' 
+                                ? 'bg-purple-100 text-purple-800' 
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {instructor.role || 'teacher'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            <div className="flex justify-center">
+                              <span className="font-semibold text-lg">{instructor.orgCount || 0}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            <div className="flex justify-center">
+                              <span className="font-semibold text-lg">{instructor.projectCount || 0}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            <div className="flex justify-center">
+                              <span className="font-semibold text-lg">{instructor.schoolCount || 0}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            <div className="relative action-menu-container">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActionMenuOpen(actionMenuOpen === instructor.uid ? null : instructor.uid);
+                                }}
+                                className="p-2 rounded hover:bg-yellow-100 text-yellow-600 hover:text-yellow-700 transition-colors"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                              
+                              {actionMenuOpen === instructor.uid && (
+                                <div 
+                                  className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-50 border border-yellow-200"
+                                >
+                                  <button
+                                    onClick={() => handleEditInstructor(instructor)}
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 transition-colors border-b border-gray-100"
+                                  >
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    Update Assignment
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteInstructor(instructor.uid)}
+                                    className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </td>
                         </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan="5" className="px-4 py-2 text-center text-sm text-gray-500">
-                        No instructors found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                          No instructors found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t">
+                  <div className="text-sm text-gray-600">
+                    Showing {startIndex + 1} to {Math.min(endIndex, filteredInstructors.length)} of {filteredInstructors.length} instructors
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="p-2 rounded border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-yellow-50 hover:border-yellow-300 transition-colors"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    
+                    <div className="flex gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        <button
+                          key={page}
+                          onClick={() => handlePageChange(page)}
+                          className={`px-3 py-1 text-sm rounded border ${
+                            currentPage === page
+                              ? 'bg-yellow-500 text-white border-yellow-500 font-semibold'
+                              : 'border-gray-300 hover:bg-yellow-50 hover:border-yellow-300 text-gray-700'
+                          } transition-colors`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                    </div>
+                    
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="p-2 rounded border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-yellow-50 hover:border-yellow-300 transition-colors"
+                    >
+                     <ChevronRight className="w-4 h-4 text-gray-800" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           <InstructorModal
@@ -365,10 +516,8 @@ export default function InstructorsPage() {
               setIsModalOpen(false);
               setSelectedInstructor(null);
             }}
-            onSubmit={handleAddInstructor}
+            onSubmit={handleUpdateInstructor}
             schools={initialSchools}
-            projectId={organizationId}
-            fetchCampsByIds={fetchCampsByIds}
             organizations={initialOrganizations}
             selectedInstructor={selectedInstructor}
             organizationId={organizationId}

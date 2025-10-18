@@ -7,6 +7,7 @@ import Sidebar from "@/components/Dashboard/SideBar"
 import Search from "@/components/Assessments/Search"
 import GradeFilter from "@/components/Assessments/GradeFIlter"
 import StudentsList from "@/components/Assessments/StudentsList"
+import StudentMetrics from "@/components/Assessments/StudentMetrics"
 import { db } from "@/firebase/config"
 import { doc, getDoc } from "firebase/firestore" 
 
@@ -52,13 +53,31 @@ export default function AssessmentDetailsPage() {
     setGradeFilter(grade)
   }
 
+  // Filter students based on search and grade filter
+  const filteredStudents = assessment?.assigned_students?.filter(student => {
+    const matchesSearch = `${student.first_name} ${student.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesGrade = gradeFilter === "All Grades" || String(student.grade) === gradeFilter
+    return matchesSearch && matchesGrade
+  }) || []
+
   if (loading) return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar organizationId={organizationId} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6 bg-gray-50 flex items-center justify-center">
-          <div>Loading assessment data...</div>
+        <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
+          {/* Show skeleton metrics while loading */}
+          <StudentMetrics loading={true} />
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="animate-pulse">
+              <div className="h-6 bg-gray-200 rounded w-48 mb-4"></div>
+              <div className="space-y-3">
+                {[...Array(5)].map((_, index) => (
+                  <div key={index} className="h-12 bg-gray-200 rounded"></div>
+                ))}
+              </div>
+            </div>
+          </div>
         </main>
       </div>
     </div>
@@ -87,13 +106,6 @@ export default function AssessmentDetailsPage() {
       </div>
     </div>
   )
-
-  // Filter students based on search and grade filter
-  const filteredStudents = assessment.assigned_students?.filter(student => {
-  const matchesSearch = `${student.first_name} ${student.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
-  const matchesGrade = gradeFilter === "All Grades" || String(student.grade) === gradeFilter
-  return matchesSearch && matchesGrade
-}) || []
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -124,6 +136,12 @@ export default function AssessmentDetailsPage() {
               </div>
             </div>
           </div>
+
+          {/* Student Metrics Section */}
+          <StudentMetrics 
+            students={filteredStudents} 
+            loading={loading}
+          />
 
           {/* Students List Section */}
           <div className="bg-white rounded-lg shadow p-6">

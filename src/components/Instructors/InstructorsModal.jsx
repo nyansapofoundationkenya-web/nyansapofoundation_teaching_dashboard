@@ -11,25 +11,19 @@ export default function InstructorModal({
   onClose,
   onSubmit,
   schools: initialSchools,
-  projectId: initialProjectId,
-  fetchCampsByIds,
   organizations: initialOrganizations,
   selectedInstructor,
   organizationId,
 }) {
   const [formState, setFormState] = useState({
-    name: "",
-    email: "",
-    phone: "",
+    name: "", // Keep name for display only
     organization: null,
     project: null,
-    school: null,
-    camp: null,
+    schools: [],
   });
   const [orgOptions, setOrgOptions] = useState([]);
   const [projectOptions, setProjectOptions] = useState([]);
   const [schoolOptions, setSchoolOptions] = useState([]);
-  const [campOptions, setCampOptions] = useState([]);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [fetchError, setFetchError] = useState(null);
   const { updateInstructor, loading, error } = useInstructors(organizationId);
@@ -38,17 +32,13 @@ export default function InstructorModal({
     if (!isOpen) {
       setFormState({
         name: "",
-        email: "",
-        phone: "",
         organization: null,
         project: null,
-        school: null,
-        camp: null,
+        schools: [],
       });
       setOrgOptions([]);
       setProjectOptions([]);
       setSchoolOptions([]);
-      setCampOptions([]);
       setFetchError(null);
       return;
     }
@@ -63,17 +53,13 @@ export default function InstructorModal({
     if (selectedInstructor) {
       const org = selectedInstructor.organizations?.find((org) => org.id === organizationId) || null;
       const project = org?.projects?.[0] || null;
-      const school = project?.schools?.[0] || null;
-      const camp = school?.camps?.[0] || null;
+      const schools = project?.schools || [];
 
       setFormState({
         name: selectedInstructor.name || "",
-        email: selectedInstructor.email || "",
-        phone: selectedInstructor.phone || "",
         organization: org ? { value: org.id, label: org.name } : null,
         project: project ? { value: project.id, label: project.name } : null,
-        school: school ? { value: school.id, label: school.name } : null,
-        camp: camp ? { value: camp.id, label: camp.name } : null,
+        schools: schools.map(school => ({ value: school.id, label: school.name })),
       });
 
       if (org) {
@@ -84,26 +70,19 @@ export default function InstructorModal({
 
   const handleChange = (name, value) => {
     setFormState((prev) => ({ ...prev, [name]: value }));
+    
     if (name === "organization") {
       setProjectOptions([]);
       setSchoolOptions([]);
-      setCampOptions([]);
-      setFormState((prev) => ({ ...prev, project: null, school: null, camp: null }));
+      setFormState((prev) => ({ ...prev, project: null, schools: [] }));
       if (value) {
         fetchProjects(value.value);
       }
     } else if (name === "project") {
       setSchoolOptions([]);
-      setCampOptions([]);
-      setFormState((prev) => ({ ...prev, school: null, camp: null }));
+      setFormState((prev) => ({ ...prev, schools: [] }));
       if (value) {
         fetchSchools(value.value);
-      }
-    } else if (name === "school") {
-      setCampOptions([]);
-      setFormState((prev) => ({ ...prev, camp: null }));
-      if (value) {
-        updateCampOptions(value.value);
       }
     }
   };
@@ -117,19 +96,17 @@ export default function InstructorModal({
       const orgSnap = await getDoc(orgRef);
       if (orgSnap.exists()) {
         const orgData = orgSnap.data();
-        // console.log("Fetched orgData:", orgData);
+        
         if (!orgData.projects || !Array.isArray(orgData.projects)) {
-          // console.warn("Projects field is missing or not an array:", orgData.projects);
           setProjectOptions([]);
           setFetchError("No projects found for this organization.");
           return;
         }
 
-        // Fetch project documents using UIDs
         const projectRef = collection(db, `organization/${orgId}/projects`);
         const projectSnap = await getDocs(projectRef);
         const projects = projectSnap.docs
-          .filter((doc) => orgData.projects.includes(doc.id)) // Only include projects in orgData.projects
+          .filter((doc) => orgData.projects.includes(doc.id))
           .map((doc) => ({
             id: doc.id,
             name: doc.data().name || `Project ${doc.id.slice(0, 8)}`,
@@ -158,38 +135,19 @@ export default function InstructorModal({
     setLoadingOptions(true);
     setFetchError(null);
     try {
-      const projectRef = doc(db, `organization/${formState.organization.value}/projects`, projectId);
-      const projectSnap = await getDoc(projectRef);
-      if (projectSnap.exists()) {
-        const projectData = projectSnap.data();
-        // console.log("Fetched projectData:", projectData);
-        if (!projectData.schools || !Array.isArray(projectData.schools)) {
-          // console.warn("Schools field is missing or not an array:", projectData.schools);
-          setSchoolOptions([]);
-          setFetchError("No schools found for this project.");
-          return;
-        }
+      const schoolRef = collection(db, `organization/${formState.organization.value}/projects/${projectId}/schools`);
+      const schoolSnap = await getDocs(schoolRef);
+      const schools = schoolSnap.docs.map((doc) => ({
+        id: doc.id,
+        name: doc.data().name || `School ${doc.id.slice(0, 8)}`,
+      }));
 
-        // Fetch school documents using UIDs
-        const schoolRef = collection(db, `organization/${formState.organization.value}/projects/${projectId}/schools`);
-        const schoolSnap = await getDocs(schoolRef);
-        const schools = schoolSnap.docs
-          .filter((doc) => projectData.schools.includes(doc.id))
-          .map((doc) => ({
-            id: doc.id,
-            name: doc.data().name || `School ${doc.id.slice(0, 8)}`,
-          }));
-
-        setSchoolOptions(
-          schools.map((school) => ({
-            value: school.id,
-            label: school.name,
-          }))
-        );
-      } else {
-        setSchoolOptions([]);
-        setFetchError("Project not found.");
-      }
+      setSchoolOptions(
+        schools.map((school) => ({
+          value: school.id,
+          label: school.name,
+        }))
+      );
     } catch (err) {
       console.error("Error fetching schools:", err);
       setFetchError("Failed to load schools.");
@@ -198,62 +156,28 @@ export default function InstructorModal({
     }
   };
 
-  const updateCampOptions = async (selectedSchoolId) => {
-    if (!selectedSchoolId || !formState.project?.value) return;
-    setLoadingOptions(true);
-    setFetchError(null);
-    try {
-      const schoolRef = doc(db, `organization/${formState.organization.value}/projects/${formState.project.value}/schools`, selectedSchoolId);
-      const schoolSnap = await getDoc(schoolRef);
-      if (schoolSnap.exists()) {
-        const schoolData = schoolSnap.data();
-        // console.log("Fetched schoolData:", schoolData);
-        const campIds = schoolData.camps?.filter((id) => id) || [];
-        if (campIds.length > 0) {
-          const camps = await fetchCampsByIds(formState.project.value, campIds);
-          // console.log("Fetched camps:", camps);
-          setCampOptions(
-            camps
-              .filter((camp) => camp && camp.id)
-              .map((camp) => ({
-                value: camp.id,
-                label: camp.name || `Camp ${camp.id.slice(0, 8)}`,
-              }))
-          );
-        } else {
-          setCampOptions([]);
-        }
-      } else {
-        setCampOptions([]);
-        setFetchError("School not found.");
-      }
-    } catch (err) {
-      console.error("Error fetching camps:", err);
-      setFetchError("Failed to load camps.");
-    } finally {
-      setLoadingOptions(false);
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formState.name || !formState.email || !formState.phone) {
-      alert("Name, email, and phone are required.");
+    if (!formState.name) {
+      alert("Instructor name is required.");
+      return;
+    }
+
+    if (!formState.organization || !formState.project || formState.schools.length === 0) {
+      alert("Please select organization, project, and at least one school.");
       return;
     }
 
     try {
+      const schoolIds = formState.schools.map(school => school.value);
       const result = await updateInstructor(
-        selectedInstructor?.id,
-        formState.organization?.value || null,
-        formState.project?.value || null,
-        formState.school?.value || null,
-        formState.camp?.value || null,
+        selectedInstructor?.uid,
+        formState.organization.value,
+        formState.project.value,
+        schoolIds,
         {
           name: formState.name,
-          email: formState.email,
-          phone: formState.phone,
-          isManager: false,
+          // Email and phone removed for privacy
         }
       );
       if (result.success) {
@@ -262,7 +186,7 @@ export default function InstructorModal({
       }
     } catch (err) {
       console.error("Error updating instructor:", err);
-      alert("Failed to update instructor.");
+      alert("Failed to update instructor assignment.");
     }
   };
 
@@ -279,10 +203,13 @@ export default function InstructorModal({
       fontSize: "14px",
       fontWeight: "400",
     }),
-    singleValue: (provided) => ({
+    multiValue: (provided) => ({
+      ...provided,
+      backgroundColor: "#fef08a",
+    }),
+    multiValueLabel: (provided) => ({
       ...provided,
       color: "#1f2937",
-      fontSize: "14px",
       fontWeight: "500",
     }),
     menu: (provided) => ({
@@ -315,7 +242,7 @@ export default function InstructorModal({
               ×
             </button>
             <h2 className="text-xl text-gray-800 font-bold">
-              {selectedInstructor ? "Update Instructor" : "Add Instructor"}
+              Update Instructor Assignment
             </h2>
           </div>
 
@@ -331,7 +258,7 @@ export default function InstructorModal({
               className="text-sm px-4 py-1 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded"
               disabled={loading || loadingOptions}
             >
-              {loading || loadingOptions ? "Submitting..." : selectedInstructor ? "Update" : "Submit"}
+              {loading || loadingOptions ? "Updating..." : "Update Assignment"}
             </button>
           </div>
         </div>
@@ -339,47 +266,21 @@ export default function InstructorModal({
         <form className="space-y-5 flex-1">
           <div className="text-left">
             <label className="text-sm font-medium block mb-1 text-gray-800">
-              Instructor Name <span className="text-red-500">*</span>
+              Instructor Name
             </label>
             <input
               type="text"
               name="name"
               value={formState.name}
               onChange={(e) => handleChange("name", e.target.value)}
-              placeholder="Enter instructor name"
+              placeholder="Instructor name"
               required
-              className="w-full border border-gray-300 rounded px-3 py-2 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+              disabled // Make it read-only since we're not allowing editing of personal info
+              className="w-full border border-gray-300 rounded px-3 py-2 text-gray-800 placeholder-gray-500 bg-gray-100 cursor-not-allowed"
             />
-          </div>
-
-          <div className="text-left">
-            <label className="text-sm font-medium block mb-1 text-gray-800">
-              Email <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={formState.email}
-              onChange={(e) => handleChange("email", e.target.value)}
-              placeholder="example@gmail.com"
-              required
-              className="w-full border border-gray-300 rounded px-3 py-2 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-            />
-          </div>
-
-          <div className="text-left">
-            <label className="text-sm font-medium block mb-1 text-gray-800">
-              Phone no. <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              name="phone"
-              value={formState.phone}
-              onChange={(e) => handleChange("phone", e.target.value)}
-              placeholder="+254796175283"
-              required
-              className="w-full border border-gray-300 rounded px-3 py-2 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-            />
+            <p className="text-xs text-gray-500 mt-1">
+              Name is displayed for reference only
+            </p>
           </div>
 
           <div className="text-left">
@@ -420,39 +321,26 @@ export default function InstructorModal({
 
           <div className="text-left">
             <label className="text-sm font-medium block mb-1 text-gray-800">
-              Assign School
+              Assign Schools (Multiple)
             </label>
             <Select
-              name="school"
+              name="schools"
               options={schoolOptions}
-              value={formState.school}
-              onChange={(value) => handleChange("school", value)}
+              value={formState.schools}
+              onChange={(value) => handleChange("schools", value)}
               className="basic-multi-select"
               classNamePrefix="select"
               styles={customSelectStyles}
-              placeholder={loadingOptions ? "Loading schools..." : "Select a school"}
+              placeholder={loadingOptions ? "Loading schools..." : "Select schools"}
               isDisabled={!formState.project || loadingOptions}
+              isMulti
               isClearable
             />
+            <p className="text-xs text-gray-500 mt-1">
+              You can select multiple schools for this instructor
+            </p>
           </div>
 
-          <div className="text-left">
-            <label className="text-sm font-medium block mb-1 text-gray-800">
-              Assign Camp
-            </label>
-            <Select
-              name="camp"
-              options={campOptions.length > 0 ? campOptions : [{ value: "", label: "No camps available", isDisabled: true }]}
-              value={formState.camp}
-              onChange={(value) => handleChange("camp", value)}
-              className="basic-multi-select"
-              classNamePrefix="select"
-              styles={customSelectStyles}
-              placeholder={loadingOptions ? "Loading camps..." : "Select a camp"}
-              isDisabled={!formState.school || loadingOptions}
-              isClearable
-            />
-          </div>
           {fetchError && <p className="text-red-500 text-sm">{fetchError}</p>}
           {error && <p className="text-red-500 text-sm">{error}</p>}
         </form>

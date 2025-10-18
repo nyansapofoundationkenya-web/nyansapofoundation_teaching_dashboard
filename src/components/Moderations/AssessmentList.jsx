@@ -10,11 +10,11 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
   const [assessments, setAssessments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const router =useRouter();
+  const router = useRouter();
 
   useEffect(() => {
     fetchAssessments()
-  }, [organizationId, filters])
+  }, [organizationId, filters.projectId, filters.schoolId]) // Remove filters.date from dependency to avoid refetching
 
   const fetchAssessments = async () => {
     try {
@@ -78,8 +78,27 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
     return ""
   }
 
-  // Filter assessments based on search query
+  // Helper function to check if assessment matches date filter
+  const matchesDateFilter = (assessment) => {
+    if (!filters.date) return true
+    
+    try {
+      const assessmentDate = new Date(assessment.created_at).toISOString().split('T')[0]
+      return assessmentDate === filters.date
+    } catch (error) {
+      console.error("Error parsing assessment date:", error)
+      return true // If there's an error parsing date, include the assessment
+    }
+  }
+
+  // Filter assessments based on search query and date
   const filteredAssessments = assessments.filter((assessment) => {
+    // Apply date filter first
+    if (!matchesDateFilter(assessment)) {
+      return false
+    }
+
+    // Then apply search filter
     if (!searchQuery) return true
 
     const searchLower = searchQuery.toLowerCase()
@@ -91,7 +110,7 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
     )
   })
 
-   const handleViewDetails = (assessmentId) => {
+  const handleViewDetails = (assessmentId) => {
     router.push(`/dashboard/${organizationId}/moderations/${assessmentId}`)
   }
 
@@ -136,10 +155,15 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
       <div className="text-center py-12">
         <div className="text-gray-400 mb-2">No assessments found</div>
         <div className="text-sm text-gray-500">
-          {searchQuery || filters.projectId || filters.schoolId
+          {searchQuery || filters.projectId || filters.schoolId || filters.date
             ? "Try adjusting your filters or search query"
             : "No assessments available for this organization"}
         </div>
+        {filters.date && (
+          <div className="text-xs text-gray-400 mt-2">
+            Showing assessments from: {new Date(filters.date).toLocaleDateString()}
+          </div>
+        )}
       </div>
     )
   }
@@ -162,7 +186,6 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
                   {safeRenderText(assessment.type)}
                 </span>
               )}
-              
             </div>
 
             <div className="space-y-3 mb-6">
@@ -174,6 +197,11 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
                 <UserCheck className="w-4 h-4" />
                 <span className="text-sm">6 Instructors</span>
               </div>
+              {assessment.created_at && (
+                <div className="flex items-center gap-2 text-xs text-white/80">
+                  <span>Created: {new Date(assessment.created_at).toLocaleDateString()}</span>
+                </div>
+              )}
             </div>
 
             <button
