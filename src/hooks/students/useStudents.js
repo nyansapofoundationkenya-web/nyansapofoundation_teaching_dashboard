@@ -7,6 +7,7 @@ import {
   getDoc,
   updateDoc,
   deleteDoc,
+  setDoc,
   query,
   where 
 } from "firebase/firestore";
@@ -36,7 +37,6 @@ export function useStudents(organizationId, projectId, schoolId) {
       const studentsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        // Ensure we have both first_name/last_name and name for compatibility
         displayName: doc.data().first_name && doc.data().last_name 
           ? `${doc.data().first_name} ${doc.data().last_name}`
           : doc.data().name || 'Unknown Student'
@@ -51,9 +51,9 @@ export function useStudents(organizationId, projectId, schoolId) {
     }
   }, [organizationId, projectId, schoolId]);
 
-  // Check for duplicate students (same first and last name)
-  const checkDuplicateStudent = useCallback(async (firstName, lastName, excludeStudentId = null) => {
-    if (!organizationId || !projectId || !schoolId || !firstName || !lastName) {
+  // Enhanced duplicate check: first name + last name + grade + gender
+  const checkDuplicateStudent = useCallback(async (firstName, lastName, grade, gender, excludeStudentId = null) => {
+    if (!organizationId || !projectId || !schoolId || !firstName || !lastName || !grade || !gender) {
       return false;
     }
 
@@ -63,19 +63,20 @@ export function useStudents(organizationId, projectId, schoolId) {
         `organization/${organizationId}/projects/${projectId}/schools/${schoolId}/students`
       );
       
-      // Query for students with same first and last name
-      const firstNameQuery = query(studentsRef, where("first_name", "==", firstName));
-      const lastNameQuery = query(studentsRef, where("last_name", "==", lastName));
+      // Query for students with same first name, last name, grade, and gender
+      const q = query(
+        studentsRef,
+        where("first_name", "==", firstName),
+        where("last_name", "==", lastName),
+        where("grade", "==", grade),
+        where("sex", "==", gender)
+      );
       
-      const [firstNameSnapshot, lastNameSnapshot] = await Promise.all([
-        getDocs(firstNameQuery),
-        getDocs(lastNameQuery)
-      ]);
-
-      // Find intersection of students with same first AND last name
-      const firstNameIds = new Set(firstNameSnapshot.docs.map(doc => doc.id));
-      const duplicateStudents = lastNameSnapshot.docs.filter(doc => 
-        firstNameIds.has(doc.id) && doc.id !== excludeStudentId
+      const querySnapshot = await getDocs(q);
+      
+      // Check if any student matches (excluding the current student if updating)
+      const duplicateStudents = querySnapshot.docs.filter(doc => 
+        doc.id !== excludeStudentId
       );
 
       return duplicateStudents.length > 0;
@@ -97,16 +98,18 @@ export function useStudents(organizationId, projectId, schoolId) {
         studentId
       );
 
-      // Check for duplicates if name is being updated
-      if (studentData.first_name && studentData.last_name) {
+      // Enhanced duplicate check with grade and gender
+      if (studentData.first_name && studentData.last_name && studentData.grade && studentData.sex) {
         const isDuplicate = await checkDuplicateStudent(
           studentData.first_name, 
-          studentData.last_name, 
+          studentData.last_name,
+          studentData.grade,
+          studentData.sex,
           studentId
         );
         
         if (isDuplicate) {
-          throw new Error("A student with the same first and last name already exists in this school.");
+          throw new Error("A student with the same first name, last name, grade, and gender already exists in this school.");
         }
       }
 
@@ -159,15 +162,17 @@ export function useStudents(organizationId, projectId, schoolId) {
         `organization/${organizationId}/projects/${projectId}/schools/${schoolId}/students`
       );
 
-      // Check for duplicates
-      if (studentData.first_name && studentData.last_name) {
+      // Enhanced duplicate check with grade and gender
+      if (studentData.first_name && studentData.last_name && studentData.grade && studentData.sex) {
         const isDuplicate = await checkDuplicateStudent(
           studentData.first_name, 
-          studentData.last_name
+          studentData.last_name,
+          studentData.grade,
+          studentData.sex
         );
         
         if (isDuplicate) {
-          throw new Error("A student with the same first and last name already exists in this school.");
+          throw new Error("A student with the same first name, last name, grade, and gender already exists in this school.");
         }
       }
 

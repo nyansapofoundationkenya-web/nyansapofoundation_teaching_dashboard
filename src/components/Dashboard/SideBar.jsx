@@ -9,6 +9,49 @@ import { FileAudio } from "lucide-react";
 import {useOrganizations} from "@/hooks/useOrganization"
 import { useIsLoggedIn } from "@/hooks/useIsLoggedIn";
 
+// Skeleton Loading Component
+const SidebarSkeleton = () => {
+  return (
+    <div className="w-64 h-screen bg-[#162947] text-white flex flex-col justify-between">
+      {/* Top: Logo Skeleton */}
+      <div>
+        <div className="flex flex-col items-center mb-6 p-4">
+          {/* Logo Skeleton */}
+          <div className="w-12 h-12 bg-gray-600 rounded-lg animate-pulse mb-2"></div>
+          {/* Organization Name Skeleton */}
+          <div className="h-6 bg-gray-600 rounded animate-pulse w-32 mb-1"></div>
+          {/* Role Skeleton */}
+          <div className="h-4 bg-gray-600 rounded animate-pulse w-24"></div>
+        </div>
+        <hr className="w-full mb-6 border-gray-600" />    
+        
+        {/* Menu Items Skeleton */}
+        <nav className="flex flex-col space-y-2 p-4">
+          {[...Array(6)].map((_, index) => (
+            <div
+              key={index}
+              className="flex items-center space-x-3 p-3 rounded-lg animate-pulse"
+            >
+              {/* Icon Skeleton */}
+              <div className="w-5 h-5 bg-gray-600 rounded"></div>
+              {/* Text Skeleton */}
+              <div className="h-5 bg-gray-600 rounded flex-1"></div>
+            </div>
+          ))}
+        </nav>
+      </div>
+
+      {/* Bottom: Logout Button Skeleton */}
+      <div className="p-4">
+        <div className="flex items-center space-x-3 p-3 rounded-lg animate-pulse bg-gray-600">
+          <div className="w-5 h-5 bg-gray-500 rounded"></div>
+          <div className="h-5 bg-gray-500 rounded w-16"></div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Sidebar = ({ initialTitle, organizationId }) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -46,7 +89,6 @@ const Sidebar = ({ initialTitle, organizationId }) => {
     { name: "Projects", icon: <FiBookOpen size={20} />, path: `/dashboard/${organizationId}/projects` },
     { name: "Schools", icon: <FiUsers size={20} />, path: `/dashboard/${organizationId}/schools` },
     { name: "Moderations", icon: <FileAudio size={20}/>, path: `/dashboard/${organizationId}/moderations` },
-  
   ];
 
   // Admin-only menu items
@@ -109,15 +151,9 @@ const Sidebar = ({ initialTitle, organizationId }) => {
     }
   }, [organizationId, handleFetchOrganizationById])
 
-  // Show loading state while fetching user profile
+  // Show skeleton loading while fetching user profile
   if (profileLoading && !userProfile) {
-    return (
-      <div className="w-64 h-screen bg-[#162947] text-white flex flex-col justify-between">
-        <div className="flex flex-col items-center justify-center h-full">
-          <p className="text-white">Loading...</p>
-        </div>
-      </div>
-    );
+    return <SidebarSkeleton />;
   }
 
   return (
