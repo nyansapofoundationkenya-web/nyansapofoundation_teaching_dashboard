@@ -2,7 +2,16 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
-import { FiHome, FiBookOpen, FiUsers, FiUserCheck, FiSettings, FiLogOut } from "react-icons/fi";
+import { 
+  FiHome, 
+  FiBarChart2, 
+  FiFolder, 
+  FiMapPin, 
+  FiHeadphones, 
+  FiUserCheck, 
+  FiUsers,
+  FiLogOut
+} from "react-icons/fi";
 import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/icons/logo";
 import { FileAudio } from "lucide-react";
@@ -83,18 +92,46 @@ const Sidebar = ({ initialTitle, organizationId }) => {
     fetchUserProfile();
   }, [user?.uid, userProfile, fetchUserById]);
 
-  // Base menu items available to all roles
-  const baseMenuItems = [
-    { name: "Home", icon: <FiHome size={20} />, path: `/dashboard/${organizationId}/welcome` },
-    { name: "Projects", icon: <FiBookOpen size={20} />, path: `/dashboard/${organizationId}/projects` },
-    { name: "Schools", icon: <FiUsers size={20} />, path: `/dashboard/${organizationId}/schools` },
-    { name: "Moderations", icon: <FileAudio size={20}/>, path: `/dashboard/${organizationId}/moderations` },
+    const baseMenuItems = [
+    { 
+      name: "Home", 
+      icon: <FiHome size={20} />, 
+      path: `/dashboard/${organizationId}/welcome` 
+    },
+    { 
+      name: "Overview", 
+      icon: <FiBarChart2 size={20} />, 
+      path: `/dashboard/${organizationId}/overview` 
+    },
+    { 
+      name: "Projects", 
+      icon: <FiFolder size={20} />, 
+      path: `/dashboard/${organizationId}/projects` 
+    },
+    { 
+      name: "Schools", 
+      icon: <FiMapPin size={20} />, 
+      path: `/dashboard/${organizationId}/schools` 
+    },
+    { 
+      name: "Moderations", 
+      icon: <FiHeadphones size={20} />, 
+      path: `/dashboard/${organizationId}/moderations` 
+    },
   ];
 
   // Admin-only menu items
   const adminMenuItems = [
-    { name: "Instructors", icon: <FiUserCheck size={20} />, path: `/dashboard/${organizationId}/instructors` },
-    {name: "Students",icon:<FiUsers size={20}/>, path:`/dashboard/${organizationId}/admin/students`},
+    { 
+      name: "Instructors", 
+      icon: <FiUserCheck size={20} />, 
+      path: `/dashboard/${organizationId}/instructors` 
+    },
+    { 
+      name: "Students", 
+      icon: <FiUsers size={20} />, 
+      path: `/dashboard/${organizationId}/admin/students` 
+    },
   ];
 
   // Teacher-only menu items 
