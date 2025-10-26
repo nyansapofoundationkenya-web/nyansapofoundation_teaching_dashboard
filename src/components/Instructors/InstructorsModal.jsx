@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
 import Select from "react-select";
 import { useInstructors } from "@/hooks/useInstructors";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
@@ -14,9 +15,14 @@ export default function InstructorModal({
   organizations: initialOrganizations,
   selectedInstructor,
   organizationId,
+  userRole, // Receive user role from parent
 }) {
+  // Also get user role from Redux as fallback
+  const { user: currentUser } = useSelector((state) => state.auth);
+  const currentUserRole = userRole || currentUser?.role;
+  
   const [formState, setFormState] = useState({
-    name: "", // Keep name for display only
+    name: "",
     organization: null,
     project: null,
     schools: [],
@@ -43,8 +49,17 @@ export default function InstructorModal({
       return;
     }
 
-    // Set organization options from initialOrganizations
-    const options = initialOrganizations.map((org) => ({
+    // Filter organizations based on user role
+    let filteredOrgs = initialOrganizations;
+    
+    if (currentUserRole === 'admin') {
+      // Admin can only see and assign to their own organization
+      filteredOrgs = initialOrganizations.filter(org => org.id === organizationId);
+    }
+    // super_admin can see all organizations (no filtering)
+    // teacher shouldn't have access to this modal
+
+    const options = filteredOrgs.map((org) => ({
       value: org.id,
       label: org.name,
     }));
@@ -66,7 +81,7 @@ export default function InstructorModal({
         fetchProjects(org.id);
       }
     }
-  }, [isOpen, selectedInstructor, initialOrganizations, organizationId]);
+  }, [isOpen, selectedInstructor, initialOrganizations, organizationId, currentUserRole]);
 
   const handleChange = (name, value) => {
     setFormState((prev) => ({ ...prev, [name]: value }));
@@ -177,7 +192,6 @@ export default function InstructorModal({
         schoolIds,
         {
           name: formState.name,
-          // Email and phone removed for privacy
         }
       );
       if (result.success) {
@@ -299,6 +313,11 @@ export default function InstructorModal({
               isDisabled={loadingOptions}
               isClearable
             />
+            {currentUserRole === 'admin' && (
+              <p className="text-xs text-gray-500 mt-1">
+                You can only assign to your organization
+              </p>
+            )}
           </div>
 
           <div className="text-left">

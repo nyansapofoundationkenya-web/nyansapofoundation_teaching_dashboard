@@ -15,53 +15,71 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 
-export function useInstructors(organizationId) {
+export function useInstructors(organizationId, userRole) {
   const [instructors, setInstructors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const fetchInstructors = useCallback(async () => {
-  setLoading(true);
-  setError(null);
+    setLoading(true);
+    setError(null);
 
-  try {
-    const usersRef = collection(db, "user");
-    const snapshot = await getDocs(usersRef);
+    try {
+      const usersRef = collection(db, "user");
+      const snapshot = await getDocs(usersRef);
 
-    const instructorsData = [];
+      const instructorsData = [];
 
-    snapshot.forEach((doc) => {
-      const user = { id: doc.id, ...doc.data() };
+      snapshot.forEach((doc) => {
+        const user = { id: doc.id, ...doc.data() };
 
-      // Count organizations
-      const orgCount = user.organizations?.length || 0;
+        // Only include teachers and admins
+        if (user.role === 'teacher' || user.role === 'admin') {
+          // Count organizations
+          const orgCount = user.organizations?.length || 0;
 
-      // Count projects and schools across all orgs
-      let projectCount = 0;
-      let schoolCount = 0;
+          // Count projects and schools across all orgs
+          let projectCount = 0;
+          let schoolCount = 0;
 
-      user.organizations?.forEach((org) => {
-        org.projects?.forEach((project) => {
-          projectCount += 1;
-          schoolCount += project.schools?.length || 0;
+          user.organizations?.forEach((org) => {
+            org.projects?.forEach((project) => {
+              projectCount += 1;
+              schoolCount += project.schools?.length || 0;
+            });
+          });
+
+          instructorsData.push({
+            ...user,
+            orgCount,
+            projectCount,
+            schoolCount,
+          });
+        }
+      });
+
+      // Filter based on user role
+      let filteredInstructors = instructorsData;
+      
+      if (userRole === 'admin' && organizationId) {
+        // Admin can only see instructors in their organization OR unassigned instructors
+        filteredInstructors = instructorsData.filter(instructor => {
+          const hasOrganization = instructor.organizations?.length > 0;
+          const inCurrentOrg = instructor.organizations?.some(org => org.id === organizationId);
+          
+          // Show instructors who are in current org OR have no organizations (unassigned)
+          return inCurrentOrg || !hasOrganization;
         });
-      });
+      }
+      // super_admin can see all instructors (no filtering)
 
-      instructorsData.push({
-        ...user,
-        orgCount,
-        projectCount,
-        schoolCount,
-      });
-    });
-
-    setInstructors(instructorsData);
-  } catch (err) {
-    setError(`Failed to fetch instructors: ${err.message}`);
-  } finally {
-    setLoading(false);
-  }
-}, []);
+      setInstructors(filteredInstructors);
+    } catch (err) {
+      setError(`Failed to fetch instructors: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [organizationId, userRole]);
 
   // Check if UID already exists in a collection
   const checkUIDExists = async (collectionPath, uid) => {

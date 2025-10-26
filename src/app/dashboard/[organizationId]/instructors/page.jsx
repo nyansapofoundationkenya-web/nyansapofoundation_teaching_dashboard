@@ -2,18 +2,24 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
+import { useSelector } from "react-redux";
 import Sidebar from "@/components/Dashboard/SideBar";
 import { useInstructors } from "@/hooks/useInstructors";
 import { useInstructorActions } from "@/hooks/useInstructorActions";
 import { Search, MoreVertical, Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import InstructorModal from "@/components/Instructors/InstructorsModal";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/firebase/config";
 import { FiMenu, FiX } from "react-icons/fi";
 
 export default function InstructorsPage() {
   const { organizationId } = useParams();
-  const { instructors, loading, error, refetchInstructors } = useInstructors(organizationId);
+  // Get current user from Redux
+  const { user: currentUser } = useSelector((state) => state.auth);
+  const userRole = currentUser?.role;
+  
+  // Pass user role to useInstructors hook
+  const { instructors, loading, error, refetchInstructors } = useInstructors(organizationId, userRole);
   const { 
     loading: actionLoading, 
     error: actionError, 
@@ -30,10 +36,29 @@ export default function InstructorsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(null);
+  const [roleUpdateOpen, setRoleUpdateOpen] = useState(null);
+  const [newRole, setNewRole] = useState("");
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Check if user can update roles (only super_admin)
+  const canUpdateRoles = userRole === 'super_admin';
+
+  // Get role badge color
+  const getRoleBadgeColor = (role) => {
+    switch (role) {
+      case 'super_admin':
+        return 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-sm';
+      case 'admin':
+        return 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-sm';
+      case 'teacher':
+        return 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm';
+      default:
+        return 'bg-gradient-to-r from-gray-500 to-gray-600 text-white shadow-sm';
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -42,10 +67,19 @@ export default function InstructorsPage() {
       try {
         const orgRef = collection(db, "organization");
         const orgSnapshot = await getDocs(orgRef);
-        const orgs = orgSnapshot.docs.map((doc) => ({
+        
+        // Filter organizations based on user role
+        let orgs = orgSnapshot.docs.map((doc) => ({
           id: doc.id,
           name: doc.data().name || `Org ${doc.id.slice(0, 8)}`,
         }));
+
+        // If user is admin, only show their organization
+        if (userRole === 'admin' && organizationId) {
+          orgs = orgs.filter(org => org.id === organizationId);
+        }
+        // If user is super_admin, show all organizations
+
         setInitialOrganizations(orgs);
 
         if (organizationId) {
@@ -76,7 +110,7 @@ export default function InstructorsPage() {
     };
 
     fetchData();
-  }, [organizationId]);
+  }, [organizationId, userRole]);
 
   useEffect(() => {
     const checkIfMobile = () => {
@@ -144,6 +178,41 @@ export default function InstructorsPage() {
     }
   };
 
+  // Handle role update
+  const handleUpdateRole = async (instructorId, role) => {
+    if (!confirm(`Are you sure you want to update the role to ${role}?`)) {
+      return;
+    }
+
+    try {
+      const userRef = doc(db, "user", instructorId);
+      await updateDoc(userRef, { role });
+      setRoleUpdateOpen(null);
+      setNewRole("");
+      refetchInstructors();
+      alert('Role updated successfully!');
+    } catch (err) {
+      console.error("Error updating role:", err);
+      alert(`Error updating role: ${err.message}`);
+    }
+  };
+
+  // Get available roles for dropdown (admin cannot set super_admin)
+  const getAvailableRoles = () => {
+    if (userRole === 'super_admin') {
+      return [
+        { value: 'super_admin', label: 'Super Admin' },
+        { value: 'admin', label: 'Admin' },
+        { value: 'teacher', label: 'Teacher' }
+      ];
+    } else {
+      return [
+        { value: 'admin', label: 'Admin' },
+        { value: 'teacher', label: 'Teacher' }
+      ];
+    }
+  };
+
   // Pagination handlers
   const handlePageChange = (page) => {
     setCurrentPage(page);
@@ -159,15 +228,17 @@ export default function InstructorsPage() {
   // Close action menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // Check if click is outside the action menu
       if (actionMenuOpen && !event.target.closest('.action-menu-container')) {
         setActionMenuOpen(null);
+      }
+      if (roleUpdateOpen && !event.target.closest('.role-update-container')) {
+        setRoleUpdateOpen(null);
       }
     };
 
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
-  }, [actionMenuOpen]);
+  }, [actionMenuOpen, roleUpdateOpen]);
 
   if (isLoadingData) {
     return (
@@ -336,7 +407,7 @@ export default function InstructorsPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-            {/* Search Input - Improved Visibility */}
+            {/* Search Input */}
             <div className="relative w-full sm:w-auto sm:max-w-md">
               <input
                 type="text"
@@ -350,7 +421,7 @@ export default function InstructorsPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
             </div>
 
-            {/* Items per page selector - Improved Visibility */}
+            {/* Items per page selector */}
             <div className="flex items-center gap-2">
               <label className="text-sm text-gray-700 font-medium">Show:</label>
               <select
@@ -395,11 +466,7 @@ export default function InstructorsPage() {
                             {instructor.name || 'N/A'}
                           </td>
                           <td className="px-4 py-3 text-sm">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              instructor.role === 'admin' 
-                                ? 'bg-purple-100 text-purple-800' 
-                                : 'bg-blue-100 text-blue-800'
-                            }`}>
+                            <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${getRoleBadgeColor(instructor.role)}`}>
                               {instructor.role || 'teacher'}
                             </span>
                           </td>
@@ -441,6 +508,23 @@ export default function InstructorsPage() {
                                     <Edit className="w-4 h-4 mr-2" />
                                     Update Assignment
                                   </button>
+                                  
+                                  {/* Only show Update Role for super_admin */}
+                                  {canUpdateRoles && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActionMenuOpen(null);
+                                        setRoleUpdateOpen(instructor.uid);
+                                        setNewRole(instructor.role || 'teacher');
+                                      }}
+                                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors border-b border-gray-100"
+                                    >
+                                      <Edit className="w-4 h-4 mr-2" />
+                                      Update Role
+                                    </button>
+                                  )}
+                                  
                                   <button
                                     onClick={() => handleDeleteInstructor(instructor.uid)}
                                     className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
@@ -448,6 +532,43 @@ export default function InstructorsPage() {
                                     <Trash2 className="w-4 h-4 mr-2" />
                                     Delete
                                   </button>
+                                </div>
+                              )}
+
+                              {/* Role Update Dropdown - Only for super_admin */}
+                              {canUpdateRoles && roleUpdateOpen === instructor.uid && (
+                                <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-50 border border-blue-200 role-update-container">
+                                  <div className="px-4 py-2 border-b border-gray-100">
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">New Role</label>
+                                    <select
+                                      value={newRole}
+                                      onChange={(e) => setNewRole(e.target.value)}
+                                      className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                    >
+                                      {getAvailableRoles().map(role => (
+                                        <option key={role.value} value={role.value}>
+                                          {role.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="flex gap-1 p-2">
+                                    <button
+                                      onClick={() => handleUpdateRole(instructor.uid, newRole)}
+                                      className="flex-1 px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                    >
+                                      Update
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setRoleUpdateOpen(null);
+                                        setNewRole("");
+                                      }}
+                                      className="flex-1 px-3 py-1 text-sm bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition-colors"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -521,6 +642,7 @@ export default function InstructorsPage() {
             organizations={initialOrganizations}
             selectedInstructor={selectedInstructor}
             organizationId={organizationId}
+            userRole={userRole}
           />
         </div>
       </div>

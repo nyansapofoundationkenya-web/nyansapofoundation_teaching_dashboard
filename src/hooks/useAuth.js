@@ -15,27 +15,86 @@ import Cookies from "js-cookie";
 import { parsePhoneNumber } from "libphonenumber-js";
 import { auth, db } from "@/firebase/config";
 import { useRouter } from "next/navigation";
+import { useDispatch, useSelector } from "react-redux";
+import { setUser, clearUser, setLoading as setReduxLoading } from "@/redux/slices/authSlice";
 
 export function useAuth() {
-  const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [confirmationResult, setConfirmationResult] = useState(null);
   const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
   const [recaptchaReady, setRecaptchaReady] = useState(false);
+  
   const router = useRouter();
+  const dispatch = useDispatch();
+  
+  // Get user data from Redux store
+  const { user: currentUser, loading: reduxLoading } = useSelector((state) => state.auth);
+
+  // Function to fetch and store complete user profile
+  const fetchAndStoreUserProfile = async (firebaseUser) => {
+    try {
+      const userProfile = await fetchUserById(firebaseUser.uid);
+      
+      // Combine Firebase auth data with Firestore profile data
+      const completeUserData = {
+        // Firebase auth data
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        emailVerified: firebaseUser.emailVerified,
+        phoneNumber: firebaseUser.phoneNumber,
+        displayName: firebaseUser.displayName,
+        photoURL: firebaseUser.photoURL,
+        metadata: {
+          creationTime: firebaseUser.metadata.creationTime,
+          lastSignInTime: firebaseUser.metadata.lastSignInTime,
+        },
+        
+        // Firestore profile data (this is what you want)
+        ...userProfile
+      };
+      
+      dispatch(setUser(completeUserData));
+      return completeUserData;
+    } catch (err) {
+      console.error("Failed to fetch user profile:", err);
+      // If profile fetch fails, still store basic auth info
+      const basicUserData = {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        emailVerified: firebaseUser.emailVerified,
+        phoneNumber: firebaseUser.phoneNumber,
+        displayName: firebaseUser.displayName,
+        photoURL: firebaseUser.photoURL,
+        metadata: {
+          creationTime: firebaseUser.metadata.creationTime,
+          lastSignInTime: firebaseUser.metadata.lastSignInTime,
+        },
+      };
+      dispatch(setUser(basicUserData));
+      return basicUserData;
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const token = await user.getIdToken();
         Cookies.set("auth_token", token, { expires: 7 });
+        
+        // Fetch complete user profile from Firestore and store in Redux
+        await fetchAndStoreUserProfile(user);
+      } else {
+        // Clear user from Redux when logged out
+        dispatch(clearUser());
+        Cookies.remove("auth_token");
       }
-      setCurrentUser(user);
       setLoading(false);
+      dispatch(setReduxLoading(false));
     });
+    
     return () => unsubscribe();
-  }, []);
+  }, [dispatch]);
 
   // Setup invisible reCAPTCHA once on mount
   useEffect(() => {
@@ -134,6 +193,8 @@ export function useAuth() {
       const token = await user.getIdToken();
       Cookies.set("auth_token", token, { expires: 7 });
 
+      // Fetch and store complete user profile in Redux
+      await fetchAndStoreUserProfile(user);
       return user;
     } catch (err) {
       console.error("Verification error:", err);
@@ -157,6 +218,9 @@ export function useAuth() {
         const user = userCredential.user;
         const token = await user.getIdToken();
         Cookies.set("auth_token", token, { expires: 7 });
+        
+        // Fetch and store complete user profile in Redux
+        await fetchAndStoreUserProfile(user);
         return user;
       } else {
         if (!recaptchaReady) {
@@ -195,6 +259,9 @@ export function useAuth() {
       const user = result.user;
       const token = await user.getIdToken();
       Cookies.set("auth_token", token, { expires: 7 });
+      
+      // Fetch and store complete user profile in Redux
+      await fetchAndStoreUserProfile(user);
       return user;
     } catch (err) {
       console.error("Phone login verification error:", err.code, err.message);
@@ -207,7 +274,7 @@ export function useAuth() {
     try {
       await signOut(auth);
       Cookies.remove("auth_token");
-      setCurrentUser(null);
+      // User will be automatically cleared from Redux via onAuthStateChanged
       router.push("/"); 
     } catch (err) {
       console.error("Logout error:", err);
@@ -242,25 +309,39 @@ export function useAuth() {
     }
   };
 
-  // Fetch current user's profile data from Firestore
-  // const fetchCurrentUserProfile = async () => {
-  //   setError(null);
-  //   try {
-  //     if (!currentUser) {
-  //       throw new Error("No user is currently logged in");
-  //     }
+  // Refresh user profile from Firestore (useful when you know data has changed)
+  const refreshUserProfile = async () => {
+    if (!currentUser) {
+      throw new Error("No user is currently logged in");
+    }
+    return await fetchAndStoreUserProfile(currentUser);
+  };
 
-  //     return await fetchUserById(currentUser.uid);
-  //   } catch (err) {
-  //     console.error("Fetch current user profile error:", err);
-  //     setError(err.message);
-  //     throw err;
-  //   }
-  // };
+  // Update user profile in Redux and Firestore
+  const updateUserProfile = async (updates) => {
+    setError(null);
+    try {
+      if (!currentUser) {
+        throw new Error("No user is currently logged in");
+      }
+
+      const userRef = doc(db, "user", currentUser.uid);
+      await setDoc(userRef, updates, { merge: true });
+
+      // Refresh the user profile to get updated data
+      await refreshUserProfile();
+
+      return true;
+    } catch (err) {
+      console.error("Update user profile error:", err);
+      setError(err.message);
+      throw err;
+    }
+  };
 
   return {
-    currentUser,
-    loading,
+    currentUser, // Now contains complete user data from Firestore + Firebase auth
+    loading: loading || reduxLoading,
     error,
     recaptchaReady,
     handleSignup,
@@ -269,7 +350,8 @@ export function useAuth() {
     verifyPhoneLoginCode,
     handleLogout,
     confirmationResult,
-    fetchUserById, // Add the new function to the return object
-    // fetchCurrentUserProfile, // Add convenience function for current user
+    fetchUserById,
+    updateUserProfile,
+    refreshUserProfile, // New method to refresh user data
   };
 }

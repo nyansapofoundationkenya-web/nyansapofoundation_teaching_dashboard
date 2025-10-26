@@ -1,11 +1,10 @@
-// store/index.js or store.js
 import { configureStore } from '@reduxjs/toolkit';
+import authReducer from './slices/authSlice';
 
-// A dummy reducer that just returns the initial state
-const dummyReducer = (state = {}, action) => state;
-
-export const store = configureStore({
+const store = configureStore({
   reducer: {
-    dummy: dummyReducer, // 🔧 Placeholder reducer
+    auth: authReducer,
   },
 });
+
+export default store; 

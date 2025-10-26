@@ -7,7 +7,7 @@ import OrganizationButton from "@/components/Button/OrganizationButton";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizations } from "@/hooks/useOrganization";
-import { useIsLoggedIn } from "@/hooks/useIsLoggedIn";
+import { useSelector } from "react-redux";
 
 export default function OrganizationPage({
   onOrganizationSelect = () => {},
@@ -15,61 +15,35 @@ export default function OrganizationPage({
   onLogout = () => {},
 }) {
   const router = useRouter();
-  const { handleLogout, fetchUserById } = useAuth();
-  const { user } = useIsLoggedIn();
-  const [userProfile, setUserProfile] = useState(null);
-  const [profileLoading, setProfileLoading] = useState(false);
+  const { handleLogout } = useAuth();
+  const { organizations, loading, error, handleFetchOrganizations, handleAddOrganization } =
+    useOrganizations();
+  
+  // Get user data directly from Redux store
+  const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
+  
   const [showAddModal, setShowAddModal] = useState(false);
   const [newOrgName, setNewOrgName] = useState("");
   const [addingOrg, setAddingOrg] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
-  
-  const { organizations, loading, error, handleFetchOrganizations, handleAddOrganization } =
-    useOrganizations();
 
-  const userId = user?.uid;
-
-  // Separate useEffect for organizations
+  // Fetch organizations when user is available
   useEffect(() => {
-    if (userId && !dataFetched) {
-      console.log("Fetching organizations...");
+    if (currentUser?.uid && !dataFetched) {
+      console.log("Fetching organizations for user:", currentUser.uid);
       handleFetchOrganizations().catch(err => {
         console.error("Fetch Organizations Error:", err);
       });
+      setDataFetched(true);
     }
-  }, [userId, dataFetched, handleFetchOrganizations]);
+  }, [currentUser?.uid, dataFetched, handleFetchOrganizations]);
 
-  // Separate useEffect for user profile
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!userId || userProfile || dataFetched) {
-        return;
-      }
-
-      try {
-        console.log("Fetching user profile...");
-        setProfileLoading(true);
-        const profile = await fetchUserById(userId);
-        console.log("User profile fetched:", profile);
-        setUserProfile(profile);
-        setDataFetched(true);
-      } catch (err) {
-        console.error("Fetch current user Error:", err);
-        setDataFetched(true); // Mark as fetched even on error to prevent infinite retries
-      } finally {
-        setProfileLoading(false);
-      }
-    };
-
-    fetchUserProfile();
-  }, [userId, userProfile, dataFetched, fetchUserById]);
-
-  // Filter organizations based on user role
+  // Filter organizations based on user role from Redux
   const getFilteredOrganizations = useCallback(() => {
-    if (!userProfile || !organizations.length) return [];
+    if (!currentUser || !organizations.length) return [];
 
-    const userRole = userProfile.role;
-    const userOrganizations = userProfile.organizations || [];
+    const userRole = currentUser.role;
+    const userOrganizations = currentUser.organizations || [];
 
     switch (userRole) {
       case "teacher":
@@ -78,6 +52,11 @@ export default function OrganizationPage({
         );
       
       case "admin":
+        return organizations.filter(org => 
+          userOrganizations.some(userOrg => userOrg.id === org.id)
+        );
+      
+      case "super_admin":
         return organizations;
       
       default:
@@ -85,11 +64,11 @@ export default function OrganizationPage({
           userOrganizations.some(userOrg => userOrg.id === org.id)
         );
     }
-  }, [userProfile, organizations]);
+  }, [currentUser, organizations]);
 
   const filteredOrganizations = getFilteredOrganizations();
-  const userRole = userProfile?.role;
-  const isAdmin = userRole === "admin";
+  const userRole = currentUser?.role;
+  const isAdmin = userRole === "super_admin";
 
   // Handle add organization
   const handleAddOrg = async () => {
@@ -130,14 +109,14 @@ export default function OrganizationPage({
     }
   };
 
-  // Combined loading state
-  const isLoading = (loading || profileLoading) && !dataFetched;
+  // Combined loading state - now using Redux loading state
+  const isLoading = (loading || userLoading) && !dataFetched;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-900 text-white p-6">
       <header className="p-4 flex justify-between items-center">
         <div className="text-sm text-gray-400">
-          {userProfile ? `Role: ${userProfile.role || 'No role assigned'}` : 'Loading role...'}
+          {currentUser ? `Role: ${currentUser.role || 'No role assigned'}` : 'Loading role...'}
         </div>
         <button onClick={handleLogoutClick} className="hover:underline">
           Log out
@@ -184,15 +163,6 @@ export default function OrganizationPage({
             </div>
           )}
         </div>
-
-        {/* Show info message for non-admin users when they have no organizations */}
-        {/* {!isAdmin && !isLoading && filteredOrganizations.length === 0 && (
-          <div className="mt-6 p-4 bg-yellow-900/30 border border-yellow-700 rounded-lg">
-            <p className="text-yellow-200 text-sm">
-              You are not assigned to any organizations. Please contact an administrator.
-            </p>
-          </div>
-        )} */}
       </main>
 
       {/* Add Organization Modal */}

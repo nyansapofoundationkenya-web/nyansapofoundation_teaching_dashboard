@@ -15,15 +15,14 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/icons/logo";
 import { FileAudio } from "lucide-react";
-import {useOrganizations} from "@/hooks/useOrganization"
-import { useIsLoggedIn } from "@/hooks/useIsLoggedIn";
+import { useOrganizations } from "@/hooks/useOrganization";
 
 // Skeleton Loading Component
 const SidebarSkeleton = () => {
   return (
-    <div className="w-64 h-screen bg-[#162947] text-white flex flex-col justify-between">
+    <div className="w-64 h-screen bg-[#162947] text-white flex flex-col">
       {/* Top: Logo Skeleton */}
-      <div>
+      <div className="flex-shrink-0">
         <div className="flex flex-col items-center mb-6 p-4">
           {/* Logo Skeleton */}
           <div className="w-12 h-12 bg-gray-600 rounded-lg animate-pulse mb-2"></div>
@@ -50,8 +49,11 @@ const SidebarSkeleton = () => {
         </nav>
       </div>
 
-      {/* Bottom: Logout Button Skeleton */}
-      <div className="p-4">
+      {/* Spacer to push logout to bottom */}
+      <div className="flex-grow"></div>
+
+      {/* Bottom: Logout Button Skeleton - Fixed at bottom */}
+      <div className="flex-shrink-0 p-4">
         <div className="flex items-center space-x-3 p-3 rounded-lg animate-pulse bg-gray-600">
           <div className="w-5 h-5 bg-gray-500 rounded"></div>
           <div className="h-5 bg-gray-500 rounded w-16"></div>
@@ -66,33 +68,14 @@ const Sidebar = ({ initialTitle, organizationId }) => {
   const pathname = usePathname();
   const [title, setTitle] = useState(initialTitle || "");
   const [hoveredItem, setHoveredItem] = useState(null);
-  const { handleLogout, fetchUserById } = useAuth();
-  const { user } = useIsLoggedIn();
-  const { handleFetchOrganizationById } = useOrganizations()
-  const [organization, setOrganization] = useState(null)
-  const [userProfile, setUserProfile] = useState(null)
-  const [profileLoading, setProfileLoading] = useState(false)
+  const { handleLogout } = useAuth();
+  const { handleFetchOrganizationById } = useOrganizations();
+  const [organization, setOrganization] = useState(null);
+  
+  // Get user data directly from Redux store
+  const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
 
-  // Fetch user profile
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!user?.uid || userProfile) return;
-
-      try {
-        setProfileLoading(true);
-        const profile = await fetchUserById(user.uid);
-        setUserProfile(profile);
-      } catch (err) {
-        console.error("Fetch user profile error:", err);
-      } finally {
-        setProfileLoading(false);
-      }
-    };
-
-    fetchUserProfile();
-  }, [user?.uid, userProfile, fetchUserById]);
-
-    const baseMenuItems = [
+  const baseMenuItems = [
     { 
       name: "Home", 
       icon: <FiHome size={20} />, 
@@ -121,6 +104,19 @@ const Sidebar = ({ initialTitle, organizationId }) => {
   ];
 
   // Admin-only menu items
+  const superAdminMenuItems = [
+    { 
+      name: "Instructors", 
+      icon: <FiUserCheck size={20} />, 
+      path: `/dashboard/${organizationId}/instructors` 
+    },
+    { 
+      name: "Students", 
+      icon: <FiUsers size={20} />, 
+      path: `/dashboard/${organizationId}/admin/students` 
+    },
+  ];
+
   const adminMenuItems = [
     { 
       name: "Instructors", 
@@ -138,26 +134,26 @@ const Sidebar = ({ initialTitle, organizationId }) => {
   const teacherMenuItems = [
   ];
 
-  // Get menu items based on user role
+  // Get menu items based on user role from Redux
   const getMenuItems = () => {
-    if (!userProfile) return baseMenuItems;
+    if (!currentUser) return baseMenuItems;
 
-    const userRole = userProfile.role;
+    const userRole = currentUser.role;
 
     switch (userRole) {
+      case "super_admin":
+        return [ ...baseMenuItems, ...superAdminMenuItems];
       case "admin":
         return [...baseMenuItems, ...adminMenuItems];
-      
       case "teacher":
         return [...baseMenuItems, ...teacherMenuItems];
-      
       default:
         return baseMenuItems;
     }
   };
 
   const menuItems = getMenuItems();
-  const userRole = userProfile?.role;
+  const userRole = currentUser?.role;
   const isAdmin = userRole === "admin";
   const isTeacher = userRole === "teacher";
 
@@ -176,41 +172,43 @@ const Sidebar = ({ initialTitle, organizationId }) => {
   useEffect(() => {
     const fetchOrg = async () => {
       try {
-        const org = await handleFetchOrganizationById(organizationId)
-        setOrganization(org)
+        const org = await handleFetchOrganizationById(organizationId);
+        setOrganization(org);
       } catch (err) {
-        console.error("Error fetching organization:", err)
+        console.error("Error fetching organization:", err);
       }
-    }
+    };
 
     if (organizationId) {
-      fetchOrg()
+      fetchOrg();
     }
-  }, [organizationId, handleFetchOrganizationById])
+  }, [organizationId, handleFetchOrganizationById]);
 
-  // Show skeleton loading while fetching user profile
-  if (profileLoading && !userProfile) {
+  // Show skeleton loading while fetching user data
+  if (userLoading && !currentUser) {
     return <SidebarSkeleton />;
   }
 
   return (
-    <div className="w-64 h-screen bg-[#162947] text-white flex flex-col justify-between">
-      {/* Top: Logo */}
-      <div>
+    <div className="w-64 h-screen bg-[#162947] text-white flex flex-col">
+      {/* Top: Logo and Organization Info - Fixed */}
+      <div className="flex-shrink-0">
         <div className="flex flex-col items-center mb-6 p-4">
           <Logo />
           <p className="mt-2 text-lg font-semibold text-white">
             {organization?.name}
           </p>
-          {userProfile && (
+          {/* {currentUser && (
             <p className="text-xs text-gray-400 mt-1">
-              Role: {userProfile.role || 'No role assigned'}
+              Role: {currentUser.role || 'No role assigned'}
             </p>
-          )}
+          )} */}
         </div>
-        <hr className="w-full mb-6" />    
-        
-        {/* Menu */}
+        <hr className="w-full mb-6 border-gray-600" />    
+      </div>
+
+      {/* Scrollable Menu Area - Hidden scrollbar */}
+      <div className="flex-grow overflow-y-auto scrollbar-hide">
         <nav className="flex flex-col space-y-2 p-4">
           {menuItems.map((item, index) => (
             <button
@@ -229,8 +227,8 @@ const Sidebar = ({ initialTitle, organizationId }) => {
         </nav>
       </div>
 
-      {/* Bottom: Logout */}
-      <div className="p-4">
+      {/* Bottom: Logout Button - Fixed at bottom */}
+      <div className="flex-shrink-0 p-4">
         <button
           onClick={handleLogout}
           className="flex items-center space-x-3 p-3 rounded-lg text-black bg-amber-400 hover:bg-yellow-500 hover:text-black transition w-full"
