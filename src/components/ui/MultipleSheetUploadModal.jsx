@@ -57,20 +57,38 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
   }
 
   const downloadTemplate = () => {
-    const csvContent = `No,Name,Class,Sex,Baseline,Group,20-May Session 1,21-May Session 2,22-May Session 3,23-May Session 4
-1,John Doe,4,Male,Beginner(Lit),Group 1,1,1,0,1
-2,Jane Smith,3,Female,Letter,Group 1,1,0,1,1
-3,Bob Johnson,5,Male,Beginner(Lit),Group 1,0,1,1,0`
+    // Create a new workbook
+    const workbook = XLSX.utils.book_new();
 
-    const blob = new Blob([csvContent], { type: "text/csv" })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = "student_attendance_template.csv"
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    window.URL.revokeObjectURL(url)
+    // Define the column headers
+    const headers = [
+      "No", "Name", "Class", "Sex", "Baseline", "Group", 
+      "20-May Session 1", "21-May Session 2", "22-May Session 3", "23-May Session 4"
+    ];
+
+    // Sample data for each sheet
+    const sampleData = [
+      ["1", "John Doe", "4", "Male", "Beginner(Lit)", "Group 1", "1", "1", "0", "1"],
+      ["2", "Jane Smith", "3", "Female", "Letter", "Group 1", "1", "0", "1", "1"],
+      ["3", "Bob Johnson", "5", "Male", "Beginner(Lit)", "Group 1", "0", "1", "1", "0"]
+    ];
+
+    // Create three sheets with different school names
+    const schoolNames = ["school name 1", "school name 2", "school name 3"];
+    
+    schoolNames.forEach((schoolName, index) => {
+      // Create worksheet data with headers and sample data
+      const worksheetData = [headers, ...sampleData];
+      
+      // Create worksheet
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+      
+      // Add worksheet to workbook with school name as sheet name
+      XLSX.utils.book_append_sheet(workbook, worksheet, schoolName);
+    });
+
+    // Generate Excel file and trigger download
+    XLSX.writeFile(workbook, "student_attendance_template.xlsx");
   }
 
   const handleClose = () => {
@@ -183,7 +201,7 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                   <h3 className="text-lg font-semibold text-gray-800 mb-2">Bulk Upload Student Data</h3>
                   <p className="text-sm text-gray-600 mb-4">
                     Upload an Excel file with multiple sheets containing student attendance data. Each sheet should
-                    represent a different school and group combination.
+                    represent a different school and contain properly formatted student data.
                   </p>
                 </div>
 
@@ -194,7 +212,7 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                     className="flex items-center text-sm px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-800 font-semibold rounded-lg transition-colors"
                   >
                     <Download className="w-4 h-4 mr-2" />
-                    Download Template
+                    Download Excel Template
                   </button>
                   <button
                     type="button"
@@ -211,7 +229,7 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                     <p className="text-sm font-medium text-gray-800 mb-2">Excel File Requirements:</p>
                     <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
                       <li>
-                        <strong>Sheet Names:</strong> "SchoolName-GroupName" (e.g., "Makaaya Primary-Group 1")
+                        <strong>Sheet Names:</strong> Each sheet should be named with the school name (e.g., "school name 1", "school name 2", etc.)
                       </li>
                       <li>
                         <strong>School Matching:</strong> School name in sheet must exactly match existing school names
@@ -240,9 +258,8 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                     </ul>
                     <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
                       <p className="text-xs text-yellow-800">
-                        <strong>Important:</strong> Students will be saved to their respective school's subcollection.
-                        Make sure the school names in your Excel sheets exactly match the school names you've already
-                        created in the system.
+                        <strong>Important:</strong> The template includes three sample sheets. You can add more sheets as needed, but each sheet name must match an existing school name in your system.
+                        Students will be saved to their respective school's subcollection.
                       </p>
                     </div>
                   </div>
@@ -252,7 +269,9 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                   <label className="cursor-pointer">
                     <FileSpreadsheet className="w-12 h-12 text-blue-500 mx-auto mb-3" />
                     <span className="text-blue-500 font-medium block mb-2">Click to upload Excel file</span>
-                    <span className="text-gray-500 text-sm">Support for .xlsx and .xls files with multiple sheets</span>
+                    <span className="text-gray-500 text-sm">
+                      Support for .xlsx files with multiple sheets. Use the template for proper format.
+                    </span>
                     <input type="file" name="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileChange} />
                   </label>
                 </div>
@@ -273,6 +292,9 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
                       File size: {(formState.file.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                    <p className="text-xs text-blue-600 mt-1">
+                      Sheets detected: {sheetNames.join(", ")}
                     </p>
                   </div>
                 )}

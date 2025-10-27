@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useProjectDetails } from "@/hooks/useProjectDetails"; // Adjust path as needed
+import { useProjectDetails } from "@/hooks/useProjectDetails"; 
 import { Download, Info } from "lucide-react"; // Import icons
+import * as XLSX from "xlsx"; // Import xlsx for Excel template generation
 
 export default function SchoolModal({ isOpen, onClose, organizationId, projectId }) {
   const [formState, setFormState] = useState({});
-  const [showRequirements, setShowRequirements] = useState(false); // State for showing requirements
-  const { addSchoolsByCsv, loading, error } = useProjectDetails(organizationId);
+  const [showRequirements, setShowRequirements] = useState(false);
+  const { addSchoolsByFile, loading, error } = useProjectDetails(organizationId);
 
   if (!isOpen) return null;
 
@@ -20,12 +21,12 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
     const formData = new FormData(e.target);
     const file = formData.get("file");
     if (!file) {
-      alert("Please select a CSV file to upload.");
+      alert("Please select a CSV or Excel file to upload.");
       return;
     }
 
     try {
-      const result = await addSchoolsByCsv(projectId, file);
+      const result = await addSchoolsByFile(projectId, file);
       if (result) {
         alert(`${result.count} schools added successfully!`);
         setFormState({});
@@ -33,11 +34,17 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
       }
     } catch (err) {
       console.error(err);
+      alert(err.message || "Failed to upload schools.");
     }
   };
 
-  // Function to generate and download a CSV template
-  const handleDownloadTemplate = () => {
+  // Function to generate and download a template (CSV or Excel)
+ const handleDownloadTemplate = (format) => {
+  const data = [
+    { name: "Example School", location: "City Name" },
+  ];
+
+  if (format === "csv") {
     const csvContent = "name,location\nExample School,City Name";
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -47,7 +54,15 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
+  } else if (format === "excel") {
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Schools");
+    
+    // This will automatically trigger the download
+    XLSX.writeFile(wb, "school_template.xlsx");
+  }
+};
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -92,7 +107,7 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
         >
           <div className="text-left">
             <p className="text-sm text-gray-600 mb-4">
-              Upload a CSV file with school information. The file must have the following
+              Upload a CSV or Excel file with school information. The file must have the following
               columns: <span className="font-medium">name, location</span>.
             </p>
           </div>
@@ -100,11 +115,19 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
           <div className="text-left flex gap-2">
             <button
               type="button"
-              onClick={handleDownloadTemplate}
+              onClick={() => handleDownloadTemplate("csv")}
               className="flex items-center text-sm px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded"
             >
               <Download className="w-4 h-4 mr-2" />
-              Download Template
+              CSV Template
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDownloadTemplate("excel")}
+              className="flex items-center text-sm px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Excel Template
             </button>
             <button
               type="button"
@@ -142,7 +165,7 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
                 />
               </svg>
               <span className="text-blue-500 mt-2">Click or drag file to this area to upload</span>
-              <span className="text-gray-500 text-sm mt-1">Support for a single CSV file upload</span>
+              <span className="text-gray-500 text-sm mt-1">Support for CSV or Excel file upload</span>
               <input
                 type="file"
                 name="file"

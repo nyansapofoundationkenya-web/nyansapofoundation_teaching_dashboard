@@ -4,14 +4,14 @@ import { useEffect, useState } from "react";
 import Select from "react-select";
 import { db } from "@/firebase/config";
 import { collection, getDocs } from "firebase/firestore";
-import { useAssignInstructor } from "@/hooks/useAssignInstructor"; // Import the hook
+import { useAssignInstructor } from "@/hooks/useAssignInstructor";
 
 export default function InstructorModal({ isOpen, onClose, organizationId, projectId }) {
   const [instructors, setInstructors] = useState([]);
   const [schools, setSchools] = useState([]);
   const [formState, setFormState] = useState({
     instructor: null,
-    school: null,
+    schools: [], // Changed to array for multiple schools
   });
 
   const { assignInstructor } = useAssignInstructor();
@@ -21,7 +21,7 @@ export default function InstructorModal({ isOpen, onClose, organizationId, proje
       fetchInstructors();
       fetchSchools();
     } else {
-      setFormState({ instructor: null, school: null });
+      setFormState({ instructor: null, schools: [] });
     }
   }, [isOpen]);
 
@@ -44,10 +44,10 @@ export default function InstructorModal({ isOpen, onClose, organizationId, proje
   };
 
   const handleSubmit = async () => {
-    const { instructor, school } = formState;
+    const { instructor, schools } = formState;
 
-    if (!instructor || !school) {
-      alert("Instructor and school are required.");
+    if (!instructor || !schools.length) {
+      alert("Instructor and at least one school are required.");
       return;
     }
 
@@ -56,8 +56,8 @@ export default function InstructorModal({ isOpen, onClose, organizationId, proje
         instructorId: instructor.value,
         organizationId,
         projectId,
-        schoolId: school.value,
-        schools,
+        schoolIds: schools.map((s) => s.value), // Send array of school IDs
+        schools: schools.map((s) => ({ id: s.value, name: s.label })), // Pass school data
       });
 
       alert("Instructor assigned successfully.");
@@ -72,6 +72,7 @@ export default function InstructorModal({ isOpen, onClose, organizationId, proje
   const customStyles = {
     control: (base) => ({ ...base, borderColor: "#d1d5db" }),
     singleValue: (base) => ({ ...base, fontSize: "14px" }),
+    multiValue: (base) => ({ ...base, backgroundColor: "#e5e7eb" }),
   };
 
   return (
@@ -93,13 +94,14 @@ export default function InstructorModal({ isOpen, onClose, organizationId, proje
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Assign School</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Assign Schools</label>
             <Select
+              isMulti // Enable multi-select
               options={schools.map((s) => ({ value: s.id, label: s.name }))}
-              value={formState.school}
-              onChange={(val) => handleChange("school", val)}
+              value={formState.schools}
+              onChange={(val) => handleChange("schools", val)}
               styles={customStyles}
-              placeholder="Choose school"
+              placeholder="Choose schools"
               className="text-sm text-gray-700"
             />
           </div>

@@ -222,7 +222,7 @@ export default function ProjectDetails() {
                           <Building2 className="w-4 h-4 flex-shrink-0" />
                         </button>
                       </li>
-                      <li>
+                      {/* <li>
                         <button
                           onClick={() => {
                             setIsCampModalOpen(true)
@@ -233,7 +233,7 @@ export default function ProjectDetails() {
                           <span>Create Camp</span>
                           <MapPin className="w-4 h-4 flex-shrink-0" />
                         </button>
-                      </li>
+                      </li> */}
                       <li>
                         <button
                           onClick={() => {
@@ -254,7 +254,7 @@ export default function ProjectDetails() {
                           }}
                           className="flex items-center justify-between w-full px-4 py-2 hover:bg-yellow-100 transition-colors"
                         >
-                          <span>Upload Students</span>
+                          <span>Upload Students for multiple schools</span>
                           <Users className="w-4 h-4 flex-shrink-0" />
                         </button>
                       </li>

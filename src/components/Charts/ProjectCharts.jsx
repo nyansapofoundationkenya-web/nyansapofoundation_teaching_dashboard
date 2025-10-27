@@ -30,7 +30,7 @@ export default function ProjectCharts({ chartData }) {
       above: "#3b82f6", // Blue
       multiplication: "#a855f7", // Purple
       addition: "#22c55e", // Green
-      numberRecognition: "#ef4444", // Red
+      number_recognition: "#ef4444", // Red
       division: "#f97316", // Orange
       subtraction: "#eab308", // Yellow
       countAndMatch: "#6b7280", // Gray
@@ -43,6 +43,7 @@ export default function ProjectCharts({ chartData }) {
       beginner: "#22c55e", // Green
       story: "#ef4444", // Red
       word: "#eab308", // Yellow
+      letter: "#8b5cf6",
       default: "#94a3b8", // Default gray
     },
   }

@@ -149,30 +149,64 @@ export function useSchools(organizationId) {
       setLoading(false)
     }
   }
-const addStudentsByCsv = async (projectId, schoolId, csvFile) => {
+const addStudentsByCsv = async (projectId, schoolId, file) => {
   if (!organizationId || !projectId || !schoolId) {
     setError("Missing organization ID, project ID, or school ID");
     return;
   }
-  if (!csvFile) {
-    setError("No CSV file provided");
+  if (!file) {
+    setError("No file provided");
     return;
   }
 
   setLoading(true);
   try {
-    const parseCsv = (file) =>
-      new Promise((resolve, reject) => {
+    let studentsData = [];
+
+    // Check file type and parse accordingly
+    const fileExtension = file.name.split('.').pop().toLowerCase();
+    
+    if (fileExtension === 'csv') {
+      // Parse CSV file
+      studentsData = await new Promise((resolve, reject) => {
         Papa.parse(file, {
           header: true,
           skipEmptyLines: true,
-          transformHeader: (header) => header.toLowerCase(),
+          transformHeader: (header) => header.toLowerCase().trim(),
           complete: (result) => resolve(result.data),
           error: (err) => reject(err),
         });
       });
+    } else if (['xlsx', 'xls'].includes(fileExtension)) {
+      // Parse Excel file
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      
+      // Get the first worksheet
+      const worksheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[worksheetName];
+      
+      // Convert to JSON
+      studentsData = XLSX.utils.sheet_to_json(worksheet, {
+        header: 1,
+        defval: ""
+      });
 
-    const studentsData = await parseCsv(csvFile);
+      // Convert array of arrays to array of objects
+      if (studentsData.length > 0) {
+        const headers = studentsData[0].map(header => header.toLowerCase().trim());
+        studentsData = studentsData.slice(1).map(row => {
+          const obj = {};
+          headers.forEach((header, index) => {
+            obj[header] = row[index] || "";
+          });
+          return obj;
+        });
+      }
+    } else {
+      setError("Unsupported file format. Please upload CSV or Excel files.");
+      return;
+    }
 
     // Validate only required fields (name, class, gender)
     const requiredFields = ["name", "class", "gender"];
@@ -224,6 +258,15 @@ const addStudentsByCsv = async (projectId, schoolId, csvFile) => {
         errors.push(`Row ${index + 2}: Class must be a number between 1 and 12`);
       }
 
+      // Validate age if provided
+      let ageValue = null;
+      if (student.age && String(student.age).trim() !== "") {
+        ageValue = parseInt(student.age);
+        if (isNaN(ageValue) || ageValue < 1 || ageValue > 25) {
+          errors.push(`Row ${index + 2}: Age must be a number between 1 and 25`);
+        }
+      }
+
       if (errors.length > 0) {
         throw new Error(errors.join("\n"));
       }
@@ -241,6 +284,7 @@ const addStudentsByCsv = async (projectId, schoolId, csvFile) => {
         name: fullName, // Keeping full name as well for backward compatibility
         grade: !isNaN(gradeNum) ? gradeNum : 0,
         sex: validGenders.includes(gender) ? gender : 'other',
+        age: ageValue || null,
         baseline: student.baseline ? String(student.baseline).trim() : '',
         group: student.group ? String(student.group).trim() : '',
         createdAt: new Date().toISOString(),
@@ -259,7 +303,7 @@ const addStudentsByCsv = async (projectId, schoolId, csvFile) => {
     });
 
     if (newStudents.length === 0) {
-      setError("All students in CSV already exist.");
+      setError("All students in file already exist.");
       return {
         success: false,
         count: 0,
@@ -302,11 +346,11 @@ const addStudentsByCsv = async (projectId, schoolId, csvFile) => {
       duplicatesList: duplicates.length > 0 ? duplicates : undefined
     };
   } catch (err) {
-    setError(`Error processing CSV: ${err.message}`);
+    setError(`Error processing file: ${err.message}`);
     return {
       success: false,
       error: err.message,
-      message: `Failed to process CSV: ${err.message}`
+      message: `Failed to process file: ${err.message}`
     };
   } finally {
     setLoading(false);
