@@ -13,8 +13,11 @@ import {
   query,
   orderBy,
   arrayUnion,
+  arrayRemove,
   limit,
-  increment
+  increment,
+  deleteDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
@@ -59,7 +62,6 @@ export function useProjects(organizationId) {
       setLoading(false);
     }
   };
-  
 
   const fetchRecentProjects = async () => {
     if (!organizationId) throw new Error("Missing organization ID");
@@ -84,7 +86,6 @@ export function useProjects(organizationId) {
 
   const fetchAllProjects = async () => {
     if (!organizationId) throw new Error("Missing organization ID");
-    // console.log(organizationId)
   
     setLoading(true);
     try {
@@ -102,6 +103,7 @@ export function useProjects(organizationId) {
       setLoading(false);
     }
   };
+
   const addProjectManager = async ({ name, email, phone, selectedProjectIds }) => {
     if (!organizationId) throw new Error("Missing organization ID");
   
@@ -119,7 +121,6 @@ export function useProjects(organizationId) {
           id: p.id,
           name: p.name,
           is_manager: true,
-          
         }));
   
       const newUser = {
@@ -127,7 +128,6 @@ export function useProjects(organizationId) {
         name,
         email,
         phone,
-        // class: "project_manager",
         createdAt: new Date().toISOString(),
         lastUpdated: new Date(),
         organizations: [
@@ -145,7 +145,202 @@ export function useProjects(organizationId) {
       throw err;
     }
   };
-  
+
+  // Comprehensive delete function that handles nested collections
+const deleteProject = async (projectId) => {
+  if (!organizationId || !projectId) {
+    throw new Error("Missing organization ID or project ID");
+  }
+
+  setLoading(true);
+  const batch = writeBatch(db);
+
+  try {
+    // Get project reference and data first
+    const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
+    const projectDoc = await getDoc(projectRef);
+    
+    if (!projectDoc.exists()) {
+      throw new Error("Project not found");
+    }
+
+    const projectData = projectDoc.data();
+    
+    // Get counts from the project before deletion
+    const projectStudentCount = projectData.total_students || 0;
+    const projectSchoolCount = projectData.total_schools || 0;
+    const projectTeacherCount = projectData.total_teachers || 0;
+    const projectCampCount = projectData.total_camps || 0;
+    const projectClassCount = projectData.total_classes || 0;
+
+    // 1. Delete all nested collections (schools, students, etc.)
+    const nestedCollections = ['schools', 'students'];
+    let totalStudentsDeleted = 0;
+    let totalSchoolsDeleted = 0;
+    let totalTeachersDeleted = 0;
+    let totalCampsDeleted = 0;
+    let totalClassesDeleted = 0;
+
+    for (const collectionName of nestedCollections) {
+      const nestedCollectionRef = collection(projectRef, collectionName);
+      const nestedDocs = await getDocs(nestedCollectionRef);
+      
+      // Delete all documents in the nested collection
+      nestedDocs.docs.forEach((nestedDoc) => {
+        batch.delete(nestedDoc.ref);
+      });
+      
+      // Track counts for verification (optional)
+      switch (collectionName) {
+        case 'students':
+          totalStudentsDeleted = nestedDocs.size;
+          break;
+        case 'schools':
+          totalSchoolsDeleted = nestedDocs.size;
+          break;
+        // case 'teachers':
+        //   totalTeachersDeleted = nestedDocs.size;
+        //   break;
+        // case 'camps':
+        //   totalCampsDeleted = nestedDocs.size;
+        //   break;
+        // case 'classes':
+        //   totalClassesDeleted = nestedDocs.size;
+        //   break;
+      }
+      
+      console.log(`Deleted ${nestedDocs.size} documents from ${collectionName}`);
+    }
+
+    // 2. Delete the project document itself
+    batch.delete(projectRef);
+
+    // 3. Update organization document - remove project from array and decrement all counts
+    const orgRef = doc(db, "organization", organizationId);
+    const orgUpdates = {
+      projects: arrayRemove(projectId),
+      total_projects: increment(-1)
+    };
+
+    // Decrement all organization-level counts based on project totals
+    if (projectStudentCount > 0) {
+      orgUpdates.total_students = increment(-projectStudentCount);
+    }
+    if (projectSchoolCount > 0) {
+      orgUpdates.total_schools = increment(-projectSchoolCount);
+    }
+    // if (projectTeacherCount > 0) {
+    //   orgUpdates.total_teachers = increment(-projectTeacherCount);
+    // }
+    // if (projectCampCount > 0) {
+    //   orgUpdates.total_camps = increment(-projectCampCount);
+    // }
+    // if (projectClassCount > 0) {
+    //   orgUpdates.total_classes = increment(-projectClassCount);
+    // }
+
+    batch.update(orgRef, orgUpdates);
+
+    // 4. Remove project from all users who have it in their organizations array
+    const usersSnapshot = await getDocs(collection(db, "user"));
+    usersSnapshot.docs.forEach((userDoc) => {
+      const userData = userDoc.data();
+      if (userData.organizations) {
+        const updatedOrganizations = userData.organizations.map(org => {
+          if (org.id === organizationId && org.projects) {
+            // Remove the project from user's project list
+            const updatedProjects = org.projects.filter(project => project.id !== projectId);
+            return {
+              ...org,
+              projects: updatedProjects
+            };
+          }
+          return org;
+        });
+
+        // Only update if the organization was modified
+        if (JSON.stringify(userData.organizations) !== JSON.stringify(updatedOrganizations)) {
+          batch.update(userDoc.ref, {
+            organizations: updatedOrganizations
+          });
+        }
+      }
+    });
+
+    // Execute all operations in a single batch
+    await batch.commit();
+
+    // Log the impact for verification
+    // console.log(`Successfully deleted project ${projectId}`);
+    // console.log(`Organization counts reduced by:`);
+    // console.log(`- Students: ${projectStudentCount}`);
+    // console.log(`- Schools: ${projectSchoolCount}`);
+    // console.log(`- Teachers: ${projectTeacherCount}`);
+    // console.log(`- Camps: ${projectCampCount}`);
+    // console.log(`- Classes: ${projectClassCount}`);
+    // console.log(`Actual documents deleted:`);
+    // console.log(`- Students: ${totalStudentsDeleted}`);
+    // console.log(`- Schools: ${totalSchoolsDeleted}`);
+    // console.log(`- Teachers: ${totalTeachersDeleted}`);
+    // console.log(`- Camps: ${totalCampsDeleted}`);
+    // console.log(`- Classes: ${totalClassesDeleted}`);
+
+    // Update local state
+    setProjects(prev => prev.filter(project => project.id !== projectId));
+    
+    return true;
+
+  } catch (err) {
+    console.error("Error deleting project:", err);
+    setError(err.message);
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
+
+  // Alternative delete function if you want to handle deletions more selectively
+  const deleteProjectWithConfirmation = async (projectId, deleteNestedData = true) => {
+    if (!deleteNestedData) {
+      // Simple delete - just remove the project document
+      return await simpleDeleteProject(projectId);
+    }
+    
+    // Full delete with nested data
+    return await deleteProject(projectId);
+  };
+
+  // Simple delete function that only removes the project document
+  const simpleDeleteProject = async (projectId) => {
+    if (!organizationId || !projectId) {
+      throw new Error("Missing organization ID or project ID");
+    }
+
+    setLoading(true);
+    try {
+      // Delete project from projects collection
+      const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
+      await deleteDoc(projectRef);
+      
+      // Remove project from organization's projects array and decrement total_projects
+      const orgRef = doc(db, "organization", organizationId);
+      await updateDoc(orgRef, {
+        projects: arrayRemove(projectId),
+        total_projects: increment(-1)
+      });
+
+      // Update local state
+      setProjects(prev => prev.filter(project => project.id !== projectId));
+      
+      return true;
+    } catch (err) {
+      console.error("Error deleting project:", err);
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return {
     projects,
@@ -154,6 +349,9 @@ export function useProjects(organizationId) {
     createProject,
     fetchRecentProjects,
     fetchAllProjects,
-    addProjectManager
+    addProjectManager,
+    deleteProject, // Full delete with nested data
+    deleteProjectWithConfirmation, // Optional nested data deletion
+    simpleDeleteProject // Simple delete without nested data
   };
 }

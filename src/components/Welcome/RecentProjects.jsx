@@ -6,7 +6,7 @@ import { useProjects } from "@/hooks/UseProjects"
 import { FaSchool } from "react-icons/fa"
 import { GiCampingTent } from "react-icons/gi"
 
-export default function RecentProjects({ organizationId, refreshTrigger }) {
+export default function RecentProjects({ organizationId, refreshTrigger, onProjectsLoaded }) {
   const { fetchRecentProjects } = useProjects(organizationId)
   const [projects, setProjects] = useState([])
   const router = useRouter()
@@ -16,6 +16,11 @@ export default function RecentProjects({ organizationId, refreshTrigger }) {
       if (!organizationId) return
       const recent = await fetchRecentProjects()
       setProjects(recent)
+      
+      // Call the callback when projects are loaded
+      if (onProjectsLoaded) {
+        onProjectsLoaded(recent)
+      }
     }
 
     loadProjects()

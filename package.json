@@ -16,6 +16,7 @@
     "exceljs": "^4.4.0",
     "firebase": "^11.7.3",
     "formik": "^2.4.6",
+    "framer-motion": "^12.23.24",
     "js-cookie": "^3.0.5",
     "libphonenumber-js": "^1.12.9",
     "lucide-react": "^0.511.0",

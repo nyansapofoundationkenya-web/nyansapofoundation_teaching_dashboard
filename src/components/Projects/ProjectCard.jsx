@@ -1,20 +1,88 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Building, Users, Tent, Gauge } from "lucide-react";
+import { Building, Users, Tent, Gauge, Trash2 } from "lucide-react";
 import { FaChalkboardTeacher } from "react-icons/fa";
+import { useProjects } from "@/hooks/UseProjects";
+import { useState } from "react";
 
-export default function ProjectCard({ project, organizationId }) {
+export default function ProjectCard({ project, organizationId, userRole }) {
   const router = useRouter();
+  const { deleteProject } = useProjects(organizationId);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleViewDashboard = () => {
     router.push(`/dashboard/${organizationId}/projectDetails/${project.id}`);
   };
 
+  const handleDeleteClick = (e) => {
+    e.stopPropagation();
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async (e) => {
+    e.stopPropagation();
+    setIsDeleting(true);
+    try {
+      await deleteProject(project.id);
+      // The project will be removed from the list via the refresh trigger
+    } catch (error) {
+      console.error("Error deleting project:", error);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  const handleCancelDelete = (e) => {
+    e.stopPropagation();
+    setShowDeleteConfirm(false);
+  };
+
   return (
-    <div className="rounded-xl p-4 sm:p-6 bg-gradient-to-r from-indigo-500 to-blue-400 text-white shadow-lg w-full transition-transform hover:scale-105 duration-200">
+    <div className="rounded-xl p-4 sm:p-6 bg-gradient-to-r from-indigo-500 to-blue-400 text-white shadow-lg w-full transition-transform hover:scale-105 duration-200 relative">
+      {/* Delete Button - Only for Admin */}
+      {userRole === 'admin' && !showDeleteConfirm && (
+        <button
+          onClick={handleDeleteClick}
+          disabled={isDeleting}
+          className="absolute top-3 right-3 p-1.5 bg-white/20 hover:bg-white/30 rounded-full transition-colors duration-200 z-10"
+          title="Delete Project"
+        >
+         <Trash2 size={16} className="text-red-500" />
+        </button>
+      )}
+
+      {/* Delete Confirmation Overlay */}
+      {showDeleteConfirm && (
+        <div className="absolute inset-0 bg-black/80 rounded-xl flex items-center justify-center p-4 z-20">
+          <div className="text-center bg-white rounded-lg p-4 max-w-[200px]">
+            <p className="text-gray-800 text-sm font-medium mb-3">
+              Delete this project?
+            </p>
+            <div className="flex gap-2 justify-center">
+              <button
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded text-xs font-medium transition-colors disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+              <button
+                onClick={handleCancelDelete}
+                disabled={isDeleting}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-xs font-medium transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Title */}
-      <h2 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-3 line-clamp-2 leading-tight">{project?.name}</h2>
+      <h2 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-3 line-clamp-2 leading-tight pr-8">{project?.name}</h2>
 
       {/* Location tags */}
       <div className="flex gap-1 sm:gap-2 mb-3 sm:mb-4 flex-wrap">

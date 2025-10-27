@@ -1,7 +1,8 @@
 // components/Students/Filter.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSelector } from "react-redux";
 import Select from "react-select";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/firebase/config";
@@ -12,6 +13,9 @@ export default function Filter({
   organizationId,
   className = "" 
 }) {
+  const { user: currentUser } = useSelector((state) => state.auth);
+  const userRole = currentUser?.role;
+  
   const [organizations, setOrganizations] = useState([]);
   const [projects, setProjects] = useState([]);
   const [schools, setSchools] = useState([]);
@@ -24,20 +28,46 @@ export default function Filter({
     schools: false
   });
   const [filterOpen, setFilterOpen] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // Fetch all organizations
+  // Memoized filter change handler
+  const handleFilterChange = useCallback((filters) => {
+    onFilterChange(filters);
+  }, [onFilterChange]);
+
+  // Fetch organizations based on user role - RUNS ONLY ONCE
   useEffect(() => {
     const fetchOrganizations = async () => {
       setLoading(prev => ({ ...prev, orgs: true }));
       try {
-        const orgRef = collection(db, "organization");
-        const snapshot = await getDocs(orgRef);
-        const orgs = snapshot.docs.map(doc => ({
-          value: doc.id,
-          label: doc.data().name || `Organization ${doc.id.slice(0, 8)}`,
-          data: doc.data()
-        }));
-        setOrganizations(orgs);
+        if (userRole === 'super_admin') {
+          const orgRef = collection(db, "organization");
+          const snapshot = await getDocs(orgRef);
+          const orgs = snapshot.docs.map(doc => ({
+            value: doc.id,
+            label: doc.data().name || `Organization ${doc.id.slice(0, 8)}`,
+            data: doc.data()
+          }));
+          setOrganizations(orgs);
+          
+          // Auto-select first organization for super_admin on initial load only
+          if (orgs.length > 0 && isInitialLoad) {
+            setSelectedOrg(orgs[0]);
+          }
+        } else if (userRole === 'admin' && organizationId) {
+          const orgRef = doc(db, "organization", organizationId);
+          const orgDoc = await getDoc(orgRef);
+          if (orgDoc.exists()) {
+            const orgData = orgDoc.data();
+            const org = {
+              value: organizationId,
+              label: orgData.name || `Organization ${organizationId.slice(0, 8)}`,
+              data: orgData
+            };
+            setOrganizations([org]);
+            setSelectedOrg(org);
+          }
+        }
       } catch (err) {
         console.error("Error fetching organizations:", err);
       } finally {
@@ -46,9 +76,9 @@ export default function Filter({
     };
 
     fetchOrganizations();
-  }, []);
+  }, [userRole, organizationId, isInitialLoad]); // Remove selectedOrg from dependencies
 
-  // Fetch projects when organization is selected
+  // Fetch projects when organization changes
   useEffect(() => {
     const fetchProjects = async () => {
       if (!selectedOrg) {
@@ -88,25 +118,35 @@ export default function Filter({
 
           const projectsData = (await Promise.all(projectPromises)).filter(project => project !== null);
           setProjects(projectsData);
+          
+          // Auto-select first project on initial load only
+          if (projectsData.length > 0 && isInitialLoad) {
+            setSelectedProject(projectsData[0]);
+          } else {
+            setSelectedProject(null);
+          }
         } else {
           setProjects([]);
+          setSelectedProject(null);
         }
         
         setSchools([]);
-        setSelectedProject(null);
         setSelectedSchool(null);
       } catch (err) {
         console.error("Error fetching projects:", err);
         setProjects([]);
+        setSelectedProject(null);
       } finally {
         setLoading(prev => ({ ...prev, projects: false }));
       }
     };
 
-    fetchProjects();
-  }, [selectedOrg]);
+    if (selectedOrg) {
+      fetchProjects();
+    }
+  }, [selectedOrg, isInitialLoad]); // Remove selectedProject from dependencies
 
-  // Fetch schools when project is selected
+  // Fetch schools when project changes
   useEffect(() => {
     const fetchSchools = async () => {
       if (!selectedOrg || !selectedProject) {
@@ -144,37 +184,70 @@ export default function Filter({
 
           const schoolsData = (await Promise.all(schoolPromises)).filter(school => school !== null);
           setSchools(schoolsData);
+          
+          // Auto-select first school on initial load only
+          if (schoolsData.length > 0 && isInitialLoad) {
+            const firstSchool = schoolsData[0];
+            setSelectedSchool(firstSchool);
+          } else {
+            setSelectedSchool(null);
+          }
         } else {
           setSchools([]);
+          setSelectedSchool(null);
         }
-        
-        setSelectedSchool(null);
       } catch (err) {
         console.error("Error fetching schools:", err);
         setSchools([]);
+        setSelectedSchool(null);
       } finally {
         setLoading(prev => ({ ...prev, schools: false }));
       }
     };
 
-    fetchSchools();
-  }, [selectedOrg, selectedProject]);
+    if (selectedOrg && selectedProject) {
+      fetchSchools();
+    }
+  }, [selectedOrg, selectedProject, isInitialLoad]); // Remove selectedSchool from dependencies
+
+  // Apply filter when all selections are complete - SEPARATE EFFECT
+  useEffect(() => {
+    if (selectedOrg && selectedProject && selectedSchool) {
+      handleFilterChange({
+        organizationId: selectedOrg.value,
+        organizationName: selectedOrg.label,
+        projectId: selectedProject.value,
+        projectName: selectedProject.label,
+        schoolId: selectedSchool.value,
+        schoolName: selectedSchool.label
+      });
+      
+      // Mark initial load as complete
+      if (isInitialLoad) {
+        setIsInitialLoad(false);
+      }
+    }
+  }, [selectedOrg, selectedProject, selectedSchool, handleFilterChange, isInitialLoad]);
 
   const handleOrgChange = (org) => {
     setSelectedOrg(org);
     setSelectedProject(null);
     setSelectedSchool(null);
+    setIsInitialLoad(false);
   };
 
   const handleProjectChange = (project) => {
     setSelectedProject(project);
     setSelectedSchool(null);
+    setIsInitialLoad(false);
   };
 
   const handleSchoolChange = (school) => {
     setSelectedSchool(school);
+    setIsInitialLoad(false);
+    
     if (school && selectedOrg && selectedProject) {
-      onFilterChange({
+      handleFilterChange({
         organizationId: selectedOrg.value,
         organizationName: selectedOrg.label,
         projectId: selectedProject.value,
@@ -182,15 +255,30 @@ export default function Filter({
         schoolId: school.value,
         schoolName: school.label
       });
-      setFilterOpen(false); // Auto-close filter when school is selected
+      setFilterOpen(false);
     }
   };
 
   const clearFilters = () => {
-    setSelectedOrg(null);
-    setSelectedProject(null);
-    setSelectedSchool(null);
-    onFilterChange(null);
+    setIsInitialLoad(false);
+    
+    if (userRole === 'admin') {
+      setSelectedProject(null);
+      setSelectedSchool(null);
+      handleFilterChange({
+        organizationId: selectedOrg?.value,
+        organizationName: selectedOrg?.label,
+        projectId: null,
+        projectName: null,
+        schoolId: null,
+        schoolName: null
+      });
+    } else {
+      setSelectedOrg(null);
+      setSelectedProject(null);
+      setSelectedSchool(null);
+      handleFilterChange(null);
+    }
   };
 
   const customSelectStyles = {
@@ -220,6 +308,24 @@ export default function Filter({
     }),
   };
 
+  const getOrgPlaceholder = () => {
+    if (loading.orgs) return "Loading organizations...";
+    if (userRole === 'admin') return "Your Organization";
+    if (userRole === 'super_admin') return "Select organization...";
+    return "No access to organizations";
+  };
+
+  const getFilterButtonText = () => {
+    if (selectedSchool) {
+      return `${selectedSchool.label}`;
+    } else if (selectedProject) {
+      return `${selectedProject.label} (Select School)`;
+    } else if (selectedOrg) {
+      return `${selectedOrg.label} (Select Project)`;
+    }
+    return "Advanced Filter";
+  };
+
   return (
     <div className={`relative ${className}`}>
       {/* Filter Toggle Button */}
@@ -228,7 +334,7 @@ export default function Filter({
         className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-medium rounded-lg transition-colors shadow-sm"
       >
         <FilterIcon className="w-4 h-4" />
-        Advanced Filter
+        {getFilterButtonText()}
         {selectedOrg && (
           <span className="bg-yellow-700 text-yellow-100 text-xs px-2 py-1 rounded-full">
             Active
@@ -259,16 +365,22 @@ export default function Filter({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Organization
+                {userRole === 'admin' && (
+                  <span className="text-blue-600 text-xs ml-2">(Your Organization)</span>
+                )}
+                {userRole === 'super_admin' && (
+                  <span className="text-green-600 text-xs ml-2">(All Organizations)</span>
+                )}
                 {loading.orgs && <span className="text-yellow-600 text-xs ml-2">Loading...</span>}
               </label>
               <Select
                 options={organizations}
                 value={selectedOrg}
                 onChange={handleOrgChange}
-                placeholder="Select organization..."
-                isDisabled={loading.orgs}
+                placeholder={getOrgPlaceholder()}
+                isDisabled={loading.orgs || userRole === 'admin'}
                 styles={customSelectStyles}
-                isClearable
+                isClearable={userRole !== 'admin'}
               />
             </div>
 
@@ -277,6 +389,9 @@ export default function Filter({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Project
                 {loading.projects && <span className="text-yellow-600 text-xs ml-2">Loading...</span>}
+                {selectedProject && (
+                  <span className="text-green-600 text-xs ml-2">✓ Selected</span>
+                )}
               </label>
               <Select
                 options={projects}
@@ -302,6 +417,9 @@ export default function Filter({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 School
                 {loading.schools && <span className="text-yellow-600 text-xs ml-2">Loading...</span>}
+                {selectedSchool && (
+                  <span className="text-green-600 text-xs ml-2">✓ Selected</span>
+                )}
               </label>
               <Select
                 options={schools}

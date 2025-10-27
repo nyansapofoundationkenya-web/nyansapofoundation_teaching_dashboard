@@ -2,10 +2,13 @@
 
 import { useEffect } from "react"
 import { useProjects } from "@/hooks/UseProjects"
+import { useSelector } from "react-redux"
 import ProjectCard from "./ProjectCard"
 
 export default function ProjectList({ organizationId }) {
   const { projects, fetchAllProjects, loading, error } = useProjects(organizationId)
+  const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth)
+  const userRole = currentUser?.role
 
   useEffect(() => {
     if (organizationId) {
@@ -13,7 +16,7 @@ export default function ProjectList({ organizationId }) {
     }
   }, [organizationId])
 
-  if (loading) {
+  if (loading || userLoading) {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="text-center">
@@ -57,7 +60,12 @@ export default function ProjectList({ organizationId }) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {projects.map((project) => (
-            <ProjectCard key={project.id} project={project} organizationId={organizationId} />
+            <ProjectCard 
+              key={project.id} 
+              project={project} 
+              organizationId={organizationId}
+              userRole={userRole}
+            />
           ))}
         </div>
       )}

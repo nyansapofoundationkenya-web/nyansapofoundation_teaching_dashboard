@@ -9,7 +9,10 @@ import {
   deleteDoc,
   setDoc,
   query,
-  where 
+  where ,
+  increment,
+  writeBatch,
+  runTransaction 
 } from "firebase/firestore";
 import { db } from "@/firebase/config";
 
@@ -130,39 +133,68 @@ export function useStudents(organizationId, projectId, schoolId) {
 
   // Delete student
   const deleteStudent = async (studentId) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const studentRef = doc(
-        db, 
-        `organization/${organizationId}/projects/${projectId}/schools/${schoolId}/students`,
-        studentId
-      );
-      
-      await deleteDoc(studentRef);
-      await fetchStudents(); // Refresh the list
-      return { success: true };
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
+  setLoading(true);
+  setError(null);
+  
+  try {
+    const studentRef = doc(
+      db, 
+      `organization/${organizationId}/projects/${projectId}/schools/${schoolId}/students`,
+      studentId
+    );
 
+    // Use a batch write to ensure all operations succeed or fail together
+    const batch = writeBatch(db);
+
+    // 1. Delete the student document
+    batch.delete(studentRef);
+
+    // 2. Decrement total_students in school document
+    const schoolRef = doc(db, `organization/${organizationId}/projects/${projectId}/schools`, schoolId);
+    batch.update(schoolRef, {
+      total_students: increment(-1)
+    });
+
+    // 3. Decrement total_students in project document
+    const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
+    batch.update(projectRef, {
+      total_students: increment(-1)
+    });
+
+    // 4. Decrement total_students in organization document
+    const orgRef = doc(db, "organization", organizationId);
+    batch.update(orgRef, {
+      total_students: increment(-1)
+    });
+
+    // Execute all operations in a single batch
+    await batch.commit();
+
+    await fetchStudents(); // Refresh the list
+    return { success: true };
+  } catch (err) {
+    setError(err.message);
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
   // Add new student
-  const addStudent = async (studentData) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const studentsRef = collection(
-        db, 
-        `organization/${organizationId}/projects/${projectId}/schools/${schoolId}/students`
-      );
+ const addStudent = async (studentData) => {
+  setLoading(true);
+  setError(null);
+  
+  try {
+    const studentsRef = collection(
+      db, 
+      `organization/${organizationId}/projects/${projectId}/schools/${schoolId}/students`
+    );
 
-      // Enhanced duplicate check with grade and gender
+    // Define newStudentRef here so it’s in scope
+    const newStudentRef = doc(studentsRef);
+
+    await runTransaction(db, async (transaction) => {
+      // Duplicate check
       if (studentData.first_name && studentData.last_name && studentData.grade && studentData.sex) {
         const isDuplicate = await checkDuplicateStudent(
           studentData.first_name, 
@@ -170,31 +202,62 @@ export function useStudents(organizationId, projectId, schoolId) {
           studentData.grade,
           studentData.sex
         );
-        
+
         if (isDuplicate) {
           throw new Error("A student with the same first name, last name, grade, and gender already exists in this school.");
         }
       }
 
-      // Create a new document reference
-      const newStudentRef = doc(studentsRef);
-      
-      await setDoc(newStudentRef, {
+      // Parent references
+      const schoolRef = doc(db, `organization/${organizationId}/projects/${projectId}/schools`, schoolId);
+      const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
+      const orgRef = doc(db, "organization", organizationId);
+
+      // Verify parent documents exist
+      const [schoolDoc, projectDoc, orgDoc] = await Promise.all([
+        transaction.get(schoolRef),
+        transaction.get(projectRef),
+        transaction.get(orgRef)
+      ]);
+
+      if (!schoolDoc.exists()) throw new Error("School not found");
+      if (!projectDoc.exists()) throw new Error("Project not found");
+      if (!orgDoc.exists()) throw new Error("Organization not found");
+
+      // Add student
+      transaction.set(newStudentRef, {
         ...studentData,
         id: newStudentRef.id,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
 
-      await fetchStudents(); // Refresh the list
-      return { success: true, studentId: newStudentRef.id };
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
+      // Increment counts
+      transaction.update(schoolRef, {
+        total_students: increment(1),
+        updatedAt: new Date().toISOString()
+      });
+
+      transaction.update(projectRef, {
+        total_students: increment(1),
+        updatedAt: new Date().toISOString()
+      });
+
+      transaction.update(orgRef, {
+        total_students: increment(1),
+        updatedAt: new Date().toISOString()
+      });
+    });
+
+    await fetchStudents();
+    return { success: true, studentId: newStudentRef.id };
+  } catch (err) {
+    setError(err.message);
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchStudents();

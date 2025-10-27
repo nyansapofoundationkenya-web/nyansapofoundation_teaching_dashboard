@@ -115,9 +115,9 @@ export default function OrganizationPage({
   return (
     <div className="min-h-screen flex flex-col bg-gray-900 text-white p-6">
       <header className="p-4 flex justify-between items-center">
-        <div className="text-sm text-gray-400">
+        {/* <div className="text-sm text-gray-400">
           {currentUser ? `Role: ${currentUser.role || 'No role assigned'}` : 'Loading role...'}
-        </div>
+        </div> */}
         <button onClick={handleLogoutClick} className="hover:underline">
           Log out
         </button>

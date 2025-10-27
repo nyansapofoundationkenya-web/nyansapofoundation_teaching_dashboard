@@ -57,12 +57,12 @@ export default function OrganizationDashboardPage() {
     <DashboardLayout organizationId={organizationId}>
       <div className="min-h-screen text-gray-800 flex flex-col gap-6 p-4 md:p-6">
         <div className="w-full flex justify-end">
-          <button
+          {/* <button
             onClick={() => setIsModalOpen(true)}
             className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded font-semibold"
           >
             Add Project Manager
-          </button>
+          </button> */}
         </div>
 
         <ProjectList organizationId={organizationId} />
