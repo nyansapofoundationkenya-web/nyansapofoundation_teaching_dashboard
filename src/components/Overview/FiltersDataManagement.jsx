@@ -66,7 +66,7 @@ const FiltersDataManagement = ({ filters, onFilterChange }) => {
           </div>
 
           {/* Assessment Period */}
-          <div className="flex items-center">
+          {/* <div className="flex items-center">
             <label className="text-base text-gray-800 w-40 flex-shrink-0">
               Assessment Period:
             </label>
@@ -81,7 +81,7 @@ const FiltersDataManagement = ({ filters, onFilterChange }) => {
               <option value="q3">Quarter 3</option>
               <option value="q4">Quarter 4</option>
             </select>
-          </div>
+          </div> */}
         </div>
 
         {/* Right Column - Empty to maintain layout balance */}

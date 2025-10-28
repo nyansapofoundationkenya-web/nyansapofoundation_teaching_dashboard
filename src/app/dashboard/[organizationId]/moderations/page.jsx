@@ -1,21 +1,26 @@
 "use client"
 
-import { useState } from "react"
-import { useParams } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useParams, useRouter } from "next/navigation"
 import Header from "@/components/Dashboard/Header"
 import Sidebar from "@/components/Dashboard/SideBar"
 import Filter from "@/components/Moderations/Filter"
 import Search from "@/components/Moderations/Search"
 import AssessmentList from "@/components/Moderations/AssessmentList"
+import { Plus } from "lucide-react"
+import { FiMenu, FiX } from "react-icons/fi";
 
 export default function ModerationsPage() {
   const { organizationId } = useParams()
+  const router = useRouter()
   const [filters, setFilters] = useState({ 
     projectId: null, 
     schoolId: null,
-    date: "" // Add date to filters
+    date: null
   })
   const [searchQuery, setSearchQuery] = useState("")
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters)
@@ -25,35 +30,119 @@ export default function ModerationsPage() {
     setSearchQuery(query)
   }
 
+  const handleAddAssessment = () => {
+    router.push(`/dashboard/${organizationId}/moderations/new`)
+  }
+  
+  useEffect(() => {
+    const checkIfMobile = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      setSidebarOpen(!mobile);
+    };
+
+    checkIfMobile();
+    window.addEventListener("resize", checkIfMobile);
+    return () => window.removeEventListener("resize", checkIfMobile);
+  }, []);
+
+  // Handle dynamic viewport height for mobile devices
+  useEffect(() => {
+    const setVh = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+
+    setVh();
+    window.addEventListener("resize", setVh);
+    return () => window.removeEventListener("resize", setVh);
+  }, []);
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Fixed Sidebar */}
-      <Sidebar title="Moderations" organizationId={organizationId} />
-      
-      {/* Main content area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Fixed Header */}
-        <Header />
-        
-        {/* Scrollable main content */}
-        <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
-          {/* Header Section */}
-          <div className="bg-white border-b border-gray-200 px-6 py-4 mb-6 rounded-lg shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Filter organizationId={organizationId} onFilterChange={handleFilterChange} />
-                <Search onSearchChange={handleSearchChange} placeholder="Search assessment" />
+    <div className="flex h-screen bg-blue-50" style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
+      {/* Mobile/iPad Overlay */}
+      {isMobile && sidebarOpen && (
+        <div className="fixed inset-0 bg-gray-800 bg-opacity-30 z-40" onClick={toggleSidebar} />
+      )}
+
+      {/* Sidebar */}
+      <div
+        className={`
+          fixed left-0 top-0 h-full z-50 transition-transform duration-300 ease-in-out
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+        `}
+      >
+        {isMobile && sidebarOpen && (
+          <button
+            onClick={toggleSidebar}
+            className="absolute top-4 right-4 z-50 p-2 rounded-full shadow-md bg-white"
+            aria-label="Close menu"
+          >
+            <FiX className="w-5 h-5 text-indigo-600" />
+          </button>
+        )}
+        <Sidebar title="Moderations" organizationId={organizationId} />
+      </div>
+
+      {/* Main Content */}
+      <div
+        className={`
+          flex-1 transition-all duration-300 ease-in-out
+          ${!isMobile && sidebarOpen ? "ml-64" : "ml-0"}
+        `}
+      >
+        <div className="h-full p-6 space-y-6 bg-blue-50 flex-1 overflow-auto">
+          {/* Header with Menu Button and Title */}
+          <div className="flex items-center gap-3">
+            {isMobile && !sidebarOpen && (
+              <button
+                onClick={toggleSidebar}
+                className="p-2 rounded-md shadow-sm bg-white"
+                aria-label="Open menu"
+              >
+                <FiMenu className="w-5 h-5 text-indigo-600" />
+              </button>
+            )}
+            <h1 className="text-2xl font-bold text-gray-800">Assessments</h1>
+          </div>
+
+          {/* Search, Add Button, and Filter Section */}
+          <div className="space-y-4">
+            {/* Search and Add Button Row */}
+            <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
+              <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                <div className="flex-1 min-w-0 sm:min-w-[280px]">
+                  <Search onSearchChange={handleSearchChange} placeholder="Search assessment..." />
+                </div>
+                <button
+                  onClick={handleAddAssessment}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap flex-shrink-0"
+                >
+                  <Plus className="w-5 h-5" />
+                  Add Assessment
+                </button>
               </div>
+            </div>
+
+            {/* Filter Section */}
+            <div className="w-full">
+              <Filter organizationId={organizationId} onFilterChange={handleFilterChange} />
             </div>
           </div>
 
           {/* Assessment List */}
-          <AssessmentList 
-            organizationId={organizationId} 
-            filters={filters} 
-            searchQuery={searchQuery} 
-          />
-        </main>
+          <div className="bg-white rounded-lg shadow-sm">
+            <AssessmentList 
+              organizationId={organizationId} 
+              filters={filters} 
+              searchQuery={searchQuery} 
+            />
+          </div>
+        </div>
       </div>
     </div>
   )

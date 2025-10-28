@@ -10,7 +10,8 @@ import {
   FiHeadphones, 
   FiUserCheck, 
   FiUsers,
-  FiLogOut
+  FiLogOut,
+  FiClipboard
 } from "react-icons/fi";
 import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/icons/logo";
@@ -91,15 +92,15 @@ const Sidebar = ({ initialTitle, organizationId }) => {
       icon: <FiFolder size={20} />, 
       path: `/dashboard/${organizationId}/projects` 
     },
+     { 
+      name: "Assessments", 
+      icon: <FiClipboard size={20} />,
+      path: `/dashboard/${organizationId}/moderations` 
+    },
     { 
       name: "Schools", 
       icon: <FiMapPin size={20} />, 
       path: `/dashboard/${organizationId}/schools` 
-    },
-    { 
-      name: "Moderations", 
-      icon: <FiHeadphones size={20} />, 
-      path: `/dashboard/${organizationId}/moderations` 
     },
   ];
 
