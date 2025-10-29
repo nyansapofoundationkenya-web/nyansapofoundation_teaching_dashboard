@@ -7,8 +7,41 @@ import Papa from "papaparse"
 
 export function useSchools(organizationId) {
   const [schools, setSchools] = useState([])
+  const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+
+
+  // Fetch all projects for the organization
+  const fetchProjects = async () => {
+    if (!organizationId) {
+      setError("Missing organization ID")
+      return []
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const projectsCollectionRef = collection(db, `organization/${organizationId}/projects`)
+      const projectsSnapshot = await getDocs(projectsCollectionRef)
+
+      const projectsList = projectsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+
+      setProjects(projectsList)
+      return projectsList
+    } catch (err) {
+      const errorMessage = `Failed to fetch projects: ${err.message}`
+      setError(errorMessage)
+      console.error("Error fetching projects:", err)
+      throw new Error(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const fetchAllSchools = async () => {
     if (!organizationId) {
@@ -70,7 +103,7 @@ export function useSchools(organizationId) {
           }
         } catch (schoolError) {
           console.warn(`Error fetching schools for project ${projectId}:`, schoolError)
-                }
+        }
       }
 
       setSchools(allSchools)
@@ -86,7 +119,6 @@ export function useSchools(organizationId) {
   }
 
   const fetchSchoolsByProject = async (projectId) => {
-
     if (!organizationId || !projectId) {
       setError("Missing organization ID or project ID")
       return []
@@ -99,11 +131,39 @@ export function useSchools(organizationId) {
       const schoolsCollectionRef = collection(db, `organization/${organizationId}/projects/${projectId}/schools`)
       const schoolsSnapshot = await getDocs(schoolsCollectionRef)
 
-      const projectSchools = schoolsSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        projectId,
-      }))
+      // Get project data for context
+      const projectRef = doc(db, `organization/${organizationId}/projects`, projectId)
+      const projectSnap = await getDoc(projectRef)
+      const projectData = projectSnap.exists() ? projectSnap.data() : {}
+
+      const projectSchools = schoolsSnapshot.docs.map((doc) => {
+        const schoolData = doc.data()
+        
+        // Count camps for this school
+        let campCount = 0
+        if (schoolData.camps && Array.isArray(schoolData.camps)) {
+          campCount = schoolData.camps.length
+        }
+
+        // Count instructors for this school
+        let instructorCount = 0
+        if (schoolData.teachers && Array.isArray(schoolData.teachers)) {
+          instructorCount = schoolData.teachers.length
+        }
+
+        const studentCount = schoolData.total_students || 0
+
+        return {
+          id: doc.id,
+          ...schoolData,
+          projectId,
+          projectName: projectData.name || "Unknown Project",
+          campCount,
+          instructorCount,
+          studentCount,
+          location: schoolData.location || projectData.location || ["Unknown"],
+        }
+      })
 
       setSchools(projectSchools)
       return projectSchools
@@ -117,7 +177,6 @@ export function useSchools(organizationId) {
   }
 
   const getSchoolById = async (projectId, schoolId) => {
-    // console.log(projectId,schoolId)
     if (!organizationId || !projectId || !schoolId) {
       setError("Missing organization ID, project ID, or school ID")
       return null
@@ -358,8 +417,10 @@ const addStudentsByCsv = async (projectId, schoolId, file) => {
 };
   return {
     schools,
+    projects,
     loading,
     error,
+    fetchProjects,
     fetchAllSchools,
     fetchSchoolsByProject,
     getSchoolById,
