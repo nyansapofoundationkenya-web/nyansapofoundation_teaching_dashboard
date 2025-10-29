@@ -100,7 +100,7 @@ export default function SignupForm() {
       <form onSubmit={formik.handleSubmit}>
         {step === 1 ? (
           <>
-            <FormField label="Name" name="name" type="text" formik={formik} placeholder="Enter organization name" />
+            <FormField label="Name" name="name" type="text" formik={formik} placeholder="Enter your name" />
             <FormField label="Email" name="email" type="email" formik={formik} placeholder="Enter email" />
             <FormField label="Phone Number" name="phone" type="text" formik={formik} placeholder="e.g., +254712345678" />
             <FormField
