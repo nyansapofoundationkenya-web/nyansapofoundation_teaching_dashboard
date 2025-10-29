@@ -9,6 +9,7 @@ import Search from "@/components/Moderations/Search"
 import AssessmentList from "@/components/Moderations/AssessmentList"
 import { Plus } from "lucide-react"
 import { FiMenu, FiX } from "react-icons/fi";
+import AssessmentModal from "@/components/Moderations/AssessmentModal"; 
 
 export default function ModerationsPage() {
   const { organizationId } = useParams()
@@ -21,6 +22,7 @@ export default function ModerationsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false); // New state for modal
 
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters)
@@ -31,8 +33,14 @@ export default function ModerationsPage() {
   }
 
   const handleAddAssessment = () => {
-    router.push(`/dashboard/${organizationId}/moderations/new`)
+    setIsModalOpen(true); // Open modal instead of navigating
   }
+
+  // Optional: Callback to refresh the assessment list after creation
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    // If AssessmentList has a refresh prop or you use a global state/query, trigger it here
+  };
   
   useEffect(() => {
     const checkIfMobile = () => {
@@ -144,6 +152,14 @@ export default function ModerationsPage() {
           </div>
         </div>
       </div>
+
+      {/* Render the modal */}
+      {isModalOpen && (
+        <AssessmentModal 
+          organizationId={organizationId} 
+          onClose={handleModalClose} 
+        />
+      )}
     </div>
   )
 }

@@ -11,7 +11,8 @@ import {
   FiUserCheck, 
   FiUsers,
   FiLogOut,
-  FiClipboard
+  FiClipboard,
+  FiFileText
 } from "react-icons/fi";
 import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/icons/logo";
@@ -101,6 +102,11 @@ const Sidebar = ({ initialTitle, organizationId }) => {
       name: "Schools", 
       icon: <FiMapPin size={20} />, 
       path: `/dashboard/${organizationId}/schools` 
+    },
+    {
+    name: "Survey",
+    icon: <FiFileText size={20} />,
+    path: `/dashboard/${organizationId}/household`
     },
   ];
 

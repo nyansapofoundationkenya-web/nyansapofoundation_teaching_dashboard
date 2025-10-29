@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, getDocs } from "firebase/firestore"
+import { collection, getDocs, query, where, onSnapshot } from "firebase/firestore"
 import { db } from "@/firebase/config"
 import { ChevronDown, FolderOpen, GraduationCap, X } from "lucide-react"
 
@@ -18,8 +18,75 @@ export default function Filter({ organizationId, onFilterChange }) {
 
   useEffect(() => {
     fetchProjects()
-    fetchAssessmentCounts()
   }, [organizationId])
+
+  // Real-time listener for assessment counts
+  useEffect(() => {
+    if (!organizationId) {
+      setAssessmentCounts([])
+      setLoadingCounts(false)
+      return
+    }
+
+    setLoadingCounts(true)
+    const assessmentsQuery = query(
+      collection(db, "assessments"),
+      where("organization_id", "==", organizationId)
+    )
+    const unsubscribe = onSnapshot(assessmentsQuery, (snapshot) => {
+      const countsByDate = {}
+      
+      snapshot.docs.forEach(doc => {
+        const data = doc.data()
+        if (data.created_at) {
+          let dateStr
+          if (data.created_at.includes('T')) {
+            dateStr = data.created_at.split('T')[0]
+          } else {
+            dateStr = data.created_at
+          }
+          
+          countsByDate[dateStr] = (countsByDate[dateStr] || 0) + 1
+        }
+      })
+
+      // Get all dates with assessments and sort them (most recent first)
+      const datesWithAssessments = Object.keys(countsByDate)
+        .sort((a, b) => new Date(b) - new Date(a))
+
+      if (datesWithAssessments.length === 0) {
+        setAssessmentCounts([])
+        if (!selectedDate) {
+          setSelectedDate(null)
+        }
+        setLoadingCounts(false)
+        return
+      }
+
+      const mostRecentDate = datesWithAssessments[0]
+      
+      // Only set most recent date as default if no date is currently selected
+      if (!selectedDate) {
+        setSelectedDate(mostRecentDate)
+      }
+
+      // Take only the last 10 dates that have assessments
+      const last10Dates = datesWithAssessments.slice(0, 10)
+      
+      // Build the assessment counts list
+      const assessmentCountsList = last10Dates.map(dateStr => ({
+        date: dateStr,
+        count: countsByDate[dateStr],
+        displayDate: new Date(dateStr)
+      }))
+
+      // Reverse to show from oldest to most recent (left to right)
+      setAssessmentCounts(assessmentCountsList.reverse())
+      setLoadingCounts(false)
+    })
+
+    return () => unsubscribe()
+  }, [organizationId, selectedDate])
 
   useEffect(() => {
     onFilterChange({ 
@@ -29,78 +96,17 @@ export default function Filter({ organizationId, onFilterChange }) {
     })
   }, [selectedProject, selectedSchool, selectedDate])
 
-  const fetchAssessmentCounts = async () => {
-    try {
-      setLoadingCounts(true)
-      const assessmentsRef = collection(db, "assessments")
-      const snapshot = await getDocs(assessmentsRef)
-      
-      const countsByDate = {}
-      const allDates = []
-      
-      snapshot.docs.forEach(doc => {
-        const data = doc.data()
-        if (data.organization_id === organizationId && data.created_at) {
-          let dateStr
-          if (data.created_at.includes('T')) {
-            dateStr = data.created_at.split('T')[0]
-          } else {
-            dateStr = data.created_at
-          }
-          
-          countsByDate[dateStr] = (countsByDate[dateStr] || 0) + 1
-          allDates.push(dateStr)
-        }
-      })
-
-      if (allDates.length === 0) {
-        setAssessmentCounts([])
-        return
-      }
-
-      const sortedDates = allDates.sort((a, b) => new Date(b) - new Date(a))
-      const mostRecentDate = sortedDates[0]
-      
-      // Set most recent date with assessments as default
-      setSelectedDate(mostRecentDate)
-
-      // Build 10-day range from most recent date, including only dates with assessments
-      const mostRecentDateObj = new Date(mostRecentDate)
-      const assessmentCountsList = []
-      for (let i = 0; i < 10; i++) {
-        const date = new Date(mostRecentDateObj)
-        date.setDate(mostRecentDateObj.getDate() - i)
-        const dateStr = date.toISOString().split('T')[0]
-        if (countsByDate[dateStr] > 0) {
-          assessmentCountsList.push({
-            date: dateStr,
-            count: countsByDate[dateStr],
-            displayDate: new Date(date)
-          })
-        }
-      }
-
-      // Reverse to show from most recent to 10 days back
-      setAssessmentCounts(assessmentCountsList.reverse())
-    } catch (error) {
-      console.error("Error fetching assessment counts:", error)
-      setAssessmentCounts([])
-    } finally {
-      setLoadingCounts(false)
-    }
-  }
-
   const fetchProjects = async () => {
     try {
       setLoading(true)
-      const projectsRef = collection(db, "organization", organizationId, "projects")
+      const projectsRef = collection(db, `organizations/${organizationId}/projects`)
       const projectsSnapshot = await getDocs(projectsRef)
 
       const projectsData = await Promise.all(
         projectsSnapshot.docs.map(async (projectDoc) => {
           const projectData = { id: projectDoc.id, ...projectDoc.data() }
 
-          const schoolsRef = collection(db, "organization", organizationId, "projects", projectDoc.id, "schools")
+          const schoolsRef = collection(db, `organizations/${organizationId}/projects`, projectDoc.id, "schools")
           const schoolsSnapshot = await getDocs(schoolsRef)
           const schools = schoolsSnapshot.docs.map((schoolDoc) => ({
             id: schoolDoc.id,
