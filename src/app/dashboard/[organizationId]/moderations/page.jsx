@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { useSelector } from "react-redux"
 import Header from "@/components/Dashboard/Header"
 import Sidebar from "@/components/Dashboard/SideBar"
 import Filter from "@/components/Moderations/Filter"
@@ -24,6 +25,10 @@ export default function ModerationsPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false); // New state for modal
 
+  // Get user data directly from Redux store
+  const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
+  const isAdminOrSuperAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
+
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters)
   }
@@ -33,6 +38,7 @@ export default function ModerationsPage() {
   }
 
   const handleAddAssessment = () => {
+    if (!isAdminOrSuperAdmin) return; // Safety check, though button is hidden
     setIsModalOpen(true); // Open modal instead of navigating
   }
 
@@ -126,13 +132,16 @@ export default function ModerationsPage() {
                 <div className="flex-1 min-w-0 sm:min-w-[280px]">
                   <Search onSearchChange={handleSearchChange} placeholder="Search assessment..." />
                 </div>
-                <button
-                  onClick={handleAddAssessment}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap flex-shrink-0"
-                >
-                  <Plus className="w-5 h-5" />
-                  Add Assessment
-                </button>
+                {/* Add Assessment Button - Visible only to admin or super_admin */}
+                {!userLoading && isAdminOrSuperAdmin && (
+                  <button
+                    onClick={handleAddAssessment}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap flex-shrink-0"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Add Assessment
+                  </button>
+                )}
               </div>
             </div>
 
@@ -153,8 +162,8 @@ export default function ModerationsPage() {
         </div>
       </div>
 
-      {/* Render the modal */}
-      {isModalOpen && (
+      {/* Render the modal - Only for admin or super_admin */}
+      {!userLoading && isAdminOrSuperAdmin && isModalOpen && (
         <AssessmentModal 
           organizationId={organizationId} 
           onClose={handleModalClose} 

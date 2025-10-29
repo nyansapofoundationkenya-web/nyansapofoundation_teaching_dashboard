@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import * as Yup from "yup";
 
 const validationSchemaStep1 = Yup.object({
-  name: Yup.string().required("Organization name is required"),
+  name: Yup.string().required("Name is required"),
   email: Yup.string().email("Invalid email address").required("Email is required"),
   phone: Yup.string()
     .matches(/^\+?[1-9]\d{1,14}$/, "Invalid phone number. Include country code (e.g., +2547xxxxxxx)")

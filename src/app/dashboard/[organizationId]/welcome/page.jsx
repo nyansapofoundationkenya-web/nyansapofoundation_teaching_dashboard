@@ -3,13 +3,16 @@
 import { useEffect, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion" // Add this for smooth animations
 import { useParams } from "next/navigation"
+import { useSelector } from "react-redux"
 import { useOrganizations } from "@/hooks/useOrganization"
-import { ChevronDownIcon, XMarkIcon, InformationCircleIcon } from "@heroicons/react/24/outline" // Or use Lucide Icons / your icon lib
+import { ChevronDownIcon, XMarkIcon, InformationCircleIcon, PlusIcon } from "@heroicons/react/24/outline" // Or use Lucide Icons / your icon lib
 import Header from "@/components/Welcome/Header"
 import DashboardLayout from "../DashboardLayout"
 import GetStarted from "@/components/Welcome/GetStarted"
 import HowItWorks from "@/components/Welcome/HowItWorks"
 import RecentProjects from "@/components/Welcome/RecentProjects"
+import Modal from "@/components/ui/Modal"
+import { useProjects } from "@/hooks/UseProjects"
 
 export default function WelcomePage() {
   const { organizationId } = useParams() // extract org ID from the URL
@@ -18,6 +21,14 @@ export default function WelcomePage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [hasProjects, setHasProjects] = useState(false)
   const [showWelcomeSections, setShowWelcomeSections] = useState(true)
+  
+  // States for Create Project modal
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const { createProject } = useProjects(organizationId)
+  
+  // Get user data directly from Redux store
+  const { user: currentUser } = useSelector((state) => state.auth);
+  const isAdminOrSuperAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
 
   useEffect(() => {
     const fetchOrg = async () => {
@@ -52,6 +63,33 @@ export default function WelcomePage() {
   // Function to toggle welcome sections visibility
   const toggleWelcomeSections = () => {
     setShowWelcomeSections(!showWelcomeSections)
+  }
+
+  const projectFields = [
+    {
+      name: "name",
+      label: "Project Name",
+      type: "text",
+      required: true,
+      placeholder: "e.g., Read, count and shine",
+    },
+    {
+      name: "location",
+      label: "Location",
+      type: "text",
+      required: true,
+      placeholder: "e.g., Kenya, Uganda",
+    },
+  ]
+
+  const handleCreateProjectSubmit = async (data) => {
+    try {
+      await createProject(data)
+      setShowCreateModal(false)
+      refreshProjects()
+    } catch (err) {
+      console.error("Error creating project:", err)
+    }
   }
 
   return (
@@ -94,22 +132,32 @@ export default function WelcomePage() {
             )}
           </AnimatePresence>
           
-          {/* RecentProjects with integrated "Show Guide" toggle when hidden */}
+          {/* RecentProjects with integrated "Show Guide" toggle and "Create Project" button when hidden */}
           <div className="flex flex-col gap-4">
-            {hasProjects && !showWelcomeSections && (
+            {hasProjects && !showWelcomeSections && isAdminOrSuperAdmin && (
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
                 <span className="text-sm text-gray-600 flex items-center gap-2">
                   <InformationCircleIcon className="h-4 w-4" />
                   New to Nyansapo Dashboard? Check out the quick start guide.
                 </span>
-                <button
-                  onClick={toggleWelcomeSections}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-                  aria-label="Open guide"
-                >
-                  Open Guide
-                  <ChevronDownIcon className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={toggleWelcomeSections}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                    aria-label="Open guide"
+                  >
+                    Open Guide
+                    <ChevronDownIcon className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-yellow-500 text-black rounded-md hover:bg-yellow-600 transition-colors"
+                    aria-label="Create project"
+                  >
+                    <PlusIcon className="h-4 w-4" />
+                    Create Project
+                  </button>
+                </div>
               </div>
             )}
             
@@ -120,6 +168,17 @@ export default function WelcomePage() {
             />
           </div>
         </main>
+
+        {/* Create Project Modal - Rendered when button is clicked */}
+        {isAdminOrSuperAdmin && (
+          <Modal
+            isOpen={showCreateModal}
+            onClose={() => setShowCreateModal(false)}
+            title="Create New Project"
+            fields={projectFields}
+            onSubmit={handleCreateProjectSubmit}
+          />
+        )}
       </div>
     </DashboardLayout>
   )

@@ -21,11 +21,11 @@ export default function HowItWorks() {
       icon: <FaUsers className="text-xl text-gray-700" />,
       description: "Enroll students in school",
     },
-    {
-      title: "Set Up Camps",
-      icon: <GiCampingTent className="text-xl text-gray-700" />,
-      description: "Organize learning camps",
-    },
+    // {
+    //   title: "Set Up Camps",
+    //   icon: <GiCampingTent className="text-xl text-gray-700" />,
+    //   description: "Organize learning camps",
+    // },
   ];
 
   return (
