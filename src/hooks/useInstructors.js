@@ -293,5 +293,5 @@ export function useInstructors(organizationId, userRole) {
     fetchInstructors();
   }, [fetchInstructors]);
 
-  return { instructors, loading, error, fetchInstructors, updateInstructor };
+  return { instructors, loading, error, refetchInstructors: fetchInstructors, updateInstructor };
 }
