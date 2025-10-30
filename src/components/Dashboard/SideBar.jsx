@@ -103,12 +103,14 @@ const Sidebar = ({ initialTitle, organizationId }) => {
       icon: <FiMapPin size={20} />, 
       path: `/dashboard/${organizationId}/schools` 
     },
-    {
+  ];
+
+  // Survey menu item - will be conditionally added based on permissions
+  const surveyMenuItem = {
     name: "Survey",
     icon: <FiFileText size={20} />,
     path: `/dashboard/${organizationId}/household`
-    },
-  ];
+  };
 
   // Admin-only menu items
   const superAdminMenuItems = [
@@ -146,16 +148,26 @@ const Sidebar = ({ initialTitle, organizationId }) => {
     if (!currentUser) return baseMenuItems;
 
     const userRole = currentUser.role;
+    const hasSurveyPermission = currentUser.survey === true;
 
+    // Start with base menu items
+    let items = [...baseMenuItems];
+
+    // Add survey menu item if user has survey permission
+    if (hasSurveyPermission) {
+      items.push(surveyMenuItem);
+    }
+
+    // Add role-specific menu items
     switch (userRole) {
       case "super_admin":
-        return [ ...baseMenuItems, ...superAdminMenuItems];
+        return [...items, ...superAdminMenuItems];
       case "admin":
-        return [...baseMenuItems, ...adminMenuItems];
+        return [...items, ...adminMenuItems];
       case "teacher":
-        return [...baseMenuItems, ...teacherMenuItems];
+        return [...items, ...teacherMenuItems];
       default:
-        return baseMenuItems;
+        return items;
     }
   };
 

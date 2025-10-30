@@ -31,7 +31,7 @@ export function useMultiSheetUpload(organizationId) {
         const worksheet = workbook.Sheets[sheetName]
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
 
-        if (jsonData.length < 3) {
+        if (jsonData.length < 1) {
           continue
         }
 
@@ -80,15 +80,12 @@ export function useMultiSheetUpload(organizationId) {
   }
 
   const processSheetData = async (data, sheetName, projectId, organizationId, existingSchools) => {
-    const headersRow = data[1] || []
-    const sessionRow = data[2] || []
-    const studentRows = data.slice(3)
+    const headersRow = data[0] || []
+    const studentRows = data.slice(1)
 
-    const [schoolNameFromSheet, groupName] = sheetName.split("-")
-    const cleanSchoolName = schoolNameFromSheet?.trim()
-    const cleanGroupName = groupName?.trim()
+    const cleanSchoolName = sheetName.trim()
 
-    const normalizedSearchKey = cleanSchoolName?.toLowerCase().trim()
+    const normalizedSearchKey = cleanSchoolName.toLowerCase().trim()
     const matchedSchool = existingSchools[normalizedSearchKey]
 
     if (!matchedSchool) {
@@ -103,55 +100,19 @@ export function useMultiSheetUpload(organizationId) {
     const schoolId = matchedSchool.id
     const batch = writeBatch(db)
 
-    const sessionHasData = sessionRow.some((cell) => cell && cell.toString().trim() !== "")
-    const sessionColumns = []
-
-    if (sessionHasData) {
-      for (let i = 6; i < headersRow.length; i++) {
-        const dateHeader = headersRow[i]
-        const sessionHeader = sessionRow[i]
-
-        if (
-          !dateHeader ||
-          !sessionHeader ||
-          dateHeader.toString().trim() === "" ||
-          sessionHeader.toString().trim() === ""
-        ) {
-          continue
-        }
-
-        let formattedDate = dateHeader.toString().trim()
-
-        if (!isNaN(dateHeader) && typeof dateHeader === "number") {
-          const excelDate = new Date((dateHeader - 25569) * 86400 * 1000)
-          const day = excelDate.getDate()
-          const month = excelDate.toLocaleDateString("en-US", { month: "short" })
-          formattedDate = `${day}-${month}`
-        }
-
-        sessionColumns.push({
-          index: i,
-          date: formattedDate,
-          session: sessionHeader.toString().trim(),
-          sessionKey: `${formattedDate}-${sessionHeader.toString().trim()}`,
-        })
-      }
-    }
-
     const studentsData = []
     let studentsCount = 0
 
     for (let rowIndex = 0; rowIndex < studentRows.length; rowIndex++) {
       const row = studentRows[rowIndex]
 
+      const no = row[0]?.toString().trim()
       const fullName = row[1]?.toString().trim()
       const gradeStr = row[2]?.toString().trim()
-      const sex = row[3]?.toString().trim()
+      const ageStr = row[3]?.toString().trim() || null
+      const sex = row[4]?.toString().trim()
 
       if (!fullName || !gradeStr || !sex) continue
-
-      const baseline = row[4]?.toString().trim() || null
-      const group = row[5]?.toString().trim() || cleanGroupName || null
 
       const nameParts = fullName.split(" ")
       const first_name = nameParts[0]
@@ -160,13 +121,16 @@ export function useMultiSheetUpload(organizationId) {
       const grade = Number(gradeStr)
       if (isNaN(grade)) continue
 
+      const age = ageStr ? Number(ageStr) : null
+      if (age && isNaN(age)) continue
+
       const studentData = {
+        no,
         first_name,
         last_name,
         grade,
+        age,
         sex,
-        baseline,
-        group,
         createdAt: new Date(),
         updatedAt: new Date(),
       }
@@ -181,58 +145,9 @@ export function useMultiSheetUpload(organizationId) {
         id: studentRef.id,
         first_name,
         last_name,
-        group,
         rowData: row,
       })
     }
-
-    const attendanceBySession = new Map()
-    if (sessionColumns.length > 0) {
-      sessionColumns.forEach((sessionCol) => {
-        const sessionKey = sessionCol.sessionKey
-        attendanceBySession.set(sessionKey, {
-          date: sessionCol.date,
-          session: sessionCol.session,
-          group: cleanGroupName,
-          students: [],
-          createdAt: new Date(),
-        })
-      })
-
-      studentsData.forEach((student) => {
-        sessionColumns.forEach((sessionCol) => {
-          const attendanceValue = student.rowData[sessionCol.index]
-          const sessionKey = sessionCol.sessionKey
-
-          if (
-            attendanceValue !== undefined &&
-            attendanceValue !== null &&
-            attendanceValue.toString().trim() !== ""
-          ) {
-            const attended = attendanceValue === 1 || attendanceValue === "1" || attendanceValue === true
-
-            attendanceBySession.get(sessionKey).students.push({
-              studentId: student.id,
-              first_name: student.first_name,
-              last_name: student.last_name,
-              group: student.group,
-              attended,
-            })
-          }
-        })
-      })
-    }
-
-    let attendanceRecordsCount = 0
-    attendanceBySession.forEach((attendanceRecord) => {
-      if (attendanceRecord.students.length > 0) {
-        const attendanceRef = doc(
-          collection(db, `organization/${organizationId}/projects/${projectId}/schools/${schoolId}/attendance`),
-        )
-        batch.set(attendanceRef, attendanceRecord)
-        attendanceRecordsCount++
-      }
-    })
 
     if (studentsCount > 0) {
       const schoolRef = doc(db, `organization/${organizationId}/projects/${projectId}/schools/${schoolId}`)
@@ -257,8 +172,6 @@ export function useMultiSheetUpload(organizationId) {
 
     return {
       studentsCount,
-      attendanceCount: attendanceRecordsCount,
-      groupName: cleanGroupName,
     }
   }
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import * as Yup from "yup";
 
@@ -22,7 +22,9 @@ const baseValidationSchema = Yup.object({
   }),
   phone: Yup.string().when("loginMethod", {
     is: "phone",
-    then: () => Yup.string().required("Required"),
+    then: () => Yup.string()
+      .matches(/^\+?[1-9]\d{1,14}$/, "Invalid phone number. Include country code (e.g., +2547xxxxxxx)")
+      .required("Required"),
     otherwise: () => Yup.string().notRequired(),
   }),
 });
@@ -36,6 +38,7 @@ export default function LoginForm() {
     handleLogin, 
     verifyPhoneLoginCode, 
     error,
+    clearError,
     loading: authLoading,
     recaptchaReady
   } = useAuth();
@@ -57,12 +60,12 @@ export default function LoginForm() {
     onSubmit: async (values, { setSubmitting, resetForm }) => {
       try {
         if (step === 1) {
-          const result = await handleLogin({
+          await handleLogin({
             loginMethod: values.loginMethod,
             email: values.email,
             password: values.password,
             phone: values.phone,
-          });
+          }, "Login failed—check your credentials and try again.");
 
           if (values.loginMethod === "phone") {
             setStep(2);
@@ -72,7 +75,7 @@ export default function LoginForm() {
             router.push("/organization");
           }
         } else {
-          await verifyPhoneLoginCode(values.verificationCode);
+          await verifyPhoneLoginCode(values.verificationCode, "Code didn’t match. Check your SMS and enter it again?");
           setLoginSuccess(true);
           resetForm();
           setStep(1);
@@ -80,11 +83,25 @@ export default function LoginForm() {
         }
       } catch (e) {
         console.error("Login error:", e);
+        // No setErrors—hook handles error display
       } finally {
         setSubmitting(false);
       }
     },
   });
+
+  // Enhanced input handler to clear errors on type
+  const handleInputChange = (e) => {
+    const target = e.target;
+    formik.setFieldValue(target.name, target.value);
+    if (error) clearError(); // Clears stale errors as user types
+  };
+
+  // For radio buttons
+  const handleRadioChange = (e) => {
+    formik.handleChange(e);
+    if (error) clearError();
+  };
 
   return (
     <div className="w-full max-w-lg p-6 bg-gray-100 rounded-2xl shadow-md">
@@ -97,6 +114,7 @@ export default function LoginForm() {
         </div>
       )}
       
+      {/* Only show hook's error—no duplicate */}
       {error && (
         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
           {error}
@@ -121,7 +139,7 @@ export default function LoginForm() {
                     name="loginMethod"
                     value="email"
                     checked={formik.values.loginMethod === "email"}
-                    onChange={formik.handleChange}
+                    onChange={handleRadioChange}
                     className="mr-2"
                   />
                   Email
@@ -132,12 +150,15 @@ export default function LoginForm() {
                     name="loginMethod"
                     value="phone"
                     checked={formik.values.loginMethod === "phone"}
-                    onChange={formik.handleChange}
+                    onChange={handleRadioChange}
                     className="mr-2"
                   />
                   Phone
                 </label>
               </div>
+              {formik.touched.loginMethod && formik.errors.loginMethod && (
+                <p className="text-red-500 text-sm mt-1">{formik.errors.loginMethod}</p>
+              )}
             </div>
 
             {formik.values.loginMethod === "email" && (
@@ -147,12 +168,20 @@ export default function LoginForm() {
                   <input
                     type="email"
                     name="email"
-                    className="w-full p-3 rounded border border-gray-300 text-black placeholder-gray-700"
+                    className={`w-full p-3 rounded border ${
+                      formik.touched.email && formik.errors.email 
+                        ? "border-red-500 bg-red-50" 
+                        : "border-gray-300 bg-white"
+                    } text-black placeholder-gray-700`}
                     placeholder="Enter your email"
                     value={formik.values.email}
-                    onChange={formik.handleChange}
+                    onChange={handleInputChange}
+                    onBlur={formik.handleBlur}
                     disabled={!recaptchaReady}
                   />
+                  {formik.touched.email && formik.errors.email && (
+                    <p className="text-red-500 text-sm mt-1">{formik.errors.email}</p>
+                  )}
                 </div>
                 <div className="mb-4">
                   <label className="block mb-1 font-medium text-black">Password</label>
@@ -160,19 +189,27 @@ export default function LoginForm() {
                     <input
                       type={showPassword ? "text" : "password"}
                       name="password"
-                      className="w-full p-3 pr-10 rounded border border-gray-300 text-black placeholder-gray-700"
+                      className={`w-full p-3 pr-10 rounded border ${
+                        formik.touched.password && formik.errors.password 
+                          ? "border-red-500 bg-red-50" 
+                          : "border-gray-300 bg-white"
+                      } text-black placeholder-gray-700`}
                       placeholder="Enter your password"
                       value={formik.values.password}
-                      onChange={formik.handleChange}
+                      onChange={handleInputChange}
+                      onBlur={formik.handleBlur}
                       disabled={!recaptchaReady}
                     />
                     <div
-                      className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-600"
                       onClick={() => setShowPassword((prev) => !prev)}
                     >
-                      {showPassword ? <EyeOff size={18} className="text-black" /> : <Eye size={18} className="text-black" />}
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </div>
                   </div>
+                  {formik.touched.password && formik.errors.password && (
+                    <p className="text-red-500 text-sm mt-1">{formik.errors.password}</p>
+                  )}
                 </div>
               </>
             )}
@@ -183,12 +220,20 @@ export default function LoginForm() {
                 <input
                   type="text"
                   name="phone"
-                  className="w-full p-3 rounded border border-gray-300 text-black placeholder-gray-700"
-                  placeholder="Enter phone number with country code (e.g., +25434567890)"
+                  className={`w-full p-3 rounded border ${
+                    formik.touched.phone && formik.errors.phone 
+                      ? "border-red-500 bg-red-50" 
+                      : "border-gray-300 bg-white"
+                  } text-black placeholder-gray-700`}
+                  placeholder="Enter phone number with country code (e.g., +254712345678)"
                   value={formik.values.phone}
-                  onChange={formik.handleChange}
+                  onChange={handleInputChange}
+                  onBlur={formik.handleBlur}
                   disabled={!recaptchaReady}
                 />
+                {formik.touched.phone && formik.errors.phone && (
+                  <p className="text-red-500 text-sm mt-1">{formik.errors.phone}</p>
+                )}
               </div>
             )}
           </>
@@ -198,30 +243,41 @@ export default function LoginForm() {
             <input
               type="text"
               name="verificationCode"
-              className="w-full p-3 rounded border border-gray-300 text-black placeholder-gray-700"
-              placeholder="Enter 6-digit code"
+              className={`w-full p-3 rounded border ${
+                formik.touched.verificationCode && formik.errors.verificationCode 
+                  ? "border-red-500 bg-red-50" 
+                  : "border-gray-300 bg-white"
+              } text-black placeholder-gray-700`}
+              placeholder="Enter 6-digit code sent to your phone"
               value={formik.values.verificationCode}
-              onChange={formik.handleChange}
+              onChange={handleInputChange}
+              onBlur={formik.handleBlur}
             />
+            {formik.touched.verificationCode && formik.errors.verificationCode && (
+              <p className="text-red-500 text-sm mt-1">{formik.errors.verificationCode}</p>
+            )}
           </div>
         )}
 
         <button
           type="submit"
-          className={`block w-full py-3 mt-4 rounded font-semibold text-black ${
+          className={`block w-full py-3 mt-4 rounded font-semibold text-black flex items-center justify-center ${
             formik.isSubmitting || !recaptchaReady
               ? "bg-gray-300 cursor-not-allowed"
               : "bg-yellow-400 hover:bg-yellow-500"
           }`}
-          disabled={formik.isSubmitting || !recaptchaReady}
+          disabled={formik.isSubmitting || (step === 1 && !recaptchaReady)}
         >
-          {formik.isSubmitting
-            ? step === 1
-              ? "Logging in..."
-              : "Verifying..."
-            : step === 1
-            ? "Login"
-            : "Verify Code"}
+          {formik.isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {step === 1 ? "Logging in..." : "Verifying..."}
+            </>
+          ) : step === 1 ? (
+            "Login"
+          ) : (
+            "Verify Code"
+          )}
         </button>
       </form>
     </div>

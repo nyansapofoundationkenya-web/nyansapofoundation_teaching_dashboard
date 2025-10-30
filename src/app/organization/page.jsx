@@ -143,9 +143,9 @@ export default function OrganizationPage({
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4 w-full max-w-5xl">
-          <div className="flex justify-center">
+          {/* <div className="flex justify-center">
             <DemoOrganizationButton onClick={handleDemoClick} />
-          </div>
+          </div> */}
 
           {filteredOrganizations.map((org) => (
             <div key={org.id} className="flex justify-center">

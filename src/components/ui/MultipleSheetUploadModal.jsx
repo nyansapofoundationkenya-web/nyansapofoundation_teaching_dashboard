@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useMultiSheetUpload } from "@/hooks/useMultipleSheetUpload"
-import { Download, Info, FileSpreadsheet, Users, Calendar, X } from "lucide-react"
+import { Download, Info, FileSpreadsheet, Users, X } from "lucide-react"
 import SchoolMatcher from "@/hooks/SchoolMatcher"
 import * as XLSX from "xlsx"
 
@@ -61,22 +61,19 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
     const workbook = XLSX.utils.book_new();
 
     // Define the column headers
-    const headers = [
-      "No", "Name", "Class", "Sex", "Baseline", "Group", 
-      "20-May Session 1", "21-May Session 2", "22-May Session 3", "23-May Session 4"
-    ];
+    const headers = ["No", "Name", "Grade", "Age", "Sex"];
 
     // Sample data for each sheet
     const sampleData = [
-      ["1", "John Doe", "4", "Male", "Beginner(Lit)", "Group 1", "1", "1", "0", "1"],
-      ["2", "Jane Smith", "3", "Female", "Letter", "Group 1", "1", "0", "1", "1"],
-      ["3", "Bob Johnson", "5", "Male", "Beginner(Lit)", "Group 1", "0", "1", "1", "0"]
+      ["1", "John Doe", "4", "10", "Male"],
+      ["2", "Jane Smith", "3", "11", "Female"],
+      ["3", "Bob Johnson", "5", "", "Male"]
     ];
 
     // Create three sheets with different school names
     const schoolNames = ["school name 1", "school name 2", "school name 3"];
     
-    schoolNames.forEach((schoolName, index) => {
+    schoolNames.forEach((schoolName) => {
       // Create worksheet data with headers and sample data
       const worksheetData = [headers, ...sampleData];
       
@@ -88,7 +85,7 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
     });
 
     // Generate Excel file and trigger download
-    XLSX.writeFile(workbook, "student_attendance_template.xlsx");
+    XLSX.writeFile(workbook, "student_data_template.xlsx");
   }
 
   const handleClose = () => {
@@ -147,7 +144,7 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                 </div>
                 <h3 className="text-lg font-semibold text-gray-800 mb-2">Upload Successful!</h3>
                 <p className="text-sm text-gray-600 mb-4">
-                  Processed {uploadResults.totalSheets} sheets with student and attendance data
+                  Processed {uploadResults.totalSheets} sheets with student data
                 </p>
               </div>
 
@@ -155,14 +152,10 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                 {uploadResults.results.map((result, index) => (
                   <div key={index} className="bg-gray-50 p-4 rounded-lg">
                     <h4 className="font-medium text-gray-800 mb-2">{result.sheetName}</h4>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 gap-4 text-sm">
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-blue-500" />
                         <span>{result.studentsCount} students</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-green-500" />
-                        <span>{result.attendanceCount} attendance records</span>
                       </div>
                     </div>
                   </div>
@@ -200,7 +193,7 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800 mb-2">Bulk Upload Student Data</h3>
                   <p className="text-sm text-gray-600 mb-4">
-                    Upload an Excel file with multiple sheets containing student attendance data. Each sheet should
+                    Upload an Excel file with multiple sheets containing student data. Each sheet should
                     represent a different school and contain properly formatted student data.
                   </p>
                 </div>
@@ -241,19 +234,13 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                         <strong>Column B:</strong> Student name (required)
                       </li>
                       <li>
-                        <strong>Column C:</strong> Class/Grade
+                        <strong>Column C:</strong> Grade
                       </li>
                       <li>
-                        <strong>Column D:</strong> Sex (Male/Female)
+                        <strong>Column D:</strong> Age (optional)
                       </li>
                       <li>
-                        <strong>Column E:</strong> Baseline level
-                      </li>
-                      <li>
-                        <strong>Column F:</strong> Group assignment
-                      </li>
-                      <li>
-                        <strong>Columns G+:</strong> Date headers with attendance (1=present, 0=absent)
+                        <strong>Column E:</strong> Sex (Male/Female)
                       </li>
                     </ul>
                     <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
