@@ -165,7 +165,7 @@ export default function HouseholdsPage() {
         </div>
         
         {/* Scrollable Main Content - ONLY this section should scroll */}
-        <div className="flex-1 overflow-y-auto p-4 lg:p-6 bg-blue-50">
+        <div className="flex-1 overflow-y-auto p-4 lg:p-6 bg-blue-50 scrollbar-hide">
           <div className="space-y-6 max-w-7xl mx-auto w-full">
             {/* Header Section */}
             <HouseholdHeader 
