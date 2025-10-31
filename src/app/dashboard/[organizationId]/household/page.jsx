@@ -53,6 +53,10 @@ export default function HouseholdsPage() {
     setSidebarOpen(!sidebarOpen);
   };
 
+  const handlePageChange = (newPage) => {
+  setCurrentPage(newPage)
+  }
+
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters)
     setCurrentPage(1) // Reset to first page on filter change
@@ -72,9 +76,9 @@ export default function HouseholdsPage() {
     schoolId: hh.schoolId,
     householdHead: hh.householdHeadName,
     county: hh.county,
-    subCounty: "N/A", // Not available in data
-    children: hh.childLearningEnvironment?.children?.length || 0,
-    village: "N/A", // Not available in data
+    subCounty: hh.subCounty,
+    children: hh.children?.length || 0,
+    village: hh.village, 
     members: hh.householdMembersCount || 0,
     interviewDate: new Date(hh.interviewDate).toLocaleDateString('en-US', { 
       month: 'short', 
@@ -186,6 +190,7 @@ export default function HouseholdsPage() {
               currentPage={currentPage}
               totalPages={totalPages}
               organizationId={organizationId}
+              onPageChange={handlePageChange}
             />
           </div>
         </div>
