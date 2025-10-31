@@ -263,7 +263,7 @@ const UserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
               <div className="border-t border-gray-200 pt-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <Building className="w-5 h-5 text-blue-600" />
-                  Organizations & Access
+                  Organizations
                   {loadingNames && (
                     <span className="text-xs text-gray-400 ml-2">(Loading...)</span>
                   )}
