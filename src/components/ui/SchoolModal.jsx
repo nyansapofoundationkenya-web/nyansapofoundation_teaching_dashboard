@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useProjectDetails } from "@/hooks/useProjectDetails"; 
-import { Download, Info } from "lucide-react"; // Import icons
-import * as XLSX from "xlsx"; // Import xlsx for Excel template generation
+import { Download, Info } from "lucide-react";
+import * as XLSX from "xlsx";
 
 export default function SchoolModal({ isOpen, onClose, organizationId, projectId }) {
   const [formState, setFormState] = useState({});
@@ -39,30 +39,29 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
   };
 
   // Function to generate and download a template (CSV or Excel)
- const handleDownloadTemplate = (format) => {
-  const data = [
-    { name: "Example School", location: "City Name" },
-  ];
+  const handleDownloadTemplate = (format) => {
+    const data = [
+      { name: "Example School", county: "County Name" }, // Changed location to county for display
+    ];
 
-  if (format === "csv") {
-    const csvContent = "name,location\nExample School,City Name";
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", "school_template.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  } else if (format === "excel") {
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Schools");
-    
-    // This will automatically trigger the download
-    XLSX.writeFile(wb, "school_template.xlsx");
-  }
-};
+    if (format === "csv") {
+      const csvContent = "name,county\nExample School,County Name"; // Changed location to county
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "school_template.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else if (format === "excel") {
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Schools");
+      
+      XLSX.writeFile(wb, "school_template.xlsx");
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -108,7 +107,7 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
           <div className="text-left">
             <p className="text-sm text-gray-600 mb-4">
               Upload a CSV or Excel file with school information. The file must have the following
-              columns: <span className="font-medium">name, location</span>.
+              columns: <span className="font-medium">name, county</span>. {/* Changed location to county */}
             </p>
           </div>
 
@@ -144,8 +143,11 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
               <p className="text-sm font-medium text-gray-800">Required Fields:</p>
               <ul className="list-disc list-inside text-sm text-gray-600">
                 <li>name: The name of the school (e.g., "Springfield High")</li>
-                <li>location: The location of the school (e.g., "Springfield")</li>
+                <li>county: The county where the school is located (e.g., "Springfield County")</li> {/* Updated description */}
               </ul>
+              <p className="text-xs text-gray-500 mt-2">
+                Note: The "county" field will be saved as "location" in the system.
+              </p>
             </div>
           )}
 

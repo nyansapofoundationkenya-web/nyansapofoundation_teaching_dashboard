@@ -43,7 +43,7 @@ export default function ProjectCard({ project, organizationId, userRole }) {
   return (
     <div className="rounded-xl p-4 sm:p-6 bg-gradient-to-r from-indigo-500 to-blue-400 text-white shadow-lg w-full transition-transform hover:scale-105 duration-200 relative">
       {/* Delete Button - Only for Admin */}
-      {userRole === 'admin' && !showDeleteConfirm && (
+      {/* {userRole === 'admin' && !showDeleteConfirm && (
         <button
           onClick={handleDeleteClick}
           disabled={isDeleting}
@@ -52,7 +52,7 @@ export default function ProjectCard({ project, organizationId, userRole }) {
         >
          <Trash2 size={16} className="text-red-500" />
         </button>
-      )}
+      )} */}
 
       {/* Delete Confirmation Overlay */}
       {showDeleteConfirm && (

@@ -83,7 +83,7 @@ export function useProjectDetails(organizationId) {
     }
   };
 
-  const addSchoolsByFile = async (projectId, file) => {
+const addSchoolsByFile = async (projectId, file) => {
     if (!organizationId || !projectId) {
       setError("Missing organization ID or project ID");
       return;
@@ -132,8 +132,20 @@ export function useProjectDetails(organizationId) {
         return;
       }
 
+      // Transform county to location for backend compatibility
+      const transformedSchools = schoolsData.map(school => {
+        // If county exists, use it as location (for new templates)
+        // If location exists, use it as is (for backward compatibility)
+        const locationValue = school.county !== undefined ? school.county : school.location;
+        
+        return {
+          name: school.name,
+          location: locationValue
+        };
+      });
+
       // Validate both name and location
-      const validSchools = schoolsData.filter(
+      const validSchools = transformedSchools.filter(
         (school) =>
           school.name &&
           school.name.toString().trim() !== "" &&
@@ -142,7 +154,7 @@ export function useProjectDetails(organizationId) {
       );
 
       if (validSchools.length === 0) {
-        setError("No valid schools found in file. Each row must have 'name' and 'location' columns.");
+        setError("No valid schools found in file. Each row must have 'name' and 'county' columns.");
         return;
       }
 
@@ -182,7 +194,7 @@ export function useProjectDetails(organizationId) {
         const schoolRef = doc(collection(db, `organization/${organizationId}/projects/${projectId}/schools`));
         batch.set(schoolRef, {
           name: school.name.toString().trim(),
-          location: school.location.toString().trim(),
+          location: school.location.toString().trim(), // Saved as location in DB
           createdAt: new Date().toISOString(),
           teachers: [], // Initialize teachers array
           total_teachers: 0, // Initialize total_teachers

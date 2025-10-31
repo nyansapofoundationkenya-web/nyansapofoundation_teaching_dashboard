@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import Sidebar from "@/components/Dashboard/SideBar";
@@ -140,9 +140,14 @@ export default function InstructorsPage() {
     setSidebarOpen(!sidebarOpen);
   };
 
-  const filteredInstructors = instructors.filter((instructor) =>
-    instructor.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filtered instructors with search across name, email, and phone (without displaying email/phone)
+  const filteredInstructors = useMemo(() => {
+    return instructors.filter((instructor) =>
+      instructor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      instructor.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      instructor.phone?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [instructors, searchTerm]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredInstructors.length / itemsPerPage);
@@ -411,7 +416,7 @@ export default function InstructorsPage() {
             <div className="relative w-full sm:w-auto sm:max-w-md">
               <input
                 type="text"
-                placeholder="Search instructors by name..."
+                placeholder="Search by name, email, or phone..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg 

@@ -23,10 +23,10 @@ export default function GetStarted({ organizationId, onProjectCreated }) {
     },
     {
       name: "location",
-      label: "Location",
+      label: "County",
       type: "text",
       required: true,
-      placeholder: "e.g., Kenya, Uganda",
+      placeholder: "e.g., Nairobi",
     },
   ]
 

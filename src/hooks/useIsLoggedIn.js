@@ -2,11 +2,11 @@
 import { useSelector } from "react-redux";
 
 export function useIsLoggedIn() {
-  const { user, loading } = useSelector((state) => state.auth);
+  // const { user, loading } = useSelector((state) => state.auth);
   
-  return {
-    user,
-    loading,
-    isLoggedIn: !!user?.uid
-  };
+  // return {
+  //   user,
+  //   loading,
+  //   isLoggedIn: !!user?.uid
+  // };
 }

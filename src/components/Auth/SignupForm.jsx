@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { Eye, EyeOff } from "lucide-react";
+import { useSignup } from "@/hooks/Auth/useSignup";
 import * as Yup from "yup";
 
 const validationSchemaStep1 = Yup.object({
@@ -21,7 +21,7 @@ const validationSchemaStep2 = Yup.object({
 });
 
 export default function SignupForm() {
-  const { handleSignup, verifyPhoneCode, error, clearError } = useAuth();
+  const { handleSignup, verifyPhoneCode, error, recaptchaReady } = useSignup();
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
@@ -37,25 +37,17 @@ export default function SignupForm() {
       verificationCode: "",
     },
     validationSchema: step === 1 ? validationSchemaStep1 : validationSchemaStep2,
-    onSubmit: async (values, { setSubmitting, resetForm }) => {
+    onSubmit: async (values, { setSubmitting, setErrors, resetForm }) => {
       try {
         if (step === 1) {
           setSignupSuccess(false);
-          await handleSignup(
-            {
-              email: values.email,
-              password: values.password,
-              name: values.name,
-              phone: values.phone,
-            },
-            "Signup hit a snag—check your email/phone and try again."
-          );
-          setSignupData({
-            user: { uid: "temp" }, // Placeholder; actual user from hook if needed
+          const { user, email, name, phone } = await handleSignup({
             email: values.email,
+            password: values.password,
             name: values.name,
             phone: values.phone,
           });
+          setSignupData({ user, email, name, phone });
           setStep(2);
         } else {
           await verifyPhoneCode(
@@ -63,8 +55,7 @@ export default function SignupForm() {
             signupData.user,
             signupData.email,
             signupData.name,
-            signupData.phone,
-            "That code doesn’t match. Check your SMS and enter it again?"
+            signupData.phone
           );
           setSignupSuccess(true);
           resetForm();
@@ -74,23 +65,17 @@ export default function SignupForm() {
         }
       } catch (err) {
         console.error("Signup error:", err);
-        // No setErrors—hook handles error display
+        setErrors({ general: err.message || "Signup failed. Try again." });
       } finally {
         setSubmitting(false);
       }
     },
   });
 
-  // Enhanced input handler to clear errors on type
-  const handleInputChange = (e) => {
-    const target = e.target;
-    formik.setFieldValue(target.name, target.value);
-    if (error) clearError(); // Clears stale errors as user types
-  };
-
   return (
     <div className="w-full max-w-lg p-6 bg-gray-300 rounded-2xl shadow-md">
-      <div id="recaptcha-container"></div>
+      {/* Keep recaptcha container outside of conditional rendering */}
+      <div id="recaptcha-container" className="mb-4"></div>
 
       {signupSuccess && (
         <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-lg text-center">
@@ -98,40 +83,30 @@ export default function SignupForm() {
         </div>
       )}
 
-      {/* Only show hook's error—no duplicate */}
+      {formik.errors.general && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-center">
+          {formik.errors.general}
+        </div>
+      )}
+
       {error && (
         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-center">
           {error}
         </div>
       )}
 
+      {!recaptchaReady && step === 1 && (
+        <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded-lg text-center">
+          Initializing security verification...
+        </div>
+      )}
+
       <form onSubmit={formik.handleSubmit}>
         {step === 1 ? (
           <>
-            <FormField
-              label="Name"
-              name="name"
-              type="text"
-              formik={formik}
-              placeholder="Enter your name"
-              onChange={handleInputChange}
-            />
-            <FormField
-              label="Email"
-              name="email"
-              type="email"
-              formik={formik}
-              placeholder="Enter email"
-              onChange={handleInputChange}
-            />
-            <FormField
-              label="Phone Number"
-              name="phone"
-              type="text"
-              formik={formik}
-              placeholder="e.g., +254712345678"
-              onChange={handleInputChange}
-            />
+            <FormField label="Name" name="name" type="text" formik={formik} placeholder="Enter your name" />
+            <FormField label="Email" name="email" type="email" formik={formik} placeholder="Enter email" />
+            <FormField label="Phone Number" name="phone" type="text" formik={formik} placeholder="e.g., +254712345678" />
             <FormField
               label="Password"
               name="password"
@@ -146,7 +121,6 @@ export default function SignupForm() {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </span>
               }
-              onChange={handleInputChange}
             />
           </>
         ) : (
@@ -155,37 +129,35 @@ export default function SignupForm() {
             name="verificationCode"
             type="text"
             formik={formik}
-            placeholder="Enter 6-digit code sent to your phone"
-            onChange={handleInputChange}
+            placeholder="Enter 6-digit code"
           />
         )}
 
         <button
           type="submit"
-          disabled={formik.isSubmitting}
-          className={`block w-full py-3 mt-6 rounded-lg font-medium flex items-center justify-center ${
-            formik.isSubmitting
+          disabled={formik.isSubmitting || (step === 1 && !recaptchaReady)}
+          className={`block w-full py-3 mt-6 rounded-lg font-medium ${
+            formik.isSubmitting || (step === 1 && !recaptchaReady)
               ? "bg-gray-400 text-gray-700 cursor-not-allowed"
               : "bg-yellow-400 hover:bg-yellow-500 text-black"
           }`}
         >
-          {formik.isSubmitting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {step === 1 ? "Signing up..." : "Verifying..."}
-            </>
-          ) : step === 1 ? (
-            "Sign Up"
-          ) : (
-            "Verify Code"
-          )}
+          {formik.isSubmitting
+            ? step === 1
+              ? "Signing up..."
+              : "Verifying..."
+            : step === 1
+            ? !recaptchaReady
+              ? "Initializing..."
+              : "Sign Up"
+            : "Verify Code"}
         </button>
       </form>
     </div>
   );
 }
 
-function FormField({ label, name, type, formik, placeholder, rightIcon = null, onChange = formik.handleChange }) {
+function FormField({ label, name, type, formik, placeholder, rightIcon = null }) {
   const hasError = formik.touched[name] && formik.errors[name];
   return (
     <div className="mb-4">
@@ -195,7 +167,7 @@ function FormField({ label, name, type, formik, placeholder, rightIcon = null, o
           type={type}
           name={name}
           value={formik.values[name]}
-          onChange={onChange}
+          onChange={formik.handleChange}
           onBlur={formik.handleBlur}
           placeholder={placeholder}
           className={`w-full p-2 pr-10 rounded-lg border ${
