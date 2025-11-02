@@ -54,17 +54,8 @@ export default function OrganizationDashboardPage() {
   ];
 
   return (
-    <DashboardLayout organizationId={organizationId}>
-      <div className="min-h-screen text-gray-800 flex flex-col gap-6 p-4 md:p-6">
-        <div className="w-full flex justify-end">
-          {/* <button
-            onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded font-semibold"
-          >
-            Add Project Manager
-          </button> */}
-        </div>
-
+    <DashboardLayout title="Projects" organizationId={organizationId}>
+      <div className="min-h-screen text-foreground flex flex-col gap-4 p-4">
         <ProjectList organizationId={organizationId} />
 
         <Modal

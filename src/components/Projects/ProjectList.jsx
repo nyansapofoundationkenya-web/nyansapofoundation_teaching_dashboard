@@ -20,8 +20,8 @@ export default function ProjectList({ organizationId }) {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-2"></div>
-          <p className="text-gray-700 text-sm sm:text-base">Loading projects...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-3 mx-auto mb-2"></div>
+          <p className="text-gray-300 text-sm">Loading projects...</p>
         </div>
       </div>
     )
@@ -29,9 +29,9 @@ export default function ProjectList({ organizationId }) {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 sm:p-6 text-center">
-        <p className="text-red-600 font-medium text-sm sm:text-base">Error loading projects</p>
-        <p className="text-red-500 text-xs sm:text-sm mt-1">{error}</p>
+      <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 text-center">
+        <p className="text-red-400 font-medium text-sm">Error loading projects</p>
+        <p className="text-red-400/80 text-xs mt-1">{error}</p>
       </div>
     )
   }
@@ -41,7 +41,7 @@ export default function ProjectList({ organizationId }) {
       {projects.length === 0 ? (
         <div className="text-center py-12">
           <div className="max-w-md mx-auto">
-            <div className="text-gray-400 mb-4">
+            <div className="text-gray-500 mb-4">
               <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -51,14 +51,14 @@ export default function ProjectList({ organizationId }) {
                 />
               </svg>
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No projects found</h3>
-            <p className="text-gray-600 text-sm">
+            <h3 className="text-lg font-medium text-foreground mb-2">No projects found</h3>
+            <p className="text-gray-300 text-sm">
               Create your first project to get started with managing your educational programs.
             </p>
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {projects.map((project) => (
             <ProjectCard 
               key={project.id} 
