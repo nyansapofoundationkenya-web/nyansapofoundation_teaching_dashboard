@@ -1,3 +1,5 @@
+"use client"
+
 export default function Button({
     variant = "default",
     size = "auto",
@@ -9,30 +11,28 @@ export default function Button({
     className,
   }) {
     const baseClasses =
-      "rounded-full text-heading-s-variant transition duration-200 ease-in-out flex items-center justify-center md:space-x-2";
+      "rounded-xl text-sm transition-all duration-200 ease-in-out flex items-center justify-center font-medium";
     const paddingClasses = isOnlyIcon
-      ? "px-2 py-4"
+      ? "p-3"
       : icon
-      ? "p-2 pr-4"
-      : "py-4 px-4 md:px-6";
-  
+      ? "px-4 py-3"
+      : "px-4 py-3";
+
     const variantClasses = {
-      primary: "text-white bg-primary hover:bg-primary-light",
-      red: "text-white bg-red-medium hover:bg-red-light",
-      default:
-        "text-blue-gray bg-[#F9FAFE] hover:bg-gray-light dark:text-gray-light dark:bg-dark-medium dark:hover:bg-white",
-      dark: "text-gray-medium bg-[#373B53] hover:bg-dark-darkest dark:text-gray-light hover:dark:bg-dark-light",
-      white:
-        "text-dark bg-white hover:bg-black/5 dark:text-white dark:bg-dark-medium dark:hover:bg-dark-light p-3",
-      icon: "text-gray-medium hover:text-red-medium",
-      facebook: "bg-facebook text-white hover:bg-facebook/80 p-3",
+      primary: "text-primary-1 bg-primary-3 hover:bg-yellow-400 shadow-md hover:shadow-lg",
+      red: "text-white bg-red-500 hover:bg-red-600 shadow-md hover:shadow-lg",
+      default: "text-foreground bg-background-light hover:bg-background-lighter border border-gray-600",
+      dark: "text-foreground bg-background-lighter hover:bg-background border border-gray-600",
+      white: "text-primary-1 bg-white hover:bg-gray-100 border border-gray-300",
+      icon: "text-gray-400 hover:text-foreground bg-transparent hover:bg-background-light",
+      facebook: "bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg",
     };
-  
+
     const sizeClasses = {
       full: "w-full",
       auto: "",
     };
-  
+
     return (
       <button
         type={type}
@@ -44,4 +44,3 @@ export default function Button({
       </button>
     );
   }
-  

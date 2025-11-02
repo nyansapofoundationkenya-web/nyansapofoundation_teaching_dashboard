@@ -113,28 +113,28 @@ export default function OrganizationPage({
   const isLoading = (loading || userLoading) && !dataFetched;
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-900 text-white p-6">
+    <div className="min-h-screen flex flex-col bg-background text-foreground p-4">
       <header className="p-4 flex justify-between items-center">
-        {/* <div className="text-sm text-gray-400">
-          {currentUser ? `Role: ${currentUser.role || 'No role assigned'}` : 'Loading role...'}
-        </div> */}
-        <button onClick={handleLogoutClick} className="hover:underline">
+        <button 
+          onClick={handleLogoutClick} 
+          className="px-4 py-2 bg-background-light text-foreground rounded-xl hover:bg-background-lighter transition-colors"
+        >
           Log out
         </button>
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center">
-        <h1 className="text-2xl font-bold mb-6">
+        <h1 className="text-xl font-bold mb-6 text-foreground">
           {isAdmin ? "All Organizations" : "My Organizations"}
         </h1>
 
         {isLoading && (
-          <p className="text-gray-400 mb-6">Loading organizations...</p>
+          <p className="text-gray-300 mb-6">Loading organizations...</p>
         )}
-        {error && <p className="text-red-500 mb-6">Error: {error}</p>}
+        {error && <p className="text-red-400 mb-6">Error: {error}</p>}
         
         {!isLoading && filteredOrganizations.length === 0 && (
-          <p className="text-gray-400 mb-6">
+          <p className="text-gray-300 mb-6">
             {isAdmin 
               ? "No organizations found. Add a new one below." 
               : "No organizations available for your account."
@@ -143,10 +143,6 @@ export default function OrganizationPage({
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4 w-full max-w-5xl">
-          {/* <div className="flex justify-center">
-            <DemoOrganizationButton onClick={handleDemoClick} />
-          </div> */}
-
           {filteredOrganizations.map((org) => (
             <div key={org.id} className="flex justify-center">
               <OrganizationButton
@@ -167,11 +163,11 @@ export default function OrganizationPage({
 
       {/* Add Organization Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Add New Organization</h2>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-background-light rounded-3xl p-6 w-full max-w-md border border-gray-600 shadow-xl">
+            <h2 className="text-lg font-semibold mb-4 text-foreground">Add New Organization</h2>
             
-            <div className="mb-4">
+            <div className="mb-6">
               <label htmlFor="orgName" className="block text-sm font-medium text-gray-300 mb-2">
                 Organization Name
               </label>
@@ -180,7 +176,7 @@ export default function OrganizationPage({
                 type="text"
                 value={newOrgName}
                 onChange={(e) => setNewOrgName(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 bg-background-lighter border border-gray-500 rounded-xl text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent"
                 placeholder="Enter organization name"
                 onKeyPress={(e) => {
                   if (e.key === 'Enter') {
@@ -196,7 +192,7 @@ export default function OrganizationPage({
                   setShowAddModal(false);
                   setNewOrgName("");
                 }}
-                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+                className="px-4 py-2 text-gray-300 hover:text-foreground hover:bg-background-lighter rounded-xl transition-colors"
                 disabled={addingOrg}
               >
                 Cancel
@@ -204,7 +200,7 @@ export default function OrganizationPage({
               <button
                 onClick={handleAddOrg}
                 disabled={addingOrg || !newOrgName.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-primary-3 text-primary-1 font-semibold rounded-xl hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {addingOrg ? "Adding..." : "Add Organization"}
               </button>

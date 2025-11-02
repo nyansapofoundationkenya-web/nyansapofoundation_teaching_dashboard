@@ -22,10 +22,10 @@ import { useOrganizations } from "@/hooks/useOrganization";
 // Skeleton Loading Component
 const SidebarSkeleton = () => {
   return (
-    <div className="w-64 h-screen bg-[#162947] text-white flex flex-col">
+    <div className="w-64 h-[calc(100vh-2rem)] bg-background-light text-foreground flex flex-col p-6 m-4 rounded-3xl shadow-xl">
       {/* Top: Logo Skeleton */}
       <div className="flex-shrink-0">
-        <div className="flex flex-col items-center mb-6 p-4">
+        <div className="flex flex-col items-center mb-8 p-4 rounded-2xl bg-background-lighter">
           {/* Logo Skeleton */}
           <div className="w-12 h-12 bg-gray-600 rounded-lg animate-pulse mb-2"></div>
           {/* Organization Name Skeleton */}
@@ -33,14 +33,13 @@ const SidebarSkeleton = () => {
           {/* Role Skeleton */}
           <div className="h-4 bg-gray-600 rounded animate-pulse w-24"></div>
         </div>
-        <hr className="w-full mb-6 border-gray-600" />    
         
         {/* Menu Items Skeleton */}
-        <nav className="flex flex-col space-y-2 p-4">
+        <nav className="flex flex-col space-y-3">
           {[...Array(6)].map((_, index) => (
             <div
               key={index}
-              className="flex items-center space-x-3 p-3 rounded-lg animate-pulse"
+              className="flex items-center space-x-3 p-4 rounded-2xl animate-pulse bg-background-lighter"
             >
               {/* Icon Skeleton */}
               <div className="w-5 h-5 bg-gray-600 rounded"></div>
@@ -55,8 +54,8 @@ const SidebarSkeleton = () => {
       <div className="flex-grow"></div>
 
       {/* Bottom: Logout Button Skeleton - Fixed at bottom */}
-      <div className="flex-shrink-0 p-4">
-        <div className="flex items-center space-x-3 p-3 rounded-lg animate-pulse bg-gray-600">
+      <div className="flex-shrink-0">
+        <div className="flex items-center space-x-3 p-4 rounded-2xl animate-pulse bg-background-lighter">
           <div className="w-5 h-5 bg-gray-500 rounded"></div>
           <div className="h-5 bg-gray-500 rounded w-16"></div>
         </div>
@@ -172,9 +171,6 @@ const Sidebar = ({ initialTitle, organizationId }) => {
   };
 
   const menuItems = getMenuItems();
-  const userRole = currentUser?.role;
-  const isAdmin = userRole === "admin";
-  const isTeacher = userRole === "teacher";
 
   useEffect(() => {
     const matchingItem = menuItems.find((item) => item.path === pathname);
@@ -209,48 +205,44 @@ const Sidebar = ({ initialTitle, organizationId }) => {
   }
 
   return (
-    <div className="w-64 h-screen bg-[#162947] text-white flex flex-col">
+    <div className="w-64 h-[calc(100vh-2rem)] bg-background-light text-foreground flex flex-col p-4 m-2 rounded-3xl shadow-xl">
       {/* Top: Logo and Organization Info - Fixed */}
       <div className="flex-shrink-0">
-        <div className="flex flex-col items-center mb-6 p-4">
+        <div className="flex flex-col items-center mb-8 p-4 rounded-2xl bg-background-lighter">
           <Logo />
-          <p className="mt-2 text-lg font-semibold text-white">
+          <p className="mt-2 text-lg font-semibold text-foreground">
             {organization?.name}
           </p>
-          {/* {currentUser && (
-            <p className="text-xs text-gray-400 mt-1">
-              Role: {currentUser.role || 'No role assigned'}
-            </p>
-          )} */}
         </div>
-        <hr className="w-full mb-6 border-gray-600" />    
       </div>
 
       {/* Scrollable Menu Area - Hidden scrollbar */}
       <div className="flex-grow overflow-y-auto scrollbar-hide">
-        <nav className="flex flex-col space-y-2 p-4">
+        <nav className="flex flex-col space-y-3">
           {menuItems.map((item, index) => (
             <button
               key={index}
-              className={`flex items-center space-x-3 p-3 rounded-lg transition ${
-                title === item.name ? "bg-yellow-300 text-[#162947]" : "hover:bg-yellow-300 hover:text-[#162947]"
+              className={`flex items-center space-x-3 p-4 rounded-2xl transition-all duration-200 ${
+                title === item.name 
+                  ? "bg-primary-3 text-primary-1 shadow-lg" 
+                  : "bg-background-lighter text-foreground hover:bg-primary-2 hover:text-white hover:shadow-md"
               }`}
               onClick={() => handleMenuClick(item)}
               onMouseEnter={() => setHoveredItem(item.name)}
               onMouseLeave={() => setHoveredItem(null)}
             >
               <span>{item.icon}</span>
-              <span>{item.name}</span>
+              <span className="font-medium">{item.name}</span>
             </button>
           ))}
         </nav>
       </div>
 
       {/* Bottom: Logout Button - Fixed at bottom */}
-      <div className="flex-shrink-0 p-4">
+      <div className="flex-shrink-0">
         <button
           onClick={handleLogout}
-          className="flex items-center space-x-3 p-3 rounded-lg text-black bg-amber-400 hover:bg-yellow-500 hover:text-black transition w-full"
+          className="flex items-center space-x-3 p-4 rounded-2xl text-primary-1 bg-primary-3 hover:bg-yellow-400 hover:shadow-lg transition-all duration-200 w-full font-medium"
         >
           <FiLogOut size={20} />
           <span>Logout</span>

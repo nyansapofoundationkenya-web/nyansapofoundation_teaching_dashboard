@@ -38,7 +38,7 @@ const DashboardLayout = ({ children, title, organizationId }) => {
     };
 
     return (
-        <div className="flex h-screen bg-blue-50" style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
+        <div className="flex min-h-screen bg-background" style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
             {/* Mobile/iPad Overlay */}
             {isMobile && sidebarOpen && (
                 <div className="fixed inset-0 bg-gray-800 bg-opacity-30 z-40" onClick={toggleSidebar} />
@@ -49,6 +49,7 @@ const DashboardLayout = ({ children, title, organizationId }) => {
                 className={`
                     fixed left-0 top-0 h-full z-50 transition-transform duration-300 ease-in-out
                     ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+                    ${!isMobile ? "relative" : ""}
                 `}
             >
                 {isMobile && sidebarOpen && (
@@ -63,39 +64,37 @@ const DashboardLayout = ({ children, title, organizationId }) => {
                 <Sidebar title={title} organizationId={organizationId} />
             </div>
 
-            {/* Main Content */}
+            {/* Main Content Area */}
             <div
                 className={`
-                    flex-1 transition-all duration-300 ease-in-out
-                    ${!isMobile && sidebarOpen ? "ml-64" : "ml-0"}
+                    flex-1 transition-all duration-300 ease-in-out flex flex-col
+                    ${!isMobile && sidebarOpen ? "ml-0" : "ml-0"}
                 `}
             >
-                <div className="flex flex-col flex-1 h-full overflow-hidden">
-                    {/* Header with Menu Button */}
-                    <div className="bg-white shadow-sm z-30">
-                        <div className="flex items-center h-16">
-                            {/* Menu Button - Only show on mobile/tablet */}
-                            {isMobile && !sidebarOpen && (
-                                <button
-                                    onClick={toggleSidebar}
-                                    className="p-3 mx-4 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-                                    aria-label="Open menu"
-                                >
-                                    <FiMenu className="w-5 h-5" />
-                                </button>
-                            )}
-                            
-                            {/* Header Content */}
-                            <div className="flex-1">
-                                <Header title={title} />
-                            </div>
+                {/* Header - Now with proper spacing */}
+                <div className="flex-shrink-0">
+                    <div className="flex items-center">
+                        {/* Menu Button - Only show on mobile/tablet */}
+                        {isMobile && !sidebarOpen && (
+                            <button
+                                onClick={toggleSidebar}
+                                className="p-3 mx-4 text-gray-600 hover:bg-gray-100 rounded-md transition-colors absolute top-4 left-4 z-30"
+                                aria-label="Open menu"
+                            >
+                                <FiMenu className="w-5 h-5" />
+                            </button>
+                        )}
+                        
+                        {/* Header Component with proper spacing */}
+                        <div className="flex-1">
+                            <Header title={title} />
                         </div>
                     </div>
-                    
-                    {/* Page Content */}
-                    <div className="flex-1 overflow-y-auto p-6 bg-blue-50">
-                        {children}
-                    </div>
+                </div>
+                
+                {/* Page Content */}
+                <div className="flex-1 overflow-y-auto p-4 bg-background">
+                    {children}
                 </div>
             </div>
         </div>

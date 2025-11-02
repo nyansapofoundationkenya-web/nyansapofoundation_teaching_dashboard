@@ -1,11 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AnimatePresence, motion } from "framer-motion" // Add this for smooth animations
+import { AnimatePresence, motion } from "framer-motion"
 import { useParams } from "next/navigation"
 import { useSelector } from "react-redux"
 import { useOrganizations } from "@/hooks/useOrganization"
-import { ChevronDownIcon, XMarkIcon, InformationCircleIcon, PlusIcon } from "@heroicons/react/24/outline" // Or use Lucide Icons / your icon lib
+import { ChevronDownIcon, XMarkIcon, InformationCircleIcon, PlusIcon } from "@heroicons/react/24/outline"
 import Header from "@/components/Welcome/Header"
 import DashboardLayout from "../DashboardLayout"
 import GetStarted from "@/components/Welcome/GetStarted"
@@ -15,7 +15,7 @@ import Modal from "@/components/ui/Modal"
 import { useProjects } from "@/hooks/UseProjects"
 
 export default function WelcomePage() {
-  const { organizationId } = useParams() // extract org ID from the URL
+  const { organizationId } = useParams()
   const { handleFetchOrganizationById } = useOrganizations()
   const [organization, setOrganization] = useState(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -93,11 +93,11 @@ export default function WelcomePage() {
   }
 
   return (
-    <DashboardLayout organizationId={organizationId}>
-      <div className="min-h-screen text-gray-800 flex flex-col items-center p-4 md:p-6">
+    <DashboardLayout title="Welcome" organizationId={organizationId}>
+      <div className="min-h-screen text-foreground flex flex-col">
         <Header organizationName={organization?.name || "Loading..."} />
         
-        <main className="w-full max-w-6xl flex flex-col gap-8">
+        <main className="w-full max-w-6xl mx-auto flex flex-col gap-4">
           {/* Conditionally render welcome sections with animation and close icon */}
           <AnimatePresence mode="wait">
             {(!hasProjects || showWelcomeSections) && (
@@ -107,16 +107,16 @@ export default function WelcomePage() {
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.3, ease: "easeInOut" }}
-                className="bg-blue-50 rounded-lg relative overflow-hidden" // Rounded for card-like feel
+                className="bg-background-lighter rounded-3xl relative overflow-hidden shadow-lg"
               >
                 {/* Close icon: Top-right, subtle, accessible */}
                 {hasProjects && showWelcomeSections && (
                   <button
                     onClick={toggleWelcomeSections}
-                    className="absolute top-4 right-4 z-10 p-1 text-gray-500 hover:text-gray-700 transition-colors rounded-full bg-white/80 hover:bg-white"
+                    className="absolute top-4 right-4 z-10 p-2 text-gray-500 hover:text-gray-700 transition-colors rounded-full bg-background-light hover:bg-background"
                     aria-label="Close guide"
                   >
-                    <XMarkIcon className="h-5 w-5" />
+                    <XMarkIcon className="h-4 w-4" />
                   </button>
                 )}
                 
@@ -125,7 +125,7 @@ export default function WelcomePage() {
                     organizationId={organizationId} 
                     onProjectCreated={refreshProjects} 
                   />
-                  <hr className="border-t-2 border-gray-400 my-6 mx-6" />
+                  <hr className="border-t border-gray-600 my-6" />
                   <HowItWorks />
                 </div>
               </motion.div>
@@ -135,15 +135,15 @@ export default function WelcomePage() {
           {/* RecentProjects with integrated "Show Guide" toggle and "Create Project" button when hidden */}
           <div className="flex flex-col gap-4">
             {hasProjects && !showWelcomeSections && isAdminOrSuperAdmin && (
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <span className="text-sm text-gray-600 flex items-center gap-2">
+              <div className="flex items-center justify-between p-4 bg-background-lighter rounded-2xl border border-gray-600 shadow-lg">
+                <span className="text-sm text-gray-300 flex items-center gap-2">
                   <InformationCircleIcon className="h-4 w-4" />
                   New to Nyansapo Dashboard? Check out the quick start guide.
                 </span>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={toggleWelcomeSections}
-                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-primary-2 text-white rounded-xl hover:bg-blue-400 transition-colors"
                     aria-label="Open guide"
                   >
                     Open Guide
@@ -151,7 +151,7 @@ export default function WelcomePage() {
                   </button>
                   <button
                     onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-yellow-500 text-black rounded-md hover:bg-yellow-600 transition-colors"
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-primary-3 text-primary-1 rounded-xl hover:bg-yellow-400 transition-colors font-medium"
                     aria-label="Create project"
                   >
                     <PlusIcon className="h-4 w-4" />

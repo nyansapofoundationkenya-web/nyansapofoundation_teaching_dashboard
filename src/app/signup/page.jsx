@@ -6,22 +6,33 @@ import SignupForm from "../../components/Auth/SignupForm";
 
 export default function Signup() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#162947] text-white">
-      <Logo />
-      <div>
-        <h1 className="mb-5 font-semibold">Welcome to Nyansapo Teaching, create your Organization account</h1>
-      </div>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="flex justify-center mb-6">
+            <Logo />
+          </div>
+          <h1 className="text-xl font-semibold text-foreground mb-2">
+            Welcome to Nyansapo Teaching
+          </h1>
+          <p className="text-gray-300 text-sm">
+            Create your Organization account
+          </p>
+        </div>
 
-      <SignupForm />
+        <SignupForm />
 
-      <div>
-        <p className="text-center text-sm mt-10 text-slate-400">
-          Have an Account?{" "}
-          <Link href="/" className="text-white">
-            Sign in here
-          </Link>
-        </p>
-        <hr className="text-slate-400" />
+        <div className="mt-8 text-center">
+          <p className="text-sm text-gray-300">
+            Have an Account?{" "}
+            <Link 
+              href="/" 
+              className="text-primary-2 hover:text-primary-3 font-medium transition-colors"
+            >
+              Sign in here
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -51,15 +51,15 @@ export default function GetStarted({ organizationId, onProjectCreated }) {
 
   return (
     <>
-      <section className="p-6 rounded-lg text-center">
-        <h2 className="text-xl md:text-2xl font-semibold mb-4 text-gray-800">Get Started With Your First Project</h2>
-        <p className="text-sm md:text-base mb-4 text-gray-600">
+      <section className="p-2 rounded-2xl text-center">
+        <h2 className="text-xl font-semibold mb-3 text-foreground">Get Started With Your First Project</h2>
+        <p className="text-sm mb-4 text-gray-300">
           Create a new learning project to organize your schools, instructors, camps, and students. Track progress and
-          gain insights into learning outcomes with our AI- powered analytics.
+          gain insights into learning outcomes with our AI-powered analytics.
         </p>
         <button
           onClick={() => setShowModal(true)}
-          className="bg-yellow-500 text-black px-4 py-2 rounded hover:bg-yellow-600 transition"
+          className="bg-primary-3 text-primary-1 px-4 py-2 rounded-xl hover:bg-yellow-400 transition-all font-medium shadow-md"
         >
           + Create New Project
         </button>

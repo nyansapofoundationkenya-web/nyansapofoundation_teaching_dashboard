@@ -75,7 +75,7 @@ export default function LoginForm() {
             router.push("/organization");
           }
         } else {
-          await verifyPhoneLoginCode(values.verificationCode, "Code didn’t match. Check your SMS and enter it again?");
+          await verifyPhoneLoginCode(values.verificationCode, "Code didn't match. Check your SMS and enter it again?");
           setLoginSuccess(true);
           resetForm();
           setStep(1);
@@ -104,25 +104,25 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-lg p-6 bg-gray-100 rounded-2xl shadow-md">
+    <div className="w-full p-6 bg-background-light rounded-3xl shadow-lg border border-gray-600">
       {/* Invisible reCAPTCHA container - must be in the DOM */}
       <div id="recaptcha-container" />
       
       {loginSuccess && (
-        <div className="mb-4 p-3 bg-green-100 text-green-800 rounded">
+        <div className="mb-4 p-3 bg-green-500/20 text-green-400 rounded-xl border border-green-500/30">
           Login successful!
         </div>
       )}
       
       {/* Only show hook's error—no duplicate */}
       {error && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
+        <div className="mb-4 p-3 bg-red-500/20 text-red-400 rounded-xl border border-red-500/30">
           {error}
         </div>
       )}
 
       {authLoading && !recaptchaReady && (
-        <div className="mb-4 p-3 bg-blue-100 text-blue-700 rounded">
+        <div className="mb-4 p-3 bg-primary-2/20 text-primary-2 rounded-xl border border-primary-2/30">
           Initializing security verification...
         </div>
       )}
@@ -130,49 +130,49 @@ export default function LoginForm() {
       <form onSubmit={formik.handleSubmit}>
         {step === 1 ? (
           <>
-            <div className="mb-4">
-              <label className="block mb-1 font-medium text-black">Login Method</label>
+            <div className="mb-6">
+              <label className="block mb-3 font-medium text-foreground">Login Method</label>
               <div className="flex gap-4">
-                <label className="flex items-center font-semibold text-black">
+                <label className="flex items-center font-medium text-foreground">
                   <input
                     type="radio"
                     name="loginMethod"
                     value="email"
                     checked={formik.values.loginMethod === "email"}
                     onChange={handleRadioChange}
-                    className="mr-2"
+                    className="mr-2 text-primary-3 focus:ring-primary-3"
                   />
                   Email
                 </label>
-                <label className="flex items-center font-semibold text-black">
+                <label className="flex items-center font-medium text-foreground">
                   <input
                     type="radio"
                     name="loginMethod"
                     value="phone"
                     checked={formik.values.loginMethod === "phone"}
                     onChange={handleRadioChange}
-                    className="mr-2"
+                    className="mr-2 text-primary-3 focus:ring-primary-3"
                   />
                   Phone
                 </label>
               </div>
               {formik.touched.loginMethod && formik.errors.loginMethod && (
-                <p className="text-red-500 text-sm mt-1">{formik.errors.loginMethod}</p>
+                <p className="text-red-400 text-sm mt-2">{formik.errors.loginMethod}</p>
               )}
             </div>
 
             {formik.values.loginMethod === "email" && (
               <>
                 <div className="mb-4">
-                  <label className="block mb-1 font-medium text-black">Email</label>
+                  <label className="block mb-2 font-medium text-foreground">Email</label>
                   <input
                     type="email"
                     name="email"
-                    className={`w-full p-3 rounded border ${
+                    className={`w-full p-3 rounded-xl border ${
                       formik.touched.email && formik.errors.email 
-                        ? "border-red-500 bg-red-50" 
-                        : "border-gray-300 bg-white"
-                    } text-black placeholder-gray-700`}
+                        ? "border-red-400 bg-red-500/10" 
+                        : "border-gray-500 bg-background-lighter"
+                    } text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent`}
                     placeholder="Enter your email"
                     value={formik.values.email}
                     onChange={handleInputChange}
@@ -180,51 +180,52 @@ export default function LoginForm() {
                     disabled={!recaptchaReady}
                   />
                   {formik.touched.email && formik.errors.email && (
-                    <p className="text-red-500 text-sm mt-1">{formik.errors.email}</p>
+                    <p className="text-red-400 text-sm mt-2">{formik.errors.email}</p>
                   )}
                 </div>
-                <div className="mb-4">
-                  <label className="block mb-1 font-medium text-black">Password</label>
+                <div className="mb-6">
+                  <label className="block mb-2 font-medium text-foreground">Password</label>
                   <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
                       name="password"
-                      className={`w-full p-3 pr-10 rounded border ${
+                      className={`w-full p-3 pr-10 rounded-xl border ${
                         formik.touched.password && formik.errors.password 
-                          ? "border-red-500 bg-red-50" 
-                          : "border-gray-300 bg-white"
-                      } text-black placeholder-gray-700`}
+                          ? "border-red-400 bg-red-500/10" 
+                          : "border-gray-500 bg-background-lighter"
+                      } text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent`}
                       placeholder="Enter your password"
                       value={formik.values.password}
                       onChange={handleInputChange}
                       onBlur={formik.handleBlur}
                       disabled={!recaptchaReady}
                     />
-                    <div
-                      className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-600"
+                    <button
+                      type="button"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-foreground transition-colors"
                       onClick={() => setShowPassword((prev) => !prev)}
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </div>
+                    </button>
                   </div>
                   {formik.touched.password && formik.errors.password && (
-                    <p className="text-red-500 text-sm mt-1">{formik.errors.password}</p>
+                    <p className="text-red-400 text-sm mt-2">{formik.errors.password}</p>
                   )}
                 </div>
               </>
             )}
 
             {formik.values.loginMethod === "phone" && (
-              <div className="mb-4">
-                <label className="block mb-1 font-medium text-black">Phone</label>
+              <div className="mb-6">
+                <label className="block mb-2 font-medium text-foreground">Phone</label>
                 <input
                   type="text"
                   name="phone"
-                  className={`w-full p-3 rounded border ${
+                  className={`w-full p-3 rounded-xl border ${
                     formik.touched.phone && formik.errors.phone 
-                      ? "border-red-500 bg-red-50" 
-                      : "border-gray-300 bg-white"
-                  } text-black placeholder-gray-700`}
+                      ? "border-red-400 bg-red-500/10" 
+                      : "border-gray-500 bg-background-lighter"
+                  } text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent`}
                   placeholder="Enter phone number with country code (e.g., +254712345678)"
                   value={formik.values.phone}
                   onChange={handleInputChange}
@@ -232,39 +233,39 @@ export default function LoginForm() {
                   disabled={!recaptchaReady}
                 />
                 {formik.touched.phone && formik.errors.phone && (
-                  <p className="text-red-500 text-sm mt-1">{formik.errors.phone}</p>
+                  <p className="text-red-400 text-sm mt-2">{formik.errors.phone}</p>
                 )}
               </div>
             )}
           </>
         ) : (
-          <div className="mb-4">
-            <label className="block mb-1 font-medium text-black">Verification Code</label>
+          <div className="mb-6">
+            <label className="block mb-2 font-medium text-foreground">Verification Code</label>
             <input
               type="text"
               name="verificationCode"
-              className={`w-full p-3 rounded border ${
+              className={`w-full p-3 rounded-xl border ${
                 formik.touched.verificationCode && formik.errors.verificationCode 
-                  ? "border-red-500 bg-red-50" 
-                  : "border-gray-300 bg-white"
-              } text-black placeholder-gray-700`}
+                  ? "border-red-400 bg-red-500/10" 
+                  : "border-gray-500 bg-background-lighter"
+              } text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent`}
               placeholder="Enter 6-digit code sent to your phone"
               value={formik.values.verificationCode}
               onChange={handleInputChange}
               onBlur={formik.handleBlur}
             />
             {formik.touched.verificationCode && formik.errors.verificationCode && (
-              <p className="text-red-500 text-sm mt-1">{formik.errors.verificationCode}</p>
+              <p className="text-red-400 text-sm mt-2">{formik.errors.verificationCode}</p>
             )}
           </div>
         )}
 
         <button
           type="submit"
-          className={`block w-full py-3 mt-4 rounded font-semibold text-black flex items-center justify-center ${
+          className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center transition-all ${
             formik.isSubmitting || !recaptchaReady
-              ? "bg-gray-300 cursor-not-allowed"
-              : "bg-yellow-400 hover:bg-yellow-500"
+              ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+              : "bg-primary-3 text-primary-1 hover:bg-yellow-400 shadow-md hover:shadow-lg"
           }`}
           disabled={formik.isSubmitting || (step === 1 && !recaptchaReady)}
         >

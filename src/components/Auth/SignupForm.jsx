@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useSignup } from "@/hooks/Auth/useSignup";
 import * as Yup from "yup";
 
@@ -73,30 +73,30 @@ export default function SignupForm() {
   });
 
   return (
-    <div className="w-full max-w-lg p-6 bg-gray-300 rounded-2xl shadow-md">
+    <div className="w-full p-6 bg-background-light rounded-3xl shadow-lg border border-gray-600">
       {/* Keep recaptcha container outside of conditional rendering */}
       <div id="recaptcha-container" className="mb-4"></div>
 
       {signupSuccess && (
-        <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-lg text-center">
+        <div className="mb-4 p-3 bg-green-500/20 text-green-400 rounded-xl border border-green-500/30 text-center">
           Account created successfully! Redirecting...
         </div>
       )}
 
       {formik.errors.general && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-center">
+        <div className="mb-4 p-3 bg-red-500/20 text-red-400 rounded-xl border border-red-500/30 text-center">
           {formik.errors.general}
         </div>
       )}
 
       {error && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-center">
+        <div className="mb-4 p-3 bg-red-500/20 text-red-400 rounded-xl border border-red-500/30 text-center">
           {error}
         </div>
       )}
 
       {!recaptchaReady && step === 1 && (
-        <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded-lg text-center">
+        <div className="mb-4 p-3 bg-primary-2/20 text-primary-2 rounded-xl border border-primary-2/30 text-center">
           Initializing security verification...
         </div>
       )}
@@ -114,12 +114,13 @@ export default function SignupForm() {
               formik={formik}
               placeholder="Enter a strong password"
               rightIcon={
-                <span
-                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-600"
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-foreground transition-colors"
                   onClick={() => setShowPassword((prev) => !prev)}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </span>
+                </button>
               }
             />
           </>
@@ -136,21 +137,22 @@ export default function SignupForm() {
         <button
           type="submit"
           disabled={formik.isSubmitting || (step === 1 && !recaptchaReady)}
-          className={`block w-full py-3 mt-6 rounded-lg font-medium ${
+          className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center transition-all ${
             formik.isSubmitting || (step === 1 && !recaptchaReady)
-              ? "bg-gray-400 text-gray-700 cursor-not-allowed"
-              : "bg-yellow-400 hover:bg-yellow-500 text-black"
+              ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+              : "bg-primary-3 text-primary-1 hover:bg-yellow-400 shadow-md hover:shadow-lg"
           }`}
         >
-          {formik.isSubmitting
-            ? step === 1
-              ? "Signing up..."
-              : "Verifying..."
-            : step === 1
-            ? !recaptchaReady
-              ? "Initializing..."
-              : "Sign Up"
-            : "Verify Code"}
+          {formik.isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {step === 1 ? "Signing up..." : "Verifying..."}
+            </>
+          ) : step === 1 ? (
+            !recaptchaReady ? "Initializing..." : "Sign Up"
+          ) : (
+            "Verify Code"
+          )}
         </button>
       </form>
     </div>
@@ -161,7 +163,7 @@ function FormField({ label, name, type, formik, placeholder, rightIcon = null })
   const hasError = formik.touched[name] && formik.errors[name];
   return (
     <div className="mb-4">
-      <label className="block mb-1 text-gray-800">{label}</label>
+      <label className="block mb-2 font-medium text-foreground">{label}</label>
       <div className="relative">
         <input
           type={type}
@@ -170,13 +172,15 @@ function FormField({ label, name, type, formik, placeholder, rightIcon = null })
           onChange={formik.handleChange}
           onBlur={formik.handleBlur}
           placeholder={placeholder}
-          className={`w-full p-2 pr-10 rounded-lg border ${
-            hasError ? "border-red-500 bg-red-50" : "border-gray-400 bg-gray-100"
-          } text-gray-800`}
+          className={`w-full p-3 rounded-xl border ${
+            hasError 
+              ? "border-red-400 bg-red-500/10 text-foreground" 
+              : "border-gray-500 bg-background-lighter text-foreground"
+          } placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent`}
         />
         {rightIcon}
       </div>
-      {hasError && <p className="text-red-500 text-sm">{formik.errors[name]}</p>}
+      {hasError && <p className="text-red-400 text-sm mt-2">{formik.errors[name]}</p>}
     </div>
   );
 }
