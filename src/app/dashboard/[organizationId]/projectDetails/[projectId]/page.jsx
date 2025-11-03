@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react"
 import { useParams } from "next/navigation"
 import { useSelector } from "react-redux"
 import Sidebar from "@/components/Dashboard/SideBar"
+import Header from "@/components/Dashboard/Header" // Add Header import
 import { useProjectDetails } from "@/hooks/useProjectDetails"
 import { GraduationCap, School, Tent, Users, Bookmark, Download, ChevronDown, Building2, MapPin } from "lucide-react"
 import { FaChalkboardTeacher } from "react-icons/fa"
@@ -17,7 +18,7 @@ import MultiSheetUploadModal from "@/components/ui/MultipleSheetUploadModal"
 
 export default function ProjectDetails() {
   const { organizationId, projectId } = useParams()
-  const [sidebarOpen, setSidebarOpen] = useState(false) // Start closed on mobile
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   
   // Get user data directly from Redux store
@@ -144,7 +145,7 @@ export default function ProjectDetails() {
   ]
 
   return (
-    <div className="flex min-h-screen bg-blue-50 overflow-x-hidden">
+    <div className="flex min-h-screen bg-background overflow-x-hidden">
       {/* Mobile backdrop */}
       {isMobile && sidebarOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={toggleSidebar} />}
 
@@ -170,159 +171,158 @@ export default function ProjectDetails() {
       {/* Main content */}
       <div
         className={`
-          flex-1 w-full max-w-full transition-all duration-300 ease-in-out
+          flex-1 w-full max-w-full transition-all duration-300 ease-in-out flex flex-col
           ${!isMobile && sidebarOpen ? "ml-64" : "ml-0"}
         `}
       >
-        <div className="min-h-screen w-full max-w-full p-3 sm:p-4 lg:p-6">
-          {/* Header */}
-          <div className="flex flex-col gap-4 mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                {isMobile && !sidebarOpen && (
-                  <button
-                    onClick={toggleSidebar}
-                    className="p-2 rounded-md bg-white shadow-sm flex-shrink-0"
-                    aria-label="Open menu"
-                  >
-                    <FiMenu className="w-5 h-5 text-indigo-600" />
-                  </button>
-                )}
-                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 truncate">
-                  {project?.name || "Project Details"}
-                </h1>
-              </div>
+        {/* Header */}
+        <div className="flex-shrink-0 mx-4">
+          <div className="flex items-center">
+            {isMobile && !sidebarOpen && (
+              <button
+                onClick={toggleSidebar}
+                className="p-2 mx-4 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                aria-label="Open menu"
+              >
+                <FiMenu className="w-5 h-5" />
+              </button>
+            )}
+            <div className="flex-1">
+              <Header title={project?.name || "Project Details"} />
             </div>
+          </div>
+        </div>
 
-            {/* Action buttons - Visible only to admin or super_admin */}
-            {!userLoading && isAdminOrSuperAdmin && (
-              <div className="flex flex-col sm:flex-row gap-2 w-full" ref={dropdownRef}>
+        {/* Content Area */}
+        <div className="flex-1 p-4 overflow-auto">
+          {/* Action buttons - Visible only to admin or super_admin */}
+          {!userLoading && isAdminOrSuperAdmin && (
+            <div className="flex flex-col sm:flex-row gap-2 w-full mb-4" ref={dropdownRef}>
+              <button
+                className="flex items-center justify-center px-3 py-2 border border-primary-3 rounded-xl bg-primary-3/20 hover:bg-primary-3/30 text-sm text-foreground transition-colors w-full sm:w-auto"
+                onClick={() => console.log("Download clicked")}
+              >
+                <span>Download Data</span>
+                <Download className="w-4 h-4 ml-2 flex-shrink-0" />
+              </button>
+
+              <div className="relative w-full sm:w-auto">
                 <button
-                  className="flex items-center justify-center px-3 py-2 border border-yellow-300 rounded-lg bg-yellow-200 hover:bg-yellow-300 text-sm text-gray-700 transition-colors w-full sm:w-auto"
-                  onClick={() => console.log("Download clicked")}
+                  onClick={() => setDropdownOpen((prev) => !prev)}
+                  className="flex items-center justify-center px-3 py-2 bg-primary-3 text-primary-1 rounded-xl hover:bg-yellow-400 text-sm transition-colors w-full sm:w-auto font-medium"
                 >
-                  <span>Download Data</span>
-                  <Download className="w-4 h-4 ml-2 flex-shrink-0" />
+                  <span>Actions</span>
+                  <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
                 </button>
 
-                <div className="relative w-full sm:w-auto">
-                  <button
-                    onClick={() => setDropdownOpen((prev) => !prev)}
-                    className="flex items-center justify-center px-3 py-2 bg-yellow-400 text-gray-800 rounded-lg hover:bg-yellow-500 text-sm transition-colors w-full sm:w-auto"
-                  >
-                    <span>Actions</span>
-                    <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
-                  </button>
-
-                  {dropdownOpen && (
-                    <div className="absolute left-0 right-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-30">
-                      <ul className="py-1 text-sm text-gray-700">
-                        <li>
-                          <button
-                            onClick={() => {
-                              setIsSchoolModalOpen(true)
-                              setDropdownOpen(false)
-                            }}
-                            className="flex items-center justify-between w-full px-4 py-2 hover:bg-yellow-100 transition-colors"
-                          >
-                            <span>Add Schools</span>
-                            <Building2 className="w-4 h-4 flex-shrink-0" />
-                          </button>
-                        </li>
-                        {/* <li>
-                          <button
-                            onClick={() => {
-                              setIsCampModalOpen(true)
-                              setDropdownOpen(false)
-                            }}
-                            className="flex items-center justify-between w-full px-4 py-2 hover:bg-yellow-100 transition-colors"
-                          >
-                            <span>Create Camp</span>
-                            <MapPin className="w-4 h-4 flex-shrink-0" />
-                          </button>
-                        </li> */}
-                        <li>
-                          <button
-                            onClick={() => {
-                              setIsInstructorModalOpen(true)
-                              setDropdownOpen(false)
-                            }}
-                            className="flex items-center justify-between w-full px-4 py-2 hover:bg-yellow-100 transition-colors"
-                          >
-                            <span>Add Instructor</span>
-                            <FaChalkboardTeacher className="w-4 h-4 flex-shrink-0" />
-                          </button>
-                        </li>
-                        <li>
-                          <button
-                            onClick={() => {
-                              setIsUploadModalOpen(true)
-                              setDropdownOpen(false)
-                            }}
-                            className="flex items-center justify-between w-full px-4 py-2 hover:bg-yellow-100 transition-colors"
-                          >
-                            <span>Upload Students for multiple schools</span>
-                            <Users className="w-4 h-4 flex-shrink-0" />
-                          </button>
-                        </li>
-                      </ul>
-                    </div>
-                  )}
-                </div>
+                {dropdownOpen && (
+                  <div className="absolute left-0 right-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-48 bg-background-light border border-gray-600 rounded-xl shadow-lg z-30">
+                    <ul className="py-1 text-sm text-foreground">
+                      <li>
+                        <button
+                          onClick={() => {
+                            setIsSchoolModalOpen(true)
+                            setDropdownOpen(false)
+                          }}
+                          className="flex items-center justify-between w-full px-4 py-2 hover:bg-background-lighter transition-colors rounded-t-xl"
+                        >
+                          <span>Add Schools</span>
+                          <Building2 className="w-4 h-4 flex-shrink-0" />
+                        </button>
+                      </li>
+                      {/* <li>
+                        <button
+                          onClick={() => {
+                            setIsCampModalOpen(true)
+                            setDropdownOpen(false)
+                          }}
+                          className="flex items-center justify-between w-full px-4 py-2 hover:bg-background-lighter transition-colors"
+                        >
+                          <span>Create Camp</span>
+                          <MapPin className="w-4 h-4 flex-shrink-0" />
+                        </button>
+                      </li> */}
+                      <li>
+                        <button
+                          onClick={() => {
+                            setIsInstructorModalOpen(true)
+                            setDropdownOpen(false)
+                          }}
+                          className="flex items-center justify-between w-full px-4 py-2 hover:bg-background-lighter transition-colors"
+                        >
+                          <span>Add Instructor</span>
+                          <FaChalkboardTeacher className="w-4 h-4 flex-shrink-0" />
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          onClick={() => {
+                            setIsUploadModalOpen(true)
+                            setDropdownOpen(false)
+                          }}
+                          className="flex items-center justify-between w-full px-4 py-2 hover:bg-background-lighter transition-colors rounded-b-xl"
+                        >
+                          <span>Upload Students for multiple schools</span>
+                          <Users className="w-4 h-4 flex-shrink-0" />
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Loading and error states */}
-          {loading && <p className="text-gray-500 text-sm sm:text-base">Loading project details...</p>}
-          {error && <p className="text-red-500 text-sm sm:text-base">{error}</p>}
+          {loading && <p className="text-gray-300 text-sm">Loading project details...</p>}
+          {error && <p className="text-red-400 text-sm">{error}</p>}
 
           {/* Project content */}
           {project && (
             <div className="w-full max-w-full">
               {/* Stats cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
                 <StatsCard
                   icon={<School />}
                   label="Schools"
                   value={project.total_schools ?? 0}
-                  iconColor="text-indigo-800"
-                  valueColor="text-indigo-800"
+                  iconColor="text-primary-2"
+                  valueColor="text-primary-2"
                 />
                 <StatsCard
                   icon={<FaChalkboardTeacher />}
                   label="Instructors"
                   value={project.total_teachers ?? 0}
-                  iconColor="text-yellow-400"
-                  valueColor="text-yellow-400"
+                  iconColor="text-primary-3"
+                  valueColor="text-primary-3"
                 />
                 <StatsCard
                   icon={<Bookmark />}
                   label="Sessions Completion Rate"
                   value={`${project.sessions_completion_rate ?? 0}%`}
-                  iconColor="text-indigo-900"
-                  valueColor="text-indigo-900"
+                  iconColor="text-primary-2"
+                  valueColor="text-primary-2"
                 />
                 <StatsCard
                   icon={<GraduationCap />}
                   label="Total Students"
                   value={project.total_students ?? 0}
-                  iconColor="text-green-500"
-                  valueColor="text-green-500"
+                  iconColor="text-green-400"
+                  valueColor="text-green-400"
                 />
                 <StatsCard
                   icon={<Tent />}
                   label="Learning Camps"
                   value={project.total_camps ?? 0}
-                  iconColor="text-yellow-500"
-                  valueColor="text-yellow-500"
+                  iconColor="text-primary-3"
+                  valueColor="text-primary-3"
                 />
                 <StatsCard
                   icon={<Users />}
                   label="Instructor/Student Ratio"
                   value={project.teacher_to_student_ratio ?? 0}
-                  iconColor="text-green-600"
-                  valueColor="text-green-600"
+                  iconColor="text-green-400"
+                  valueColor="text-green-400"
                 />
               </div>
 
@@ -354,13 +354,12 @@ export default function ProjectDetails() {
         onSubmit={handleCreateCamp}
       />
 
-    <InstructorModal
-      isOpen={isInstructorModalOpen}
-      onClose={() => setIsInstructorModalOpen(false)}
-      organizationId={organizationId}
-      projectId={projectId}
-    />
-
+      <InstructorModal
+        isOpen={isInstructorModalOpen}
+        onClose={() => setIsInstructorModalOpen(false)}
+        organizationId={organizationId}
+        projectId={projectId}
+      />
 
       <MultiSheetUploadModal
         isOpen={isUploadModalOpen}

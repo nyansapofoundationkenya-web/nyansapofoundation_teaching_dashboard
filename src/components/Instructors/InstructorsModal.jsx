@@ -205,57 +205,77 @@ export default function InstructorModal({
   };
 
   const customSelectStyles = {
-    control: (provided) => ({
+    control: (provided, state) => ({
       ...provided,
-      borderColor: "#d1d5db",
-      boxShadow: "none",
-      "&:hover": { borderColor: "#9ca3af" },
+      borderColor: state.isFocused ? "#f7cc1c" : "#4b5563",
+      backgroundColor: "#1e3a63",
+      boxShadow: state.isFocused ? "0 0 0 2px rgba(247, 204, 28, 0.2)" : "none",
+      "&:hover": { borderColor: "#6b7280" },
+      minHeight: "44px",
     }),
     placeholder: (provided) => ({
       ...provided,
-      color: "#6b7280",
+      color: "#9ca3af",
       fontSize: "14px",
       fontWeight: "400",
     }),
+    singleValue: (provided) => ({
+      ...provided,
+      color: "#ffffff",
+      fontSize: "14px",
+      fontWeight: "500",
+    }),
+    input: (provided) => ({
+      ...provided,
+      color: "#ffffff",
+    }),
     multiValue: (provided) => ({
       ...provided,
-      backgroundColor: "#fef08a",
+      backgroundColor: "#26487c",
     }),
     multiValueLabel: (provided) => ({
       ...provided,
-      color: "#1f2937",
+      color: "#ffffff",
       fontWeight: "500",
+    }),
+    multiValueRemove: (provided) => ({
+      ...provided,
+      color: "#ffffff",
+      "&:hover": {
+        backgroundColor: "#ef4444",
+        color: "#ffffff",
+      },
     }),
     menu: (provided) => ({
       ...provided,
-      backgroundColor: "#ffffff",
+      backgroundColor: "#1e3a63",
+      border: "1px solid #4b5563",
       zIndex: 1000,
     }),
     option: (provided, state) => ({
       ...provided,
-      backgroundColor: state.isSelected ? "#fef08a" : state.isFocused ? "#f3f4f6" : "#ffffff",
-      color: "#1f2937",
-      "&:hover": { backgroundColor: "#f3f4f6" },
+      backgroundColor: state.isSelected ? "#f7cc1c" : state.isFocused ? "#26487c" : "#1e3a63",
+      color: state.isSelected ? "#142848" : "#ffffff",
+      "&:hover": { backgroundColor: "#26487c" },
     }),
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="flex-grow" onClick={onClose}></div>
-
-      <div className="w-full max-w-md bg-white shadow-lg h-full overflow-auto p-6 relative flex flex-col rounded-lg">
-        <div className="flex justify-between items-center border-b pb-4 mb-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="w-full max-w-md bg-background-light rounded-3xl shadow-xl border border-gray-600">
+        {/* Header */}
+        <div className="flex justify-between items-center p-6 border-b border-gray-600">
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="text-xl text-gray-600 hover:text-black"
+              className="text-xl text-gray-400 hover:text-foreground transition-colors p-1 rounded-lg hover:bg-background-lighter"
               aria-label="Close"
             >
               ×
             </button>
-            <h2 className="text-xl text-gray-800 font-bold">
+            <h2 className="text-lg font-semibold text-foreground">
               Update Instructor Assignment
             </h2>
           </div>
@@ -263,13 +283,13 @@ export default function InstructorModal({
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="text-sm px-4 py-1 border rounded text-gray-800 hover:bg-gray-100 font-medium"
+              className="text-sm px-4 py-2 border border-gray-500 rounded-xl text-gray-300 hover:text-foreground hover:bg-background-lighter transition-colors font-medium"
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
-              className="text-sm px-4 py-1 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded"
+              className="text-sm px-4 py-2 bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading || loadingOptions}
             >
               {loading || loadingOptions ? "Updating..." : "Update Assignment"}
@@ -277,9 +297,10 @@ export default function InstructorModal({
           </div>
         </div>
 
-        <form className="space-y-5 flex-1">
+        {/* Form */}
+        <form className="p-6 space-y-4">
           <div className="text-left">
-            <label className="text-sm font-medium block mb-1 text-gray-800">
+            <label className="text-sm font-medium block mb-2 text-foreground">
               Instructor Name
             </label>
             <input
@@ -290,15 +311,15 @@ export default function InstructorModal({
               placeholder="Instructor name"
               required
               disabled // Make it read-only since we're not allowing editing of personal info
-              className="w-full border border-gray-300 rounded px-3 py-2 text-gray-800 placeholder-gray-500 bg-gray-100 cursor-not-allowed"
+              className="w-full border border-gray-500 rounded-xl px-4 py-3 bg-background-lighter text-foreground placeholder-gray-400 cursor-not-allowed focus:outline-none"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-400 mt-2">
               Name is displayed for reference only
             </p>
           </div>
 
           <div className="text-left">
-            <label className="text-sm font-medium block mb-1 text-gray-800">
+            <label className="text-sm font-medium block mb-2 text-foreground">
               Assign Organization
             </label>
             <Select
@@ -314,14 +335,14 @@ export default function InstructorModal({
               isClearable
             />
             {currentUserRole === 'admin' && (
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-400 mt-2">
                 You can only assign to your organization
               </p>
             )}
           </div>
 
           <div className="text-left">
-            <label className="text-sm font-medium block mb-1 text-gray-800">
+            <label className="text-sm font-medium block mb-2 text-foreground">
               Assign Project
             </label>
             <Select
@@ -339,7 +360,7 @@ export default function InstructorModal({
           </div>
 
           <div className="text-left">
-            <label className="text-sm font-medium block mb-1 text-gray-800">
+            <label className="text-sm font-medium block mb-2 text-foreground">
               Assign Schools (Multiple)
             </label>
             <Select
@@ -355,13 +376,21 @@ export default function InstructorModal({
               isMulti
               isClearable
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-400 mt-2">
               You can select multiple schools for this instructor
             </p>
           </div>
 
-          {fetchError && <p className="text-red-500 text-sm">{fetchError}</p>}
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {fetchError && (
+            <p className="text-red-400 text-sm bg-red-500/20 rounded-xl p-3 border border-red-500/30">
+              {fetchError}
+            </p>
+          )}
+          {error && (
+            <p className="text-red-400 text-sm bg-red-500/20 rounded-xl p-3 border border-red-500/30">
+              {error}
+            </p>
+          )}
         </form>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import Sidebar from "@/components/Dashboard/SideBar";
+import Header from "@/components/Dashboard/Header"; // Add Header import
 import { useInstructors } from "@/hooks/useInstructors";
 import { useInstructorActions } from "@/hooks/useInstructorActions";
 import { Search, MoreVertical, Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
@@ -245,9 +246,10 @@ export default function InstructorsPage() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [actionMenuOpen, roleUpdateOpen]);
 
+  // Loading state
   if (isLoadingData) {
     return (
-      <div className="flex h-screen bg-blue-50" style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
+      <div className="flex h-screen bg-background" style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
         {/* Mobile/iPad Overlay */}
         {isMobile && sidebarOpen && (
           <div className="fixed inset-0 bg-gray-800 bg-opacity-30 z-40" onClick={toggleSidebar} />
@@ -275,28 +277,34 @@ export default function InstructorsPage() {
         {/* Main Content */}
         <div
           className={`
-            flex-1 transition-all duration-300 ease-in-out
+            flex-1 transition-all duration-300 ease-in-out flex flex-col
             ${!isMobile && sidebarOpen ? "ml-64" : "ml-0"}
           `}
         >
-          <div className="h-full p-4 sm:p-6 bg-blue-50">
-            <div className="flex items-center gap-3 mb-6">
+          {/* Header */}
+          <div className="flex-shrink-0 mx-4">
+            <div className="flex items-center">
               {isMobile && !sidebarOpen && (
                 <button
                   onClick={toggleSidebar}
-                  className="p-2 rounded-md shadow-sm bg-white"
+                  className="p-2 mx-4 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
                   aria-label="Open menu"
                 >
-                  <FiMenu className="w-5 h-5 text-indigo-600" />
+                  <FiMenu className="w-5 h-5" />
                 </button>
               )}
-              <h1 className="text-2xl font-bold text-gray-800">Instructors</h1>
+              <div className="flex-1">
+                <Header title="Instructors" />
+              </div>
             </div>
+          </div>
 
+          {/* Loading Content */}
+          <div className="flex-1 p-4 bg-background">
             <div className="flex items-center justify-center min-h-[400px]">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading data...</p>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-3 mx-auto mb-4"></div>
+                <p className="text-gray-300">Loading data...</p>
               </div>
             </div>
           </div>
@@ -305,9 +313,10 @@ export default function InstructorsPage() {
     );
   }
 
+  // Error state
   if (fetchError) {
     return (
-      <div className="flex h-screen bg-blue-50" style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
+      <div className="flex h-screen bg-background" style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
         {/* Mobile/iPad Overlay */}
         {isMobile && sidebarOpen && (
           <div className="fixed inset-0 bg-gray-800 bg-opacity-30 z-40" onClick={toggleSidebar} />
@@ -335,26 +344,32 @@ export default function InstructorsPage() {
         {/* Main Content */}
         <div
           className={`
-            flex-1 transition-all duration-300 ease-in-out
+            flex-1 transition-all duration-300 ease-in-out flex flex-col
             ${!isMobile && sidebarOpen ? "ml-64" : "ml-0"}
           `}
         >
-          <div className="h-full p-4 sm:p-6 bg-blue-50">
-            <div className="flex items-center gap-3 mb-6">
+          {/* Header */}
+          <div className="flex-shrink-0 mx-4">
+            <div className="flex items-center">
               {isMobile && !sidebarOpen && (
                 <button
                   onClick={toggleSidebar}
-                  className="p-2 rounded-md shadow-sm bg-white"
+                  className="p-2 mx-4 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
                   aria-label="Open menu"
                 >
-                  <FiMenu className="w-5 h-5 text-indigo-600" />
+                  <FiMenu className="w-5 h-5" />
                 </button>
               )}
-              <h1 className="text-2xl font-bold text-gray-800">Instructors</h1>
+              <div className="flex-1">
+                <Header title="Instructors" />
+              </div>
             </div>
+          </div>
 
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-              <p className="text-red-600 font-medium">{fetchError}</p>
+          {/* Error Content */}
+          <div className="flex-1 p-4 bg-background">
+            <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-6 text-center">
+              <p className="text-red-400 font-medium">{fetchError}</p>
             </div>
           </div>
         </div>
@@ -362,8 +377,9 @@ export default function InstructorsPage() {
     );
   }
 
+  // Main content
   return (
-    <div className="flex h-screen bg-blue-50" style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
+    <div className="flex h-screen bg-background" style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
       {/* Mobile/iPad Overlay */}
       {isMobile && sidebarOpen && (
         <div className="fixed inset-0 bg-gray-800 bg-opacity-30 z-40" onClick={toggleSidebar} />
@@ -391,26 +407,30 @@ export default function InstructorsPage() {
       {/* Main Content */}
       <div
         className={`
-          flex-1 transition-all duration-300 ease-in-out
+          flex-1 transition-all duration-300 ease-in-out flex flex-col
           ${!isMobile && sidebarOpen ? "ml-64" : "ml-0"}
         `}
       >
-        <div className="h-full p-6 space-y-6 bg-blue-50 flex-1 overflow-auto">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              {isMobile && !sidebarOpen && (
-                <button
-                  onClick={toggleSidebar}
-                  className="p-2 rounded-md shadow-sm bg-white"
-                  aria-label="Open menu"
-                >
-                  <FiMenu className="w-5 h-5 text-indigo-600" />
-                </button>
-              )}
-              <h1 className="text-2xl font-bold text-gray-800">Instructors Management</h1>
+        {/* Header */}
+        <div className="flex-shrink-0 mx-4">
+          <div className="flex items-center">
+            {isMobile && !sidebarOpen && (
+              <button
+                onClick={toggleSidebar}
+                className="p-2 mx-4 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                aria-label="Open menu"
+              >
+                <FiMenu className="w-5 h-5" />
+              </button>
+            )}
+            <div className="flex-1">
+              <Header title="Instructors" />
             </div>
           </div>
+        </div>
 
+        {/* Content Area */}
+        <div className="flex-1 p-4 space-y-4 bg-background overflow-auto scrollbar-hide">
           <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
             {/* Search Input */}
             <div className="relative w-full sm:w-auto sm:max-w-md">
@@ -419,182 +439,300 @@ export default function InstructorsPage() {
                 placeholder="Search by name, email, or phone..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg 
-                          focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400
-                          bg-white text-gray-900 placeholder-gray-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-500 rounded-xl 
+                          focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent
+                          bg-background-lighter text-foreground placeholder-gray-400"
               />
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             </div>
 
             {/* Items per page selector */}
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-700 font-medium">Show:</label>
+              <label className="text-sm text-foreground font-medium">Show:</label>
               <select
                 value={itemsPerPage}
                 onChange={(e) => handleItemsPerPageChange(e.target.value)}
-                className="border border-gray-300 rounded px-3 py-2 text-sm 
-                          focus:outline-none focus:ring-1 focus:ring-yellow-400 focus:border-yellow-400
-                          bg-white text-gray-900 cursor-pointer"
+                className="border border-gray-500 rounded-xl px-3 py-2 text-sm 
+                          focus:outline-none focus:ring-1 focus:ring-primary-3 focus:border-transparent
+                          bg-background-lighter text-foreground cursor-pointer"
               >
                 <option value="10">10</option>
                 <option value="20">20</option>
                 <option value="50">50</option>
                 <option value="100">100</option>
               </select>
-              <span className="text-sm text-gray-700">per page</span>
+              <span className="text-sm text-gray-300">per page</span>
             </div>
           </div>
 
-          {loading && <p className="text-gray-500">Loading instructors...</p>}
-          {error && <p className="text-red-500">{error}</p>}
-          {actionError && <p className="text-red-500">{actionError}</p>}
+          {loading && <p className="text-gray-300">Loading instructors...</p>}
+          {error && <p className="text-red-400">{error}</p>}
+          {actionError && <p className="text-red-400">{actionError}</p>}
 
           {!loading && !error && (
             <>
-              <div className="overflow-x-auto bg-white rounded-lg shadow">
-                <table className="min-w-full">
-                  <thead>
-                    <tr className="bg-gray-100 border-b">
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Name</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Role</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Organizations</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Projects</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Schools</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentInstructors.length > 0 ? (
-                      currentInstructors.map((instructor) => (
-                        <tr key={instructor.uid} className="border-b hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+              {/* Mobile List View (md:hidden) */}
+              <div className="md:hidden space-y-3">
+                {currentInstructors.length > 0 ? (
+                  currentInstructors.map((instructor) => (
+                    <div key={instructor.uid} className="bg-background-light rounded-xl p-3 border border-gray-600">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-foreground text-sm truncate pr-2">
                             {instructor.name || 'N/A'}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${getRoleBadgeColor(instructor.role)}`}>
-                              {instructor.role || 'teacher'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
-                            <div className="flex justify-center">
-                              <span className="font-semibold text-lg">{instructor.orgCount || 0}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
-                            <div className="flex justify-center">
-                              <span className="font-semibold text-lg">{instructor.projectCount || 0}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
-                            <div className="flex justify-center">
-                              <span className="font-semibold text-lg">{instructor.schoolCount || 0}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <div className="relative action-menu-container">
+                          </p>
+                          <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${getRoleBadgeColor(instructor.role)}`}>
+                            {instructor.role || 'teacher'}
+                          </span>
+                        </div>
+                        <div className="flex-shrink-0 ml-2 relative action-menu-container">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActionMenuOpen(actionMenuOpen === instructor.uid ? null : instructor.uid);
+                            }}
+                            className="p-2 rounded-xl hover:bg-primary-3/20 text-primary-2 hover:text-primary-3 transition-colors"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                          
+                          {actionMenuOpen === instructor.uid && (
+                            <div 
+                              className="absolute right-0 mt-1 w-48 bg-background-light rounded-xl shadow-lg z-50 border border-primary-3/30"
+                            >
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActionMenuOpen(actionMenuOpen === instructor.uid ? null : instructor.uid);
-                                }}
-                                className="p-2 rounded hover:bg-yellow-100 text-yellow-600 hover:text-yellow-700 transition-colors"
+                                onClick={() => handleEditInstructor(instructor)}
+                                className="flex items-center w-full px-4 py-2 text-sm text-foreground hover:bg-primary-3/20 hover:text-primary-3 transition-colors border-b border-gray-600"
                               >
-                                <MoreVertical className="w-4 h-4" />
+                                <Edit className="w-4 h-4 mr-2" />
+                                Update Assignment
                               </button>
                               
-                              {actionMenuOpen === instructor.uid && (
-                                <div 
-                                  className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-50 border border-yellow-200"
+                              {/* Only show Update Role for super_admin */}
+                              {canUpdateRoles && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActionMenuOpen(null);
+                                    setRoleUpdateOpen(instructor.uid);
+                                    setNewRole(instructor.role || 'teacher');
+                                  }}
+                                  className="flex items-center w-full px-4 py-2 text-sm text-foreground hover:bg-primary-2/20 hover:text-primary-2 transition-colors border-b border-gray-600"
                                 >
-                                  <button
-                                    onClick={() => handleEditInstructor(instructor)}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 transition-colors border-b border-gray-100"
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Update Role
+                                </button>
+                              )}
+                              
+                              <button
+                                onClick={() => handleDeleteInstructor(instructor.uid)}
+                                className="flex items-center w-full px-4 py-2 text-sm text-red-400 hover:bg-red-500/20 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Role Update Dropdown - Only for super_admin */}
+                          {canUpdateRoles && roleUpdateOpen === instructor.uid && (
+                            <div className="absolute right-0 mt-1 w-48 bg-background-light rounded-xl shadow-lg z-50 border border-primary-2/30 role-update-container">
+                              <div className="px-4 py-2 border-b border-gray-600">
+                                <label className="block text-xs font-medium text-foreground mb-1">New Role</label>
+                                <select
+                                  value={newRole}
+                                  onChange={(e) => setNewRole(e.target.value)}
+                                  className="w-full px-2 py-1 border border-gray-500 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary-2 bg-background-lighter text-foreground"
+                                >
+                                  {getAvailableRoles().map(role => (
+                                    <option key={role.value} value={role.value}>
+                                      {role.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="flex gap-1 p-2">
+                                <button
+                                  onClick={() => handleUpdateRole(instructor.uid, newRole)}
+                                  className="flex-1 px-3 py-1 text-sm bg-primary-2 text-white rounded-lg hover:bg-primary-3 transition-colors"
+                                >
+                                  Update
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setRoleUpdateOpen(null);
+                                    setNewRole("");
+                                  }}
+                                  className="flex-1 px-3 py-1 text-sm bg-gray-500 text-gray-200 rounded-lg hover:bg-gray-600 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-300">
+                        <span>Orgs: <span className="font-semibold">{instructor.orgCount || 0}</span></span>
+                        <span>Proj: <span className="font-semibold">{instructor.projectCount || 0}</span></span>
+                        <span>Sch: <span className="font-semibold">{instructor.schoolCount || 0}</span></span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-sm text-gray-400">
+                    No instructors found.
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop Table View (hidden md:block) */}
+              <div className="hidden md:block">
+                <div className="bg-background-light rounded-xl shadow-lg border border-gray-600">
+                  <table className="min-w-full">
+                    <thead>
+                      <tr className="bg-background-lighter border-b border-gray-600">
+                        <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Name</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Role</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Organizations</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Projects</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Schools</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-foreground">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentInstructors.length > 0 ? (
+                        currentInstructors.map((instructor) => (
+                          <tr key={instructor.uid} className="border-b border-gray-600 hover:bg-background-lighter/50">
+                            <td className="px-4 py-3 text-sm font-medium text-foreground">
+                              {instructor.name || 'N/A'}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${getRoleBadgeColor(instructor.role)}`}>
+                                {instructor.role || 'teacher'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-300">
+                              <div className="flex justify-center">
+                                <span className="font-semibold text-lg">{instructor.orgCount || 0}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-300">
+                              <div className="flex justify-center">
+                                <span className="font-semibold text-lg">{instructor.projectCount || 0}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-300">
+                              <div className="flex justify-center">
+                                <span className="font-semibold text-lg">{instructor.schoolCount || 0}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              <div className="relative action-menu-container">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActionMenuOpen(actionMenuOpen === instructor.uid ? null : instructor.uid);
+                                  }}
+                                  className="p-2 rounded-xl hover:bg-primary-3/20 text-primary-2 hover:text-primary-3 transition-colors"
+                                >
+                                  <MoreVertical className="w-4 h-4" />
+                                </button>
+                                
+                                {actionMenuOpen === instructor.uid && (
+                                  <div 
+                                    className="absolute right-0 mt-1 w-48 bg-background-light rounded-xl shadow-lg z-50 border border-primary-3/30"
                                   >
-                                    <Edit className="w-4 h-4 mr-2" />
-                                    Update Assignment
-                                  </button>
-                                  
-                                  {/* Only show Update Role for super_admin */}
-                                  {canUpdateRoles && (
                                     <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setActionMenuOpen(null);
-                                        setRoleUpdateOpen(instructor.uid);
-                                        setNewRole(instructor.role || 'teacher');
-                                      }}
-                                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors border-b border-gray-100"
+                                      onClick={() => handleEditInstructor(instructor)}
+                                      className="flex items-center w-full px-4 py-2 text-sm text-foreground hover:bg-primary-3/20 hover:text-primary-3 transition-colors border-b border-gray-600"
                                     >
                                       <Edit className="w-4 h-4 mr-2" />
-                                      Update Role
+                                      Update Assignment
                                     </button>
-                                  )}
-                                  
-                                  <button
-                                    onClick={() => handleDeleteInstructor(instructor.uid)}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                                  >
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    Delete
-                                  </button>
-                                </div>
-                              )}
+                                    
+                                    {/* Only show Update Role for super_admin */}
+                                    {canUpdateRoles && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActionMenuOpen(null);
+                                          setRoleUpdateOpen(instructor.uid);
+                                          setNewRole(instructor.role || 'teacher');
+                                        }}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-foreground hover:bg-primary-2/20 hover:text-primary-2 transition-colors border-b border-gray-600"
+                                      >
+                                        <Edit className="w-4 h-4 mr-2" />
+                                        Update Role
+                                      </button>
+                                    )}
+                                    
+                                    <button
+                                      onClick={() => handleDeleteInstructor(instructor.uid)}
+                                      className="flex items-center w-full px-4 py-2 text-sm text-red-400 hover:bg-red-500/20 transition-colors"
+                                    >
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
 
-                              {/* Role Update Dropdown - Only for super_admin */}
-                              {canUpdateRoles && roleUpdateOpen === instructor.uid && (
-                                <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-50 border border-blue-200 role-update-container">
-                                  <div className="px-4 py-2 border-b border-gray-100">
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">New Role</label>
-                                    <select
-                                      value={newRole}
-                                      onChange={(e) => setNewRole(e.target.value)}
-                                      className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                    >
-                                      {getAvailableRoles().map(role => (
-                                        <option key={role.value} value={role.value}>
-                                          {role.label}
-                                        </option>
-                                      ))}
-                                    </select>
+                                {/* Role Update Dropdown - Only for super_admin */}
+                                {canUpdateRoles && roleUpdateOpen === instructor.uid && (
+                                  <div className="absolute right-0 mt-1 w-48 bg-background-light rounded-xl shadow-lg z-50 border border-primary-2/30 role-update-container">
+                                    <div className="px-4 py-2 border-b border-gray-600">
+                                      <label className="block text-xs font-medium text-foreground mb-1">New Role</label>
+                                      <select
+                                        value={newRole}
+                                        onChange={(e) => setNewRole(e.target.value)}
+                                        className="w-full px-2 py-1 border border-gray-500 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary-2 bg-background-lighter text-foreground"
+                                      >
+                                        {getAvailableRoles().map(role => (
+                                          <option key={role.value} value={role.value}>
+                                            {role.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <div className="flex gap-1 p-2">
+                                      <button
+                                        onClick={() => handleUpdateRole(instructor.uid, newRole)}
+                                        className="flex-1 px-3 py-1 text-sm bg-primary-2 text-white rounded-lg hover:bg-primary-3 transition-colors"
+                                      >
+                                        Update
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setRoleUpdateOpen(null);
+                                          setNewRole("");
+                                        }}
+                                        className="flex-1 px-3 py-1 text-sm bg-gray-500 text-gray-200 rounded-lg hover:bg-gray-600 transition-colors"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
                                   </div>
-                                  <div className="flex gap-1 p-2">
-                                    <button
-                                      onClick={() => handleUpdateRole(instructor.uid, newRole)}
-                                      className="flex-1 px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                                    >
-                                      Update
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setRoleUpdateOpen(null);
-                                        setNewRole("");
-                                      }}
-                                      className="flex-1 px-3 py-1 text-sm bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition-colors"
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
+                            No instructors found.
                           </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
-                          No instructors found.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* Pagination Controls */}
               {totalPages > 1 && (
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t">
-                  <div className="text-sm text-gray-600">
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t border-gray-600">
+                  <div className="text-sm text-gray-300">
                     Showing {startIndex + 1} to {Math.min(endIndex, filteredInstructors.length)} of {filteredInstructors.length} instructors
                   </div>
                   
@@ -602,9 +740,9 @@ export default function InstructorsPage() {
                     <button
                       onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1}
-                      className="p-2 rounded border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-yellow-50 hover:border-yellow-300 transition-colors"
+                      className="p-2 rounded-xl border border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-3/20 hover:border-primary-3 transition-colors"
                     >
-                      <ChevronLeft className="w-4 h-4" />
+                      <ChevronLeft className="w-4 h-4 text-foreground" />
                     </button>
                     
                     <div className="flex gap-1">
@@ -612,10 +750,10 @@ export default function InstructorsPage() {
                         <button
                           key={page}
                           onClick={() => handlePageChange(page)}
-                          className={`px-3 py-1 text-sm rounded border ${
+                          className={`px-3 py-1 text-sm rounded-xl border ${
                             currentPage === page
-                              ? 'bg-yellow-500 text-white border-yellow-500 font-semibold'
-                              : 'border-gray-300 hover:bg-yellow-50 hover:border-yellow-300 text-gray-700'
+                              ? 'bg-primary-3 text-primary-1 border-primary-3 font-semibold'
+                              : 'border-gray-500 hover:bg-primary-3/20 hover:border-primary-3 text-foreground'
                           } transition-colors`}
                         >
                           {page}
@@ -626,9 +764,9 @@ export default function InstructorsPage() {
                     <button
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages}
-                      className="p-2 rounded border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-yellow-50 hover:border-yellow-300 transition-colors"
+                      className="p-2 rounded-xl border border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-3/20 hover:border-primary-3 transition-colors"
                     >
-                     <ChevronRight className="w-4 h-4 text-gray-800" />
+                     <ChevronRight className="w-4 h-4 text-foreground" />
                     </button>
                   </div>
                 </div>
