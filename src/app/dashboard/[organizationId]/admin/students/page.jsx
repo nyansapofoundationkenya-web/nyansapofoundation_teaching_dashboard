@@ -1,64 +1,41 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
-import Sidebar from "@/components/Dashboard/SideBar";
 import Filter from "@/components/Students/Filter";
 import StudentsTable from "@/components/Students/StudentsTable";
 import { useStudents } from "@/hooks/students/useStudents";
-import { FiMenu, FiX } from "react-icons/fi";
+import DashboardLayout from "../../DashboardLayout";
 
 export default function StudentsPage() {
   const { organizationId } = useParams();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const [currentFilter, setCurrentFilter] = useState(null);
 
-  // Use the students hook with the current filter
-  const { 
-    students, 
-    loading, 
-    error, 
-    addStudent, 
-    updateStudent, 
-    deleteStudent 
+  const {
+    students,
+    loading,
+    error,
+    addStudent,
+    updateStudent,
+    deleteStudent,
   } = useStudents(
-    currentFilter?.organizationId, 
-    currentFilter?.projectId, 
+    currentFilter?.organizationId,
+    currentFilter?.projectId,
     currentFilter?.schoolId
   );
-
-  useEffect(() => {
-    const checkIfMobile = () => {
-      const mobile = window.innerWidth < 1024;
-      setIsMobile(mobile);
-      setSidebarOpen(!mobile);
-    };
-
-    checkIfMobile();
-    window.addEventListener("resize", checkIfMobile);
-    return () => window.removeEventListener("resize", checkIfMobile);
-  }, []);
-
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
 
   const handleFilterChange = (filter) => {
     setCurrentFilter(filter);
   };
 
-  // Skeleton Loader Component
+  // Skeleton Loader
   const SkeletonLoader = () => (
     <div className="bg-background-light rounded-2xl shadow-lg border border-gray-600 p-6">
       <div className="animate-pulse">
-        {/* Header Skeleton */}
         <div className="flex justify-between items-center mb-6">
           <div className="h-8 bg-background-lighter rounded w-48"></div>
           <div className="h-10 bg-background-lighter rounded w-32"></div>
         </div>
-        
-        {/* Search Bar Skeleton */}
         <div className="flex justify-between items-center mb-6">
           <div className="h-10 bg-background-lighter rounded w-64"></div>
           <div className="flex gap-4">
@@ -66,17 +43,12 @@ export default function StudentsPage() {
             <div className="h-8 bg-background-lighter rounded w-24"></div>
           </div>
         </div>
-        
-        {/* Table Skeleton */}
         <div className="space-y-4">
-          {/* Table Header */}
           <div className="grid grid-cols-5 gap-4 mb-4">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="h-6 bg-background-lighter rounded"></div>
             ))}
           </div>
-          
-          {/* Table Rows */}
           {[...Array(5)].map((_, rowIndex) => (
             <div key={rowIndex} className="grid grid-cols-5 gap-4 py-3">
               {[...Array(5)].map((_, colIndex) => (
@@ -85,8 +57,6 @@ export default function StudentsPage() {
             </div>
           ))}
         </div>
-        
-        {/* Pagination Skeleton */}
         <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-600">
           <div className="h-4 bg-background-lighter rounded w-32"></div>
           <div className="flex gap-2">
@@ -100,86 +70,34 @@ export default function StudentsPage() {
   );
 
   return (
-    <div className="flex h-screen bg-background" style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
-      {/* Mobile/iPad Overlay */}
-      {isMobile && sidebarOpen && (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-30 z-40" onClick={toggleSidebar} />
-      )}
-
-      {/* Sidebar */}
-      <div
-        className={`
-          fixed left-0 top-0 h-full z-50 transition-transform duration-300 ease-in-out
-          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
-        `}
-      >
-        {isMobile && sidebarOpen && (
-          <button
-            onClick={toggleSidebar}
-            className="absolute top-4 right-4 z-50 p-2 rounded-full shadow-lg bg-background-light border border-gray-600"
-            aria-label="Close menu"
-          >
-            <FiX className="w-5 h-5 text-primary-2" />
-          </button>
-        )}
-        <Sidebar title="Students" organizationId={organizationId} />
-      </div>
-
-      {/* Main Content */}
-      <div
-        className={`
-          flex-1 transition-all duration-300 ease-in-out
-          ${!isMobile && sidebarOpen ? "ml-64" : "ml-0"}
-        `}
-      >
-        <div className="h-full p-6 space-y-6 bg-background flex-1 overflow-auto">
-          {/* Header */}
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              {isMobile && !sidebarOpen && (
-                <button
-                  onClick={toggleSidebar}
-                  className="p-2 rounded-xl shadow-md bg-background-light border border-gray-600"
-                  aria-label="Open menu"
-                >
-                  <FiMenu className="w-5 h-5 text-primary-2" />
-                </button>
-              )}
-              <h1 className="text-2xl font-bold text-foreground">Students Management</h1>
-            </div>
+    <DashboardLayout title="Students" organizationId={organizationId}>
+      <div className="p-6 space-y-6">
+        {/* Filter Section */}
+        <div className="bg-background-light p-6 rounded-2xl shadow-lg border border-gray-600">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-foreground mb-2">Filter Students</h2>
+            <p className="text-sm text-gray-300">
+              Select an organization, project, and school to view students
+            </p>
           </div>
-
-          {/* Filter Section */}
-          <div className="bg-background-light p-6 rounded-2xl shadow-lg border border-gray-600">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold text-foreground mb-2">Filter Students</h2>
-              <p className="text-sm text-gray-300">
-                Select an organization, project, and school to view students
-              </p>
-            </div>
-            
-            <Filter 
-              onFilterChange={handleFilterChange}
-              organizationId={organizationId}
-            />
-          </div>
-
-          {/* Content Area */}
-          {!currentFilter ? (
-            <SkeletonLoader />
-          ) : (
-            <StudentsTable
-              students={students}
-              loading={loading}
-              error={error}
-              currentFilter={currentFilter}
-              onAddStudent={addStudent}
-              onUpdateStudent={updateStudent}
-              onDeleteStudent={deleteStudent}
-            />
-          )}
+          <Filter onFilterChange={handleFilterChange} organizationId={organizationId} />
         </div>
+
+        {/* Content Area */}
+        {!currentFilter ? (
+          <SkeletonLoader />
+        ) : (
+          <StudentsTable
+            students={students}
+            loading={loading}
+            error={error}
+            currentFilter={currentFilter}
+            onAddStudent={addStudent}
+            onUpdateStudent={updateStudent}
+            onDeleteStudent={deleteStudent}
+          />
+        )}
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

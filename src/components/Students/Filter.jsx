@@ -1,4 +1,3 @@
-// components/Students/Filter.js
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -284,27 +283,43 @@ export default function Filter({
   const customSelectStyles = {
     control: (provided, state) => ({
       ...provided,
-      borderColor: state.isFocused ? "#f59e0b" : "#d1d5db",
-      boxShadow: state.isFocused ? "0 0 0 1px #f59e0b" : "none",
-      "&:hover": { borderColor: "#f59e0b" },
+      borderColor: state.isFocused ? "#f7cc1c" : "#4b5563",
+      boxShadow: state.isFocused ? "0 0 0 1px #f7cc1c" : "none",
+      "&:hover": { borderColor: "#f7cc1c" },
       minHeight: "40px",
+      backgroundColor: "#1e3a63",
+      color: "#ffffff",
     }),
     menu: (provided) => ({
       ...provided,
       zIndex: 50,
+      backgroundColor: "#1e3a63",
     }),
     option: (provided, state) => ({
       ...provided,
-      backgroundColor: state.isSelected ? "#fef3c7" : state.isFocused ? "#fffbeb" : "white",
-      color: state.isSelected ? "#92400e" : "#1f2937",
+      backgroundColor: state.isSelected ? "#5aa2ce" : state.isFocused ? "#26487c" : "#1e3a63",
+      color: "#ffffff",
       "&:hover": {
-        backgroundColor: "#fffbeb",
-        color: "#92400e",
+        backgroundColor: "#26487c",
+        color: "#ffffff",
       },
     }),
     singleValue: (provided) => ({
       ...provided,
-      color: "#1f2937",
+      color: "#ffffff",
+    }),
+    placeholder: (provided) => ({
+      ...provided,
+      color: "#9ca3af",
+    }),
+    input: (provided) => ({
+      ...provided,
+      color: "#ffffff",
+    }),
+    multiValue: (provided) => ({
+      ...provided,
+      backgroundColor: "#26487c",
+      color: "#ffffff",
     }),
   };
 
@@ -331,12 +346,12 @@ export default function Filter({
       {/* Filter Toggle Button */}
       <button
         onClick={() => setFilterOpen(!filterOpen)}
-        className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-medium rounded-lg transition-colors shadow-sm"
+        className="flex items-center gap-2 px-3 py-2 bg-primary-3 hover:bg-primary-3/90 text-primary-1 font-medium rounded-xl transition-colors shadow-md"
       >
         <FilterIcon className="w-4 h-4" />
         {getFilterButtonText()}
         {selectedOrg && (
-          <span className="bg-yellow-700 text-yellow-100 text-xs px-2 py-1 rounded-full">
+          <span className="bg-primary-1 text-primary-3 text-xs px-2 py-1 rounded-full">
             Active
           </span>
         )}
@@ -349,29 +364,29 @@ export default function Filter({
 
       {/* Filter Dropdown */}
       {filterOpen && (
-        <div className="absolute top-full left-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-yellow-200 z-50 p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold text-gray-800 text-lg">Select School</h3>
+        <div className="absolute top-full left-0 mt-2 w-96 bg-background-light rounded-xl shadow-xl border border-gray-600 z-50 p-4">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-semibold text-foreground text-base">Select School</h3>
             <button
               onClick={() => setFilterOpen(false)}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 hover:text-foreground transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Organization Select */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Organization
                 {userRole === 'admin' && (
-                  <span className="text-blue-600 text-xs ml-2">(Your Organization)</span>
+                  <span className="text-primary-3 text-xs ml-2">(Your Organization)</span>
                 )}
                 {userRole === 'super_admin' && (
-                  <span className="text-green-600 text-xs ml-2">(All Organizations)</span>
+                  <span className="text-secondary-2 text-xs ml-2">(All Organizations)</span>
                 )}
-                {loading.orgs && <span className="text-yellow-600 text-xs ml-2">Loading...</span>}
+                {loading.orgs && <span className="text-primary-3 text-xs ml-2">Loading...</span>}
               </label>
               <Select
                 options={organizations}
@@ -386,11 +401,11 @@ export default function Filter({
 
             {/* Project Select */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Project
-                {loading.projects && <span className="text-yellow-600 text-xs ml-2">Loading...</span>}
+                {loading.projects && <span className="text-primary-3 text-xs ml-2">Loading...</span>}
                 {selectedProject && (
-                  <span className="text-green-600 text-xs ml-2">✓ Selected</span>
+                  <span className="text-secondary-2 text-xs ml-2">✓ Selected</span>
                 )}
               </label>
               <Select
@@ -414,11 +429,11 @@ export default function Filter({
 
             {/* School Select */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 School
-                {loading.schools && <span className="text-yellow-600 text-xs ml-2">Loading...</span>}
+                {loading.schools && <span className="text-primary-3 text-xs ml-2">Loading...</span>}
                 {selectedSchool && (
-                  <span className="text-green-600 text-xs ml-2">✓ Selected</span>
+                  <span className="text-secondary-2 text-xs ml-2">✓ Selected</span>
                 )}
               </label>
               <Select
@@ -441,16 +456,16 @@ export default function Filter({
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3 pt-2">
+            <div className="flex gap-2 pt-2">
               <button
                 onClick={clearFilters}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                className="flex-1 px-3 py-1.5 border border-gray-500 text-gray-300 rounded-xl hover:bg-background transition-colors font-medium"
               >
                 Clear
               </button>
               <button
                 onClick={() => setFilterOpen(false)}
-                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
+                className="flex-1 px-3 py-1.5 bg-gray-600 text-gray-200 rounded-xl hover:bg-gray-700 transition-colors font-medium"
               >
                 Close
               </button>
@@ -462,7 +477,7 @@ export default function Filter({
       {/* Overlay to close filter when clicking outside */}
       {filterOpen && (
         <div 
-          className="fixed inset-0 z-40" 
+          className="fixed inset-0 z-40 bg-gray-900 bg-opacity-50" 
           onClick={() => setFilterOpen(false)}
         />
       )}

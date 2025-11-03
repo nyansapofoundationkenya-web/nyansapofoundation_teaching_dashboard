@@ -136,7 +136,7 @@ export default function WelcomePage() {
           <div className="flex flex-col gap-4">
             {hasProjects && !showWelcomeSections && isAdminOrSuperAdmin && (
               <div className="flex items-center justify-between p-4 bg-background-lighter rounded-2xl border border-gray-600 shadow-lg">
-                <span className="text-sm text-gray-300 flex items-center gap-2">
+                <span className="text-base flex items-center gap-2 text-secondary-1">
                   <InformationCircleIcon className="h-4 w-4" />
                   New to Nyansapo Dashboard? Check out the quick start guide.
                 </span>

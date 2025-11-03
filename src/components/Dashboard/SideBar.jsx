@@ -172,10 +172,26 @@ const Sidebar = ({ initialTitle, organizationId }) => {
 
   const menuItems = getMenuItems();
 
+  // Helper function to check if a menu item is active (including nested routes)
+  const isMenuItemActive = (itemPath) => {
+    // Exact match
+    if (pathname === itemPath) return true;
+    
+    // Check if current path starts with the item path (for nested routes)
+    // But exclude the base dashboard path to avoid all items being active
+    const dashboardBase = `/dashboard/${organizationId}`;
+    if (itemPath !== dashboardBase && pathname.startsWith(itemPath)) {
+      return true;
+    }
+    
+    return false;
+  };
+
+  // Update title based on active menu item (including nested routes)
   useEffect(() => {
-    const matchingItem = menuItems.find((item) => item.path === pathname);
-    if (matchingItem) {
-      setTitle(matchingItem.name);
+    const activeItem = menuItems.find((item) => isMenuItemActive(item.path));
+    if (activeItem) {
+      setTitle(activeItem.name);
     }
   }, [pathname, menuItems]);
 
@@ -219,22 +235,26 @@ const Sidebar = ({ initialTitle, organizationId }) => {
       {/* Scrollable Menu Area - Hidden scrollbar */}
       <div className="flex-grow overflow-y-auto scrollbar-hide">
         <nav className="flex flex-col space-y-3">
-          {menuItems.map((item, index) => (
-            <button
-              key={index}
-              className={`flex items-center space-x-3 p-4 rounded-2xl transition-all duration-200 ${
-                title === item.name 
-                  ? "bg-primary-3 text-primary-1 shadow-lg" 
-                  : "bg-background-lighter text-foreground hover:bg-primary-2 hover:text-white hover:shadow-md"
-              }`}
-              onClick={() => handleMenuClick(item)}
-              onMouseEnter={() => setHoveredItem(item.name)}
-              onMouseLeave={() => setHoveredItem(null)}
-            >
-              <span>{item.icon}</span>
-              <span className="font-medium">{item.name}</span>
-            </button>
-          ))}
+          {menuItems.map((item, index) => {
+            const isActive = isMenuItemActive(item.path);
+            
+            return (
+              <button
+                key={index}
+                className={`flex items-center space-x-3 p-4 rounded-2xl transition-all duration-200 ${
+                  isActive
+                    ? "bg-primary-3 text-primary-1 shadow-lg" 
+                    : "bg-background-lighter text-foreground hover:bg-primary-2 hover:text-white hover:shadow-md"
+                }`}
+                onClick={() => handleMenuClick(item)}
+                onMouseEnter={() => setHoveredItem(item.name)}
+                onMouseLeave={() => setHoveredItem(null)}
+              >
+                <span>{item.icon}</span>
+                <span className="font-medium">{item.name}</span>
+              </button>
+            );
+          })}
         </nav>
       </div>
 

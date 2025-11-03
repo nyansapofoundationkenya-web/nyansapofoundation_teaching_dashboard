@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect } from "react";
 import Sidebar from "@/components/Dashboard/SideBar";
 import Header from "@/components/Dashboard/Header";
@@ -71,22 +70,22 @@ const DashboardLayout = ({ children, title, organizationId }) => {
                     ${!isMobile && sidebarOpen ? "ml-0" : "ml-0"}
                 `}
             >
-                {/* Header - Now with proper spacing */}
+                {/* Header - Fixed overlap issue */}
                 <div className="flex-shrink-0">
-                    <div className="flex items-center">
+                    <div className="flex items-center relative">
                         {/* Menu Button - Only show on mobile/tablet */}
                         {isMobile && !sidebarOpen && (
                             <button
                                 onClick={toggleSidebar}
-                                className="p-3 mx-4 text-gray-600 hover:bg-gray-100 rounded-md transition-colors absolute top-4 left-4 z-30"
+                                className="p-3 mx-4 text-gray-600 hover:bg-gray-100 rounded-md transition-colors absolute top-4 left-0 z-30"
                                 aria-label="Open menu"
                             >
                                 <FiMenu className="w-5 h-5" />
                             </button>
                         )}
                         
-                        {/* Header Component with proper spacing */}
-                        <div className="flex-1">
+                        {/* Header Component with proper spacing to prevent overlap */}
+                        <div className={`flex-1 transition-all duration-300 ${isMobile && !sidebarOpen ? 'pl-16 sm:pl-20' : ''}`}>
                             <Header title={title} />
                         </div>
                     </div>
