@@ -477,7 +477,7 @@ export default function Filter({
       {/* Overlay to close filter when clicking outside */}
       {filterOpen && (
         <div 
-          className="fixed inset-0 z-40 bg-gray-900 bg-opacity-50" 
+          className="fixed inset-0 z-40" 
           onClick={() => setFilterOpen(false)}
         />
       )}
