@@ -99,14 +99,14 @@ export default function Filter({ organizationId, onFilterChange }) {
   const fetchProjects = async () => {
     try {
       setLoading(true)
-      const projectsRef = collection(db, `organizations/${organizationId}/projects`)
+      const projectsRef = collection(db, `organization/${organizationId}/projects`)
       const projectsSnapshot = await getDocs(projectsRef)
 
       const projectsData = await Promise.all(
         projectsSnapshot.docs.map(async (projectDoc) => {
           const projectData = { id: projectDoc.id, ...projectDoc.data() }
 
-          const schoolsRef = collection(db, `organizations/${organizationId}/projects`, projectDoc.id, "schools")
+          const schoolsRef = collection(db, `organization/${organizationId}/projects`, projectDoc.id, "schools")
           const schoolsSnapshot = await getDocs(schoolsRef)
           const schools = schoolsSnapshot.docs.map((schoolDoc) => ({
             id: schoolDoc.id,
@@ -169,7 +169,7 @@ export default function Filter({ organizationId, onFilterChange }) {
     <div className="w-full">
       {/* Bar Graph */}
       <div className="bg-background-light border border-gray-600 rounded-2xl p-3 mb-4">
-        <h3 className="text-xs font-medium text-foreground mb-2">Assessments Created</h3>
+        <h3 className="text-xs font-medium text-foreground mb-2">Assessments Done</h3>
         {loadingCounts ? (
           <div className="h-24 flex items-center justify-center text-gray-400 text-xs">
             Loading graph...

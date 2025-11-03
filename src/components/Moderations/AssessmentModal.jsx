@@ -12,20 +12,53 @@ export default function AssessmentModal({ organizationId, onClose }) {
 
   // Form state
   const [formData, setFormData] = useState({
-    name: "",
     projectId: "",
-    schoolId: "",
-    selectedStudents: [],
+    schoolIds: [],
     type: "Numeracy",
     level: "Baseline",
     assessmentNumber: 1,
   });
-  const [selectAll, setSelectAll] = useState(false);
+  const [schoolStudents, setSchoolStudents] = useState({});
+  const [selectAllSchools, setSelectAllSchools] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [currentAssessment, setCurrentAssessment] = useState(null);
   const [loadingAssessment, setLoadingAssessment] = useState(false);
   const [maxAssessmentNumber, setMaxAssessmentNumber] = useState(1);
+
+  // Fetch students for selected schools
+  useEffect(() => {
+    if (!formData.projectId || formData.schoolIds.length === 0) {
+      setSchoolStudents({});
+      return;
+    }
+
+    const fetchStudentsForSchools = async () => {
+      const newSchoolStudents = { ...schoolStudents };
+      for (const schoolId of formData.schoolIds) {
+        if (!newSchoolStudents[schoolId]) {
+          try {
+            await fetchStudents(formData.projectId, schoolId);
+            newSchoolStudents[schoolId] = [...students];
+          } catch (err) {
+            console.error(`Error fetching students for school ${schoolId}:`, err);
+          }
+        }
+      }
+      setSchoolStudents(newSchoolStudents);
+    };
+
+    fetchStudentsForSchools();
+  }, [formData.projectId, formData.schoolIds, fetchStudents, students, schoolStudents]);
+
+  // Handle select all schools
+  useEffect(() => {
+    if (selectAllSchools && schools.length > 0) {
+      setFormData(prev => ({ ...prev, schoolIds: schools.map(s => s.id) }));
+    } else if (!selectAllSchools) {
+      setFormData(prev => ({ ...prev, schoolIds: [] }));
+    }
+  }, [selectAllSchools, schools.length]);
 
   // Fetch max assessment number when type changes
   useEffect(() => {
@@ -93,49 +126,33 @@ export default function AssessmentModal({ organizationId, onClose }) {
     if (formData.projectId) {
       fetchSchools(formData.projectId);
     } else {
-      setFormData(prev => ({ ...prev, schoolId: "", selectedStudents: [] }));
+      setFormData(prev => ({ ...prev, schoolIds: [] }));
+      setSchoolStudents({});
+      setSelectAllSchools(false);
     }
   }, [formData.projectId, fetchSchools]);
 
-  // Fetch students when project or school changes
-  useEffect(() => {
-    if (formData.schoolId && formData.projectId) {
-      fetchStudents(formData.projectId, formData.schoolId);
-    } else {
-      setFormData(prev => ({ ...prev, selectedStudents: [] }));
-    }
-  }, [formData.schoolId, formData.projectId, fetchStudents]);
-
-  // Handle select all
-  useEffect(() => {
-    if (selectAll && students.length > 0) {
-      setFormData(prev => ({ ...prev, selectedStudents: students.map(s => s.id) }));
-    } else if (!selectAll) {
-      setFormData(prev => ({ ...prev, selectedStudents: [] }));
-    }
-  }, [selectAll, students.length]);
-
-  // Handle individual student toggle
-  const toggleStudent = (studentId) => {
-    const isCurrentlySelected = formData.selectedStudents.includes(studentId);
+  // Handle individual school toggle
+  const toggleSchool = (schoolId) => {
+    const isCurrentlySelected = formData.schoolIds.includes(schoolId);
     const newSelectedLength = isCurrentlySelected 
-      ? formData.selectedStudents.length - 1 
-      : formData.selectedStudents.length + 1;
+      ? formData.schoolIds.length - 1 
+      : formData.schoolIds.length + 1;
 
     setFormData(prev => ({
       ...prev,
-      selectedStudents: prev.selectedStudents.includes(studentId)
-        ? prev.selectedStudents.filter(id => id !== studentId)
-        : [...prev.selectedStudents, studentId],
+      schoolIds: prev.schoolIds.includes(schoolId)
+        ? prev.schoolIds.filter(id => id !== schoolId)
+        : [...prev.schoolIds, schoolId],
     }));
 
     if (isCurrentlySelected) {
-      if (formData.selectedStudents.length === students.length) {
-        setSelectAll(false);
+      if (formData.schoolIds.length === schools.length) {
+        setSelectAllSchools(false);
       }
     } else {
-      if (newSelectedLength === students.length) {
-        setSelectAll(true);
+      if (newSelectedLength === schools.length) {
+        setSelectAllSchools(true);
       }
     }
   };
@@ -155,8 +172,8 @@ export default function AssessmentModal({ organizationId, onClose }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.projectId || !formData.schoolId || formData.selectedStudents.length === 0) {
-      setError("Please fill in all required fields and select at least one student.");
+    if (!formData.projectId || formData.schoolIds.length === 0) {
+      setError("Please fill in all required fields and select at least one school.");
       return;
     }
 
@@ -164,10 +181,17 @@ export default function AssessmentModal({ organizationId, onClose }) {
     setError("");
 
     try {
-      const assignedStudents = formData.selectedStudents.map(studentId => {
-        const student = students.find(s => s.id === studentId);
-        if (!student) return null;
-        return {
+      const promises = formData.schoolIds.map(async (schoolId) => {
+        const school = schools.find(s => s.id === schoolId);
+        if (!school) return;
+
+        const schoolStuds = schoolStudents[schoolId] || [];
+        if (schoolStuds.length === 0) {
+          console.warn(`No students for school ${schoolId}`);
+          return;
+        }
+
+        const assignedStudents = schoolStuds.map(student => ({
           assessment_status: "not_started",
           baseline: "",
           completed_assessment: false,
@@ -179,27 +203,29 @@ export default function AssessmentModal({ organizationId, onClose }) {
           last_name: student.last_name || "",
           name: "",
           sex: student.sex || "",
-        };
-      }).filter(Boolean);
+        }));
 
-      const assessmentId = uuidv4();
-      await setDoc(doc(db, "assessments", assessmentId), {
-        created_at: new Date().toISOString(),
-        id: assessmentId,
-        name: formData.name,
-        organization_id: organizationId,
-        project_id: formData.projectId,
-        school_id: formData.schoolId,
-        type: formData.type,
-        level: formData.level,
-        assessmentNumber: formData.assessmentNumber,
-        assigned_students: assignedStudents,
+        const assessmentId = uuidv4();
+        await setDoc(doc(db, "assessments", assessmentId), {
+          created_at: new Date().toISOString(),
+          id: assessmentId,
+          name: school.name,
+          organization_id: organizationId,
+          project_id: formData.projectId,
+          school_id: schoolId,
+          type: formData.type,
+          level: formData.level,
+          assessmentNumber: formData.assessmentNumber,
+          assigned_students: assignedStudents,
+        });
       });
+
+      await Promise.all(promises.filter(Boolean));
 
       onClose();
     } catch (err) {
-      console.error("Error creating assessment:", err);
-      setError("Failed to create assessment. Please try again.");
+      console.error("Error creating assessments:", err);
+      setError("Failed to create assessments. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -463,11 +489,11 @@ export default function AssessmentModal({ organizationId, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black bg-opacity-50">
-      <div className="bg-background-light rounded-2xl shadow-xl w-full max-w-4xl flex flex-col h-[calc(100%-1rem)] sm:h-[95vh] max-h-screen border border-gray-600">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black bg-opacity-50">
+      <div className="bg-background-light rounded-2xl shadow-xl w-full max-w-4xl flex flex-col h-[calc(100%-2rem)] sm:h-[95vh] max-h-screen border border-gray-600 mx-4 sm:mx-0">
         {/* Header */}
         <div className="flex-shrink-0 p-6 border-b border-gray-600">
-          <h2 className="text-xl font-semibold text-foreground">Create Assessment</h2>
+          <h2 className="text-xl font-semibold text-foreground">Create Assessments</h2>
           <button
             onClick={onClose}
             className="absolute top-6 right-6 text-gray-400 hover:text-gray-200 transition-colors"
@@ -479,30 +505,17 @@ export default function AssessmentModal({ organizationId, onClose }) {
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-6 space-y-6">
           <form onSubmit={handleSubmit}>
             {error && <div className="p-3 bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl">{error}</div>}
 
-            {/* Assessment Name */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Assessment Name *</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Enter assessment name"
-                className="w-full px-3 py-2 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-2 placeholder:text-gray-400 text-foreground bg-background-lighter"
-                required
-              />
-            </div>
-
             {/* Select Project */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Select Project *</label>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-foreground mb-3">Select Project *</label>
               <select
                 value={formData.projectId}
                 onChange={(e) => setFormData(prev => ({ ...prev, projectId: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-2 text-foreground bg-background-lighter"
+                className="w-full px-4 py-3 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-2 text-foreground bg-background-lighter transition-colors"
                 required
               >
                 <option value="" disabled className="text-gray-400">Choose a project</option>
@@ -514,101 +527,151 @@ export default function AssessmentModal({ organizationId, onClose }) {
               </select>
             </div>
 
-            {/* Select School */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Select School *</label>
-              <select
-                value={formData.schoolId}
-                onChange={(e) => setFormData(prev => ({ ...prev, schoolId: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-2 text-foreground bg-background-lighter disabled:bg-background disabled:text-gray-500"
-                disabled={!formData.projectId}
-                required
-              >
-                <option value="" disabled className="text-gray-400">Choose a school</option>
-                {schools.map((school) => (
-                  <option key={school.id} value={school.id} className="text-foreground">
-                    {school.name}
-                  </option>
-                ))}
-              </select>
+            {/* Select Schools - Improved Design */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-foreground mb-3">Select Schools *</label>
+              
+              {!formData.projectId ? (
+                <div className="text-center py-8 bg-background-lighter rounded-xl border border-gray-600">
+                  <svg className="w-12 h-12 mx-auto text-gray-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                  <p className="text-sm text-gray-400">Please select a project first to load schools</p>
+                </div>
+              ) : schools.length === 0 ? (
+                <div className="text-center py-8 bg-background-lighter rounded-xl border border-gray-600">
+                  <svg className="w-12 h-12 mx-auto text-gray-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <p className="text-sm text-gray-400">No schools found for this project</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Selection Summary and Select All */}
+                  <div className="flex items-center justify-between p-4 bg-background-lighter rounded-xl border border-gray-600">
+                    <div className="flex items-center space-x-3">
+                      <div className="bg-primary-2/20 text-primary-2 text-sm font-medium px-3 py-1 rounded-lg">
+                        {formData.schoolIds.length} selected
+                      </div>
+                      <span className="text-sm text-gray-300">
+                        of {schools.length} schools
+                      </span>
+                    </div>
+                    <label className="flex items-center space-x-3 cursor-pointer group">
+                      <div className="relative">
+                        <input
+                          type="checkbox"
+                          checked={selectAllSchools}
+                          onChange={(e) => setSelectAllSchools(e.target.checked)}
+                          className="sr-only"
+                        />
+                        <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${
+                          selectAllSchools ? 'bg-primary-2' : 'bg-gray-600'
+                        }`}>
+                          <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                            selectAllSchools ? 'translate-x-4' : 'translate-x-0'
+                          }`} />
+                        </div>
+                      </div>
+                      <span className="text-sm font-medium text-foreground group-hover:text-primary-2 transition-colors">
+                        Select All
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Schools Grid */}
+                  <div className="max-h-60 overflow-y-auto scrollbar-hide border border-gray-600 rounded-xl bg-background-lighter p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {schools.map((school) => (
+                        <label 
+                          key={school.id} 
+                          className={`flex items-center p-4 rounded-xl cursor-pointer transition-all duration-200 border-2 ${
+                            formData.schoolIds.includes(school.id)
+                              ? 'bg-primary-2/10 border-primary-2/50 shadow-md'
+                              : 'bg-background-light border-gray-600 hover:bg-background-lighter hover:border-gray-500'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-3 flex-1">
+                            <div className="relative">
+                              <input
+                                type="checkbox"
+                                checked={formData.schoolIds.includes(school.id)}
+                                onChange={() => toggleSchool(school.id)}
+                                className="w-4 h-4 text-primary-2 bg-background-lighter border-gray-500 rounded focus:ring-primary-2 focus:ring-2"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-medium text-foreground truncate block">
+                                {school.name}
+                              </span>
+                              <span className="text-xs text-gray-400 mt-1">
+                                {schoolStudents[school.id]?.length || 0} students
+                              </span>
+                            </div>
+                          </div>
+                          {formData.schoolIds.includes(school.id) && (
+                            <svg className="w-4 h-4 text-primary-2 ml-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Students List */}
-            {formData.schoolId && students.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Select Students *</label>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm text-gray-300">
-                    {formData.selectedStudents.length} of {students.length} selected
-                  </span>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={selectAll}
-                      onChange={(e) => setSelectAll(e.target.checked)}
-                      className="rounded border-gray-500 text-primary-2 focus:ring-primary-2 bg-background-lighter"
-                    />
-                    <span className="ml-2 text-sm text-foreground">Select All</span>
-                  </label>
-                </div>
-                <div className="max-h-40 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {students.map((student) => (
-                    <label key={student.id} className="flex items-center p-2 bg-background-lighter rounded-xl cursor-pointer hover:bg-background transition-colors border border-gray-600">
-                      <input
-                        type="checkbox"
-                        checked={formData.selectedStudents.includes(student.id)}
-                        onChange={() => toggleStudent(student.id)}
-                        className="rounded border-gray-500 text-primary-2 focus:ring-primary-2 mr-2 bg-background-lighter"
-                      />
-                      <span className="text-sm text-foreground">{`${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Unnamed Student'}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Assessment Type */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Assessment Type *</label>
-              <div className="space-y-2">
-                <label className="flex items-center">
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-foreground mb-3">Assessment Type *</label>
+              <div className="grid grid-cols-2 gap-4">
+                <label className={`flex items-center p-4 rounded-xl cursor-pointer transition-all border-2 ${
+                  formData.type === "Numeracy" 
+                    ? 'bg-primary-2/10 border-primary-2/50 shadow-md' 
+                    : 'bg-background-lighter border-gray-600 hover:bg-background-light'
+                }`}>
                   <input
                     type="radio"
                     value="Numeracy"
                     checked={formData.type === "Numeracy"}
                     onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value, assessmentNumber: 1 }))}
-                    className="rounded border-gray-500 text-primary-2 focus:ring-primary-2 bg-background-lighter"
+                    className="w-4 h-4 text-primary-2 bg-background-lighter border-gray-500 focus:ring-primary-2 focus:ring-2"
                   />
-                  <span className="ml-2 text-sm text-foreground">Numeracy</span>
+                  <span className="ml-3 text-sm font-medium text-foreground">Numeracy</span>
                 </label>
-                <label className="flex items-center">
+                <label className={`flex items-center p-4 rounded-xl cursor-pointer transition-all border-2 ${
+                  formData.type === "Literacy" 
+                    ? 'bg-primary-2/10 border-primary-2/50 shadow-md' 
+                    : 'bg-background-lighter border-gray-600 hover:bg-background-light'
+                }`}>
                   <input
                     type="radio"
                     value="Literacy"
                     checked={formData.type === "Literacy"}
                     onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value, assessmentNumber: 1 }))}
-                    className="rounded border-gray-500 text-primary-2 focus:ring-primary-2 bg-background-lighter"
+                    className="w-4 h-4 text-primary-2 bg-background-lighter border-gray-500 focus:ring-primary-2 focus:ring-2"
                   />
-                  <span className="ml-2 text-sm text-foreground">Literacy</span>
+                  <span className="ml-3 text-sm font-medium text-foreground">Literacy</span>
                 </label>
               </div>
             </div>
 
             {/* Assessment Selection */}
-            <div className="bg-primary-2/20 border border-primary-2/30 rounded-xl p-4">
+            <div className="bg-primary-2/20 border border-primary-2/30 rounded-xl p-6 mb-6">
               <label className="block text-sm font-semibold text-primary-2 mb-3">
                 Choose Assessment Content
               </label>
-              <p className="text-sm text-primary-2 mb-4">
+              <p className="text-sm text-primary-2 mb-6">
                 Preview and select the assessment content you want to use. Browse through different versions using the navigation buttons.
               </p>
               
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between space-x-4">
                 <button
                   type="button"
                   onClick={prevAssessment}
                   disabled={formData.assessmentNumber <= 1}
-                  className="flex items-center px-4 py-2 bg-primary-2 text-white rounded-xl hover:bg-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md hover:shadow-lg"
+                  className="flex items-center px-5 py-3 bg-primary-2 text-white rounded-xl hover:bg-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg disabled:hover:shadow-md"
                 >
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -616,11 +679,11 @@ export default function AssessmentModal({ organizationId, onClose }) {
                   Previous
                 </button>
                 
-                <div className="text-center">
-                  <span className="text-lg font-bold text-primary-2">
+                <div className="text-center flex-1 mx-4">
+                  <span className="text-lg font-bold text-primary-2 block">
                     {formData.type} Assessment #{formData.assessmentNumber}
                   </span>
-                  <div className="text-sm text-primary-2">
+                  <div className="text-sm text-primary-2 mt-1">
                     {formData.assessmentNumber} of {maxAssessmentNumber}
                   </div>
                 </div>
@@ -629,7 +692,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
                   type="button"
                   onClick={nextAssessment}
                   disabled={formData.assessmentNumber >= maxAssessmentNumber}
-                  className="flex items-center px-4 py-2 bg-primary-2 text-white rounded-xl hover:bg-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md hover:shadow-lg"
+                  className="flex items-center px-5 py-3 bg-primary-2 text-white rounded-xl hover:bg-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg disabled:hover:shadow-md"
                 >
                   Next
                   <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -640,22 +703,22 @@ export default function AssessmentModal({ organizationId, onClose }) {
             </div>
 
             {/* Assessment Preview */}
-            <div className="border-2 border-primary-2/30 rounded-xl p-4 bg-background-light">
-              <h3 className="text-lg font-semibold text-foreground mb-4 text-center">
+            <div className="border-2 border-primary-2/30 rounded-xl p-6 bg-background-light mb-6">
+              <h3 className="text-lg font-semibold text-foreground mb-6 text-center">
                 Assessment Preview
               </h3>
-              <div className="max-h-96 overflow-y-auto">
+              <div className="max-h-96 overflow-y-auto scrollbar-hide">
                 {renderAssessmentPreview()}
               </div>
             </div>
 
             {/* Level Selection */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Assessment Level *</label>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-foreground mb-3">Assessment Level *</label>
               <select
                 value={formData.level}
                 onChange={(e) => setFormData(prev => ({ ...prev, level: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-2 text-foreground bg-background-lighter"
+                className="w-full px-4 py-3 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-2 text-foreground bg-background-lighter transition-colors"
                 required
               >
                 <option value="Baseline" className="text-foreground">Baseline</option>
@@ -666,11 +729,11 @@ export default function AssessmentModal({ organizationId, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 flex justify-end space-x-3 p-6 pt-0 border-t border-gray-600 bg-background-light">
+        <div className="flex-shrink-0 flex justify-end space-x-4 p-6 border-t border-gray-600 bg-background-light">
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2 text-gray-300 bg-background-lighter rounded-xl hover:bg-background transition-colors border border-gray-600"
+            className="px-8 py-3 text-gray-300 bg-background-lighter rounded-xl hover:bg-background transition-all border border-gray-600 hover:border-gray-500 disabled:opacity-50"
             disabled={isSubmitting}
           >
             Cancel
@@ -678,19 +741,19 @@ export default function AssessmentModal({ organizationId, onClose }) {
           <button
             type="button"
             onClick={handleSubmit}
-            className="px-6 py-2 bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold rounded-xl disabled:opacity-50 transition-colors shadow-md hover:shadow-lg"
+            className="px-8 py-3 bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold rounded-xl disabled:opacity-50 transition-all shadow-md hover:shadow-lg transform hover:scale-105 disabled:hover:scale-100"
             disabled={isSubmitting}
           >
             {isSubmitting ? (
               <span className="flex items-center">
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-primary-1" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-primary-1" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
                 Creating...
               </span>
             ) : (
-              "Create Assessment"
+              "Create Assessments"
             )}
           </button>
         </div>
