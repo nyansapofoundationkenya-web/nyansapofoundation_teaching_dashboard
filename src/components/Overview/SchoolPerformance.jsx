@@ -29,12 +29,12 @@ const SchoolPerformance = () => {
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
-          <p className="font-semibold text-gray-900 mb-1">{label}</p>
-          <p className="text-sm text-green-600">
+        <div className="bg-background-light border border-gray-600 rounded-xl shadow-lg p-3">
+          <p className="font-semibold text-foreground mb-1">{label}</p>
+          <p className="text-sm text-secondary-2">
             Literacy: {payload[0].value}%
           </p>
-          <p className="text-sm text-blue-600">
+          <p className="text-sm text-primary-2">
             Numeracy: {payload[1].value}%
           </p>
         </div>
@@ -48,38 +48,43 @@ const SchoolPerformance = () => {
     <div className="h-64">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={allSchoolData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
           <XAxis 
             dataKey="name" 
-            tick={{ fontSize: 12 }}
+            tick={{ fontSize: 12, fill: '#d1d5db' }}
             stroke="#6b7280"
           />
           <YAxis 
             domain={[0, 100]}
-            tick={{ fontSize: 12 }}
+            tick={{ fontSize: 12, fill: '#d1d5db' }}
             stroke="#6b7280"
-            label={{ value: 'Score (%)', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
+            label={{ 
+              value: 'Score (%)', 
+              angle: -90, 
+              position: 'insideLeft', 
+              style: { fontSize: 12, fill: '#d1d5db' } 
+            }}
           />
           <Tooltip content={<CustomTooltip />} />
           <Legend 
-            wrapperStyle={{ fontSize: 14 }}
+            wrapperStyle={{ fontSize: 14, color: '#d1d5db' }}
             iconType="line"
           />
           <Line 
             type="monotone" 
             dataKey="literacy" 
-            stroke="#22c55e" 
+            stroke="#4caf50" 
             strokeWidth={3}
-            dot={{ fill: '#22c55e', r: 4 }}
+            dot={{ fill: '#4caf50', r: 4 }}
             activeDot={{ r: 6 }}
             name="Literacy"
           />
           <Line 
             type="monotone" 
             dataKey="numeracy" 
-            stroke="#2563eb" 
+            stroke="#5aa2ce" 
             strokeWidth={3}
-            dot={{ fill: '#2563eb', r: 4 }}
+            dot={{ fill: '#5aa2ce', r: 4 }}
             activeDot={{ r: 6 }}
             name="Numeracy"
           />
@@ -98,11 +103,11 @@ const SchoolPerformance = () => {
         <div className="flex flex-col gap-3 min-w-fit">
           {displaySchools.map((school, index) => (
             <div key={index} className="text-left flex items-center gap-2">
-              <span className="font-semibold text-gray-700 text-sm">
+              <span className="font-semibold text-foreground text-sm">
                 {school.name}
               </span>
-              <span className="text-gray-400">|</span>
-              <span className="text-xs text-gray-500">
+              <span className="text-gray-500">|</span>
+              <span className="text-xs text-gray-400">
                 Lit {school.literacy}%, Num {school.numeracy}%
               </span>
             </div>
@@ -120,15 +125,15 @@ const SchoolPerformance = () => {
               <div key={index} className="flex flex-col items-center">
                 <div className="flex gap-2 items-end mb-2">
                   <div 
-                    className="w-12 bg-green-500 rounded-t"
+                    className="w-12 bg-secondary-2 rounded-t"
                     style={{ height: `${litHeight}px` }}
                   ></div>
                   <div 
-                    className="w-12 bg-blue-600 rounded-t"
+                    className="w-12 bg-primary-2 rounded-t"
                     style={{ height: `${numHeight}px` }}
                   ></div>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-gray-400 mt-1">
                   {school.name}
                 </div>
               </div>
@@ -140,32 +145,32 @@ const SchoolPerformance = () => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-full">
+    <div className="bg-background-light rounded-2xl shadow-lg border border-gray-600 p-6 h-full">
       {/* Average Scores Section */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900">
+          <h2 className="text-xl font-bold text-foreground">
             Average Scores per School
           </h2>
           
           {/* View toggle */}
-          <div className="flex gap-2 bg-gray-100 rounded-lg p-1">
+          <div className="flex gap-2 bg-background-lighter rounded-xl p-1">
             <button
               onClick={() => setViewMode('bars')}
-              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+              className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
                 viewMode === 'bars' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-primary-2 text-white shadow-md' 
+                  : 'text-gray-300 hover:text-foreground'
               }`}
             >
               Bar Chart
             </button>
             <button
               onClick={() => setViewMode('line')}
-              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+              className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
                 viewMode === 'line' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-primary-2 text-white shadow-md' 
+                  : 'text-gray-300 hover:text-foreground'
               }`}
             >
               Line Chart
@@ -176,15 +181,15 @@ const SchoolPerformance = () => {
         {viewMode === 'bars' ? <BarsView /> : <LineChartView />}
         
         {viewMode === 'bars' && allSchoolData.length > 3 && (
-          <div className="mt-4 text-center text-xs text-gray-500">
+          <div className="mt-4 text-center text-xs text-gray-400">
             Showing 3 of {allSchoolData.length} schools. Switch to Line Chart to see all.
           </div>
         )}
       </div>
 
       {/* Percentage Above Grade Level Section */}
-      <div className="mt-8 pt-6 border-t border-gray-200">
-        <h3 className="text-xl font-bold text-gray-900 mb-6">
+      <div className="mt-8 pt-6 border-t border-gray-600">
+        <h3 className="text-xl font-bold text-foreground mb-6">
           Percentage Above Grade Level
         </h3>
         
@@ -222,18 +227,18 @@ const SchoolPerformance = () => {
                   y1="100"
                   x2="100"
                   y2="35"
-                  stroke="#475569"
+                  stroke="#d1d5db"
                   strokeWidth="3"
                   strokeLinecap="round"
                 />
-                <circle cx="100" cy="100" r="6" fill="#475569" />
+                <circle cx="100" cy="100" r="6" fill="#d1d5db" />
               </g>
             </svg>
           </div>
           
           {/* Percentage text below gauge */}
           <div className="text-center mt-2">
-            <div className="text-4xl font-bold text-gray-900">{percentage}%</div>
+            <div className="text-4xl font-bold text-foreground">{percentage}%</div>
           </div>
         </div>
       </div>

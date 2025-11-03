@@ -8,7 +8,7 @@ export default function SchoolDetailStats({ school }) {
   const { organizationId, projectId } = useParams()
 
   const handleStudentsClick = () => {
-    router.push(`/dashboard/${organizationId}/projects/${projectId}/schools/${school.id}/attendance`)
+    // router.push(`/dashboard/${organizationId}/projects/${projectId}/schools/${school.id}/attendance`)
   }
 
   const stats = [
@@ -16,8 +16,8 @@ export default function SchoolDetailStats({ school }) {
       label: "Total Students",
       value: school?.total_students || 0,
       icon: <GraduationCap className="w-5 h-5" />,
-      iconColor: "text-green-500",
-      valueColor: "text-green-500",
+      iconColor: "text-secondary-2",
+      valueColor: "text-secondary-2",
       clickable: true,
       onClick: handleStudentsClick,
     },
@@ -25,29 +25,29 @@ export default function SchoolDetailStats({ school }) {
       label: "Sessions Completion Rate",
       value: `${school?.completionRate || 0}%`,
       icon: <Target className="w-5 h-5" />,
-      iconColor: "text-gray-700",
-      valueColor: "text-gray-700",
+      iconColor: "text-gray-400",
+      valueColor: "text-gray-300",
     },
     {
       label: "Learning Camps",
       value: school?.total_camps || 0,
       icon: <Tent className="w-5 h-5" />,
-      iconColor: "text-yellow-500",
-      valueColor: "text-yellow-500",
+      iconColor: "text-primary-3",
+      valueColor: "text-primary-3",
     },
     {
       label: "Instructors",
       value: school?.total_teachers || 0,
       icon: <Users className="w-5 h-5" />,
-      iconColor: "text-yellow-600",
-      valueColor: "text-yellow-600",
+      iconColor: "text-primary-3",
+      valueColor: "text-primary-3",
     },
     {
       label: "Instructor/Student Ratio",
       value: school?.instructorStudentRatio || 0,
       icon: <BarChart3 className="w-5 h-5" />,
-      iconColor: "text-green-600",
-      valueColor: "text-green-600",
+      iconColor: "text-secondary-2",
+      valueColor: "text-secondary-2",
     },
   ]
 
@@ -56,13 +56,13 @@ export default function SchoolDetailStats({ school }) {
       {stats.map((stat, index) => (
         <div
           key={index}
-          className={`bg-white rounded-lg p-4 shadow-sm border ${
-            stat.clickable ? "cursor-pointer hover:shadow-md transition-shadow" : ""
+          className={`bg-background-light rounded-2xl p-4 shadow-lg border border-gray-600 ${
+            stat.clickable ? "cursor-pointer hover:shadow-xl transition-all hover:bg-background-lighter" : ""
           }`}
           onClick={stat.onClick}
         >
           {/* Label at the top */}
-          <div className="text-sm text-gray-600 mb-3 font-medium">{stat.label}</div>
+          <div className="text-sm text-gray-300 mb-3 font-medium">{stat.label}</div>
 
           {/* Icon and Value */}
           <div className="flex items-center gap-2">

@@ -86,23 +86,23 @@ export default function StudentUploadModal({ isOpen, onClose, organizationId, pr
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-grow" onClick={onClose}></div>
 
-      <div className="w-full max-w-md bg-white shadow-lg h-full overflow-auto p-6 relative flex flex-col">
-        <div className="flex justify-between items-center border-b pb-4 mb-6">
-          <div className="flex items-center gap-3">
-            <button onClick={onClose} className="text-xl text-gray-500 hover:text-black" aria-label="Close">
+      <div className="w-full max-w-md bg-background-light shadow-xl h-full overflow-auto p-4 relative flex flex-col border-l border-gray-600">
+        <div className="flex justify-between items-center border-b border-gray-600 pb-3 mb-4">
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="text-xl text-gray-400 hover:text-foreground" aria-label="Close">
               ×
             </button>
-            <h2 className="text-xl font-semibold text-gray-600">Upload students</h2>
+            <h2 className="text-lg font-semibold text-foreground">Upload students</h2>
           </div>
 
           <div className="flex gap-2">
-            <button onClick={onClose} className="text-sm px-4 py-1 border rounded text-gray-600 hover:bg-gray-100">
+            <button onClick={onClose} className="text-sm px-3 py-1.5 border border-gray-500 rounded-xl text-gray-300 hover:bg-background-lighter">
               Cancel
             </button>
             <button
               type="submit"
               form="student-modal-form"
-              className="text-sm px-4 py-1 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded"
+              className="text-sm px-3 py-1.5 bg-primary-3 hover:bg-primary-3/90 text-primary-1 font-semibold rounded-xl shadow-md hover:shadow-lg"
               disabled={loading}
             >
               {loading ? "Uploading..." : "Submit"}
@@ -113,12 +113,12 @@ export default function StudentUploadModal({ isOpen, onClose, organizationId, pr
         <form
           id="student-modal-form"
           onSubmit={handleSubmit}
-          className="space-y-5 flex-1"
+          className="space-y-4 flex-1"
           encType="multipart/form-data"
         >
           <div className="text-left">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Bulk Upload Students</h3>
-            <p className="text-sm text-gray-600 mb-4">
+            <h3 className="text-base font-semibold text-foreground mb-2">Bulk Upload Students</h3>
+            <p className="text-sm text-gray-300 mb-3">
               Upload an Excel or CSV file with student information. The file should have the following columns
               (case-insensitive): name, class, gender, age, baseline, group
             </p>
@@ -129,7 +129,7 @@ export default function StudentUploadModal({ isOpen, onClose, organizationId, pr
               <button
                 type="button"
                 onClick={() => downloadTemplate('excel')}
-                className="flex items-center text-sm px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded"
+                className="flex items-center text-sm px-3 py-1.5 bg-primary-3 hover:bg-primary-3/90 text-primary-1 font-semibold rounded-xl shadow-md"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Excel Template
@@ -137,7 +137,7 @@ export default function StudentUploadModal({ isOpen, onClose, organizationId, pr
               <button
                 type="button"
                 onClick={() => downloadTemplate('csv')}
-                className="flex items-center text-sm px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded"
+                className="flex items-center text-sm px-3 py-1.5 bg-primary-2 hover:bg-primary-2/90 text-foreground font-semibold rounded-xl shadow-md"
               >
                 <Download className="w-4 h-4 mr-2" />
                 CSV Template
@@ -146,7 +146,7 @@ export default function StudentUploadModal({ isOpen, onClose, organizationId, pr
             <button
               type="button"
               onClick={() => setShowRequirements((prev) => !prev)}
-              className="flex items-center text-sm px-4 py-2 border rounded text-gray-600 hover:bg-gray-100"
+              className="flex items-center text-sm px-3 py-1.5 border border-gray-500 rounded-xl text-gray-300 hover:bg-background-lighter"
             >
               <Info className="w-4 h-4 mr-2" />
               Field Requirements
@@ -154,9 +154,9 @@ export default function StudentUploadModal({ isOpen, onClose, organizationId, pr
           </div>
 
           {showRequirements && (
-            <div className="text-left bg-gray-100 p-4 rounded-lg">
-              <p className="text-sm font-medium text-gray-800 mb-2">Field Requirements (case-insensitive):</p>
-              <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+            <div className="text-left bg-background-lighter p-3 rounded-xl border border-gray-600">
+              <p className="text-sm font-medium text-foreground mb-2">Field Requirements (case-insensitive):</p>
+              <ul className="list-disc list-inside text-sm text-gray-300 space-y-1">
                 <li>
                   <strong>name</strong> (required) - Student's full name
                 </li>
@@ -176,17 +176,17 @@ export default function StudentUploadModal({ isOpen, onClose, organizationId, pr
                   <strong>group</strong> (optional) - Student's group assignment
                 </li>
               </ul>
-              <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
-                <p className="text-xs text-yellow-800">
+              <div className="mt-2 p-2 bg-primary-3/20 border border-primary-3/30 rounded-xl">
+                <p className="text-xs text-primary-1">
                   <strong>Note:</strong> Only name, class, and gender are required fields. Age, baseline, and group are optional.
                 </p>
               </div>
             </div>
           )}
 
-          <div className="text-left border-dashed border-2 border-gray-300 rounded-lg p-8 flex items-center justify-center">
+          <div className="text-left border-dashed border-2 border-gray-500 rounded-xl p-6 flex items-center justify-center">
             <label className="flex flex-col items-center cursor-pointer">
-              <svg className="w-12 h-12 text-blue-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-12 h-12 text-primary-2 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -194,8 +194,8 @@ export default function StudentUploadModal({ isOpen, onClose, organizationId, pr
                   d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12a1 1 0 01-1 1H9a1 1 0 01-1-1V8a1 1 0 011 1h6a1 1 0 011 1z"
                 />
               </svg>
-              <span className="text-blue-500 font-medium text-center">Click or drag file to this area to upload</span>
-              <span className="text-gray-500 text-sm mt-2 text-center">
+              <span className="text-primary-2 font-medium text-center">Click or drag file to this area to upload</span>
+              <span className="text-gray-300 text-xs mt-2 text-center">
                 Support for Excel (.xlsx, .xls) and CSV files
               </span>
               <input
@@ -209,20 +209,20 @@ export default function StudentUploadModal({ isOpen, onClose, organizationId, pr
           </div>
 
           {formState.file && (
-            <div className="text-left text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+            <div className="text-left text-sm text-gray-300 bg-primary-2/20 p-3 rounded-xl border border-primary-2/30">
               <p>
-                Uploaded file: <span className="font-medium text-blue-700">{formState.file.name}</span>
+                Uploaded file: <span className="font-medium text-primary-2">{formState.file.name}</span>
               </p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-400 mt-1">
                 File size: {(formState.file.size / 1024).toFixed(2)} KB
               </p>
-              <p className="text-xs text-blue-600 mt-1">
+              <p className="text-xs text-primary-2 mt-1">
                 Type: {formState.file.name.split('.').pop().toUpperCase()}
               </p>
             </div>
           )}
 
-          {error && <p className="text-red-500 text-sm bg-red-50 p-3 rounded-lg">{error}</p>}
+          {error && <p className="text-red-400 text-sm bg-red-500/20 p-3 rounded-xl border border-red-500/30">{error}</p>}
         </form>
       </div>
     </div>

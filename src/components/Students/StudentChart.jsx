@@ -40,10 +40,10 @@ export default function StudentChart({ baseline }) {
       {
         label: "Current Level",
         data: [baselineLevels[formattedBaseline] || 0],
-        backgroundColor: "#3b82f6",
-        borderColor: "#1d4ed8",
+        backgroundColor: "#5aa2ce", // primary-2 color
+        borderColor: "#3b82c8", // darker shade of primary-2
         borderWidth: 1,
-        borderRadius: 4,
+        borderRadius: 8,
         barPercentage: 0.3
       }
     ]
@@ -57,6 +57,11 @@ export default function StudentChart({ baseline }) {
         display: false // Hide the legend since we only have one bar
       },
       tooltip: {
+        backgroundColor: "#1e3a63", // background-light equivalent
+        titleColor: "#ffffff", // foreground
+        bodyColor: "#d1d5db", // gray-300
+        borderColor: "#4b5563", // gray-600
+        borderWidth: 1,
         callbacks: {
           label: function(context) {
             const value = context.raw
@@ -75,6 +80,7 @@ export default function StudentChart({ baseline }) {
         min: 0,
         ticks: {
           stepSize: 1,
+          color: "#d1d5db", // gray-300
           callback: function(value) {
             return Object.keys(baselineLevels).find(
               key => baselineLevels[key] === value
@@ -82,7 +88,8 @@ export default function StudentChart({ baseline }) {
           }
         },
         grid: {
-          display: false
+          color: "#4b5563", // gray-600
+          drawBorder: false
         }
       },
       x: {
@@ -91,6 +98,7 @@ export default function StudentChart({ baseline }) {
         },
         ticks: {
           display: true,
+          color: "#d1d5db", // gray-300
           font: {
             weight: 'bold'
           }

@@ -20,18 +20,18 @@ export default function OverviewPage() {
     endDate: ""
   });
 
-  const handleFilterChange = () => {
+  const handleFilterChange = (newFilters) => {
     setFilters(prev => ({ ...prev, ...newFilters }));
   };
 
   return (
     <DashboardLayout organizationId={organizationId}>
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen bg-background p-6">
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Performance Overview</h1>
-            <p className="text-gray-600 mt-2">
+            <h1 className="text-3xl font-bold text-foreground">Performance Overview</h1>
+            <p className="text-gray-300 mt-2">
               Comprehensive analytics and insights for your educational programs
             </p>
           </div>

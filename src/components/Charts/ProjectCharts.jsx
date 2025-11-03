@@ -288,7 +288,7 @@ export default function ProjectCharts({ chartData }) {
         <div className="relative w-full sm:w-auto">
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center justify-between w-full sm:min-w-[280px] md:min-w-[320px] px-3 py-2.5 sm:py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 shadow-sm transition-colors"
+            className="flex items-center justify-between w-full sm:min-w-[280px] md:min-w-[320px] px-3 py-2.5 sm:py-2 bg-background-light border border-gray-600 rounded-xl hover:bg-background-lighter text-sm font-medium text-foreground shadow-md transition-all"
           >
             <span className="truncate text-left">
               {chartOptions.find((option) => option.value === selectedType)?.label || "Select Chart"}
@@ -302,12 +302,12 @@ export default function ProjectCharts({ chartData }) {
             <>
               {/* Mobile/Tablet backdrop */}
               <div
-                className="fixed inset-0 bg-black bg-opacity-25 z-20 sm:hidden"
+                className="fixed inset-0 bg-gray-900 bg-opacity-50 z-20 sm:hidden"
                 onClick={() => setDropdownOpen(false)}
               />
 
               {/* Dropdown menu */}
-              <div className="absolute left-0 right-0 sm:right-auto mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-30 max-h-64 overflow-y-auto">
+              <div className="absolute left-0 right-0 sm:right-auto mt-2 bg-background-light border border-gray-600 rounded-xl shadow-xl z-30 max-h-64 overflow-y-auto">
                 <ul className="py-1">
                   {chartOptions.map((option) => (
                     <li key={option.value}>
@@ -319,11 +319,11 @@ export default function ProjectCharts({ chartData }) {
                           }
                         }}
                         disabled={!option.available}
-                        className={`w-full text-left px-3 py-3 sm:py-2 text-sm transition-colors ${
+                        className={`w-full text-left px-3 py-3 sm:py-2 text-sm transition-all ${
                           option.available
                             ? selectedType === option.value
-                              ? "bg-yellow-50 text-yellow-700 font-medium"
-                              : "text-gray-700 hover:bg-gray-50 active:bg-gray-100"
+                              ? "bg-primary-3/20 text-primary-1 font-medium"
+                              : "text-foreground hover:bg-background-lighter active:bg-primary-2/20"
                             : "text-gray-400 cursor-not-allowed"
                         }`}
                       >

@@ -118,8 +118,8 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {[...Array(6)].map((_, index) => (
-          <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6">
+          <div key={index} className="bg-background-light rounded-2xl shadow-lg border border-gray-600 overflow-hidden">
+            <div className="bg-gradient-to-br from-primary-1 to-primary-2 p-6">
               <div className="animate-pulse">
                 <div className="h-6 bg-white/20 rounded mb-4"></div>
                 <div className="flex gap-2 mb-6">
@@ -142,8 +142,8 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
   if (error) {
     return (
       <div className="text-center py-12">
-        <div className="text-red-600 mb-2">{error}</div>
-        <button onClick={fetchAssessments} className="text-blue-600 hover:text-blue-700 text-sm">
+        <div className="text-red-400 mb-2">{error}</div>
+        <button onClick={fetchAssessments} className="text-primary-2 hover:text-blue-400 text-sm">
           Try again
         </button>
       </div>
@@ -154,7 +154,7 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
     return (
       <div className="text-center py-12">
         <div className="text-gray-400 mb-2">No assessments found</div>
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-gray-300">
           {searchQuery || filters.projectId || filters.schoolId || filters.date
             ? "Try adjusting your filters or search query"
             : "No assessments available for this organization"}
@@ -173,16 +173,16 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
       {filteredAssessments.map((assessment) => (
         <div
           key={assessment.id}
-          className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+          className="bg-background-light rounded-2xl shadow-lg border border-gray-600 overflow-hidden hover:shadow-xl transition-all"
         >
-          <div className="bg-gradient-to-br from-blue-600 to-blue-800 text-white p-6">
+          <div className="bg-gradient-to-br from-primary-1 to-primary-2 text-white p-6">
             <div className="flex items-start justify-between mb-4">
               <h3 className="text-xl font-semibold">{safeRenderText(assessment.name) || "Untitled Assessment"}</h3>
             </div>
 
             <div className="flex gap-2 mb-6">
               {assessment.type && (
-                <span className="px-2 py-1 bg-white/20 text-white border border-white/30 rounded text-sm">
+                <span className="px-2 py-1 bg-white/20 text-white border border-white/30 rounded-lg text-sm">
                   {safeRenderText(assessment.type)}
                 </span>
               )}
@@ -206,7 +206,7 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
 
             <button
               onClick={() => handleViewDetails(assessment.id)}
-              className="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full bg-primary-3 hover:bg-yellow-400 text-primary-1 font-medium py-2 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
             >
               <Eye className="w-4 h-4" />
               View Details

@@ -101,18 +101,18 @@ export default function LevelDistributionByGenderChart({ data, title, colors, sh
                 stacked: true,
                 grid: {
                   display: true,
-                  color: "#f0f0f0",
+                  color: "#374151",
                 },
                 border: {
                   display: true,
-                  color: "#374151",
+                  color: "#6b7280",
                 },
                 ticks: {
                   padding: isMobile ? 5 : 10,
                   font: {
                     size: isMobile ? 10 : 11,
                   },
-                  color: "#374151",
+                  color: "#d1d5db",
                 },
               },
               y: {
@@ -120,17 +120,17 @@ export default function LevelDistributionByGenderChart({ data, title, colors, sh
                 beginAtZero: true,
                 border: {
                   display: true,
-                  color: "#374151",
+                  color: "#6b7280",
                 },
                 grid: {
                   display: true,
-                  color: "#f0f0f0",
+                  color: "#374151",
                 },
                 ticks: {
                   font: {
                     size: isMobile ? 10 : 11,
                   },
-                  color: "#374151",
+                  color: "#d1d5db",
                 },
                 title: {
                   display: !isMobile,
@@ -138,7 +138,7 @@ export default function LevelDistributionByGenderChart({ data, title, colors, sh
                   font: {
                     size: isMobile ? 10 : 11,
                   },
-                  color: "#374151",
+                  color: "#d1d5db",
                 },
               },
             },
@@ -159,6 +159,7 @@ export default function LevelDistributionByGenderChart({ data, title, colors, sh
                   pointStyle: "rect",
                   padding: isMobile ? 15 : 10,
                   boxWidth: isMobile ? 10 : 12,
+                  color: "#d1d5db",
                   generateLabels: (chart) => {
                     const datasets = chart.data.datasets
                     return datasets.map((dataset, i) => ({
@@ -175,10 +176,10 @@ export default function LevelDistributionByGenderChart({ data, title, colors, sh
               tooltip: {
                 mode: "point",
                 intersect: true,
-                backgroundColor: "white",
-                titleColor: "#374151",
-                bodyColor: "#374151",
-                borderColor: "#d1d5db",
+                backgroundColor: "#1f2937",
+                titleColor: "#f9fafb",
+                bodyColor: "#f9fafb",
+                borderColor: "#4b5563",
                 borderWidth: 1,
                 cornerRadius: 8,
                 displayColors: true,
@@ -229,7 +230,7 @@ export default function LevelDistributionByGenderChart({ data, title, colors, sh
 
   if (!data || data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-48 sm:h-64 text-gray-500 bg-gray-50 rounded-lg">
+      <div className="flex flex-col items-center justify-center h-48 sm:h-64 text-gray-400 bg-background-lighter rounded-xl border border-gray-600">
         <div className="text-center p-4">
           <div className="text-base sm:text-lg font-medium mb-2">No Data Available</div>
           <div className="text-xs sm:text-sm">No learning level distribution data found for this selection.</div>
@@ -239,10 +240,10 @@ export default function LevelDistributionByGenderChart({ data, title, colors, sh
   }
 
   return (
-    <div className="w-full bg-white rounded-lg shadow-sm">
+    <div className="w-full bg-background-light rounded-xl shadow-md border border-gray-600">
       {showTitle && (
-        <div className="p-3 sm:p-4 border-b">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-800 truncate">{title}</h3>
+        <div className="p-3 sm:p-4 border-b border-gray-600">
+          <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">{title}</h3>
         </div>
       )}
 

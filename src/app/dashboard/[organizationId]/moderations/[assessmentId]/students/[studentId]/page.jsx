@@ -69,8 +69,8 @@ export default function StudentDetailsPage() {
       <Sidebar organizationId={organizationId} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6 bg-gray-50 flex items-center justify-center">
-          <div>Loading student data...</div>
+        <main className="flex-1 overflow-y-auto p-6 bg-background flex items-center justify-center">
+          <div className="text-foreground">Loading student data...</div>
         </main>
       </div>
     </div>
@@ -81,8 +81,8 @@ export default function StudentDetailsPage() {
       <Sidebar organizationId={organizationId} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6 bg-gray-50 flex items-center justify-center">
-          <div className="text-red-500">Error: {error}</div>
+        <main className="flex-1 overflow-y-auto p-6 bg-background flex items-center justify-center">
+          <div className="text-red-400">Error: {error}</div>
         </main>
       </div>
     </div>
@@ -93,8 +93,8 @@ export default function StudentDetailsPage() {
       <Sidebar organizationId={organizationId} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6 bg-gray-50 flex items-center justify-center">
-          <div>Data not found</div>
+        <main className="flex-1 overflow-y-auto p-6 bg-background flex items-center justify-center">
+          <div className="text-foreground">Data not found</div>
         </main>
       </div>
     </div>
@@ -105,25 +105,25 @@ export default function StudentDetailsPage() {
       <Sidebar organizationId={organizationId} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
+        <main className="flex-1 overflow-y-auto p-6 bg-background">
           {/* Student Header */}
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h1 className="text-2xl font-bold text-gray-800">
+          <div className="bg-background-light rounded-2xl shadow-lg p-6 mb-6 border border-gray-600">
+            <h1 className="text-2xl font-bold text-foreground">
               {student.first_name} {student.last_name}
             </h1>
-            <h2 className="text-lg text-gray-600 mt-1">{student.baseline}</h2>
+            <h2 className="text-lg text-gray-300 mt-1">{student.baseline}</h2>
           </div>
 
           {/* Baseline Visualization */}
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-700">
+          <div className="bg-background-light rounded-2xl shadow-lg p-6 mb-6 border border-gray-600">
+            <h2 className="text-xl font-semibold mb-4 text-foreground">
               Assessment Results
             </h2>
             <StudentChart baseline={student.baseline} />
           </div>
 
           {/* Assessment Results Component */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
             <StudentAssessmentResults assessmentId={assessmentId} studentId={studentId} organizationId={organizationId}/>
           </div>
         </main>

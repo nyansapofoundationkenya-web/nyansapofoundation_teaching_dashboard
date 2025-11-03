@@ -52,9 +52,9 @@ export default function SchoolDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen bg-blue-50">
+      <div className="flex min-h-screen bg-background">
         {/* Mobile Overlay */}
-        {isMobile && sidebarOpen && <div className="fixed inset-0 bg-black z-40" onClick={toggleSidebar} />}
+        {isMobile && sidebarOpen && <div className="fixed inset-0 bg-black/50 z-40" onClick={toggleSidebar} />}
 
         {/* Sidebar */}
         <div
@@ -67,10 +67,10 @@ export default function SchoolDetailPage() {
           {isMobile && sidebarOpen && (
             <button
               onClick={toggleSidebar}
-              className="absolute top-4 right-4 z-50 p-2 rounded-full shadow-md"
+              className="absolute top-4 right-4 z-50 p-2 rounded-full shadow-lg bg-background-light border border-gray-600"
               aria-label="Close menu"
             >
-              <FiX className="w-5 h-5 text-indigo-600" />
+              <FiX className="w-5 h-5 text-primary-2" />
             </button>
           )}
           <Sidebar initialTitle="Schools" organizationId={organizationId} />
@@ -87,17 +87,17 @@ export default function SchoolDetailPage() {
             <div className="flex items-center gap-3 mb-6">
               {/* Menu button */}
               {isMobile && !sidebarOpen && (
-                <button onClick={toggleSidebar} className="p-2 rounded-md shadow-sm" aria-label="Open menu">
-                  <FiMenu className="w-5 h-5 text-indigo-600" />
+                <button onClick={toggleSidebar} className="p-2 rounded-xl shadow-md bg-background-light border border-gray-600" aria-label="Open menu">
+                  <FiMenu className="w-5 h-5 text-primary-2" />
                 </button>
               )}
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-800">School Details</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">School Details</h1>
             </div>
 
             <div className="flex items-center justify-center min-h-[400px]">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading school details...</p>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-2 mx-auto mb-4"></div>
+                <p className="text-gray-300">Loading school details...</p>
               </div>
             </div>
           </div>
@@ -108,9 +108,9 @@ export default function SchoolDetailPage() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen bg-blue-50">
+      <div className="flex min-h-screen bg-background">
         {/* Mobile Overlay */}
-        {isMobile && sidebarOpen && <div className="fixed inset-0 bg-black z-40" onClick={toggleSidebar} />}
+        {isMobile && sidebarOpen && <div className="fixed inset-0 bg-black/50 z-40" onClick={toggleSidebar} />}
 
         {/* Sidebar */}
         <div
@@ -123,10 +123,10 @@ export default function SchoolDetailPage() {
           {isMobile && sidebarOpen && (
             <button
               onClick={toggleSidebar}
-              className="absolute top-4 right-4 z-50 bg-white p-2 rounded-full shadow-md"
+              className="absolute top-4 right-4 z-50 p-2 rounded-full shadow-lg bg-background-light border border-gray-600"
               aria-label="Close menu"
             >
-              <FiX className="w-5 h-5 text-indigo-600" />
+              <FiX className="w-5 h-5 text-primary-2" />
             </button>
           )}
           <Sidebar initialTitle="Schools" organizationId={organizationId} />
@@ -143,16 +143,16 @@ export default function SchoolDetailPage() {
             <div className="flex items-center gap-3 mb-6">
               {/* Menu button */}
               {isMobile && !sidebarOpen && (
-                <button onClick={toggleSidebar} className="p-2 rounded-md shadow-sm" aria-label="Open menu">
-                  <FiMenu className="w-5 h-5 text-indigo-600" />
+                <button onClick={toggleSidebar} className="p-2 rounded-xl shadow-md bg-background-light border border-gray-600" aria-label="Open menu">
+                  <FiMenu className="w-5 h-5 text-primary-2" />
                 </button>
               )}
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-800">School Details</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">School Details</h1>
             </div>
 
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-              <p className="text-red-600 font-medium">Error loading school details</p>
-              <p className="text-red-500 text-sm mt-2">{error}</p>
+            <div className="bg-red-500/20 border border-red-500/30 rounded-2xl p-6 text-center">
+              <p className="text-red-400 font-medium">Error loading school details</p>
+              <p className="text-red-400/80 text-sm mt-2">{error}</p>
             </div>
           </div>
         </div>
@@ -161,9 +161,9 @@ export default function SchoolDetailPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-blue-50">
+    <div className="flex min-h-screen bg-background">
       {/* Mobile Overlay */}
-      {isMobile && sidebarOpen && <div className="fixed inset-0 bg-black z-40" onClick={toggleSidebar} />}
+      {isMobile && sidebarOpen && <div className="fixed inset-0 bg-black/50 z-40" onClick={toggleSidebar} />}
 
       {/* Sidebar */}
       <div
@@ -176,10 +176,10 @@ export default function SchoolDetailPage() {
         {isMobile && sidebarOpen && (
           <button
             onClick={toggleSidebar}
-            className="absolute top-4 right-4 z-50 p-2 rounded-full shadow-md"
+            className="absolute top-4 right-4 z-50 p-2 rounded-full shadow-lg bg-background-light border border-gray-600"
             aria-label="Close menu"
           >
-            <FiX className="w-5 h-5 text-indigo-600" />
+            <FiX className="w-5 h-5 text-primary-2" />
           </button>
         )}
         <Sidebar initialTitle="Schools" organizationId={organizationId} />
@@ -197,8 +197,8 @@ export default function SchoolDetailPage() {
             <div className="flex items-center gap-3 mb-6">
               {/* Menu button */}
               {isMobile && !sidebarOpen && (
-                <button onClick={toggleSidebar} className="p-2 rounded-md shadow-sm" aria-label="Open menu">
-                  <FiMenu className="w-5 h-5 text-indigo-600" />
+                <button onClick={toggleSidebar} className="p-2 rounded-xl shadow-md bg-background-light border border-gray-600" aria-label="Open menu">
+                  <FiMenu className="w-5 h-5 text-primary-2" />
                 </button>
               )}
             </div>

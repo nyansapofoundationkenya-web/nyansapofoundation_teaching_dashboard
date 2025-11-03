@@ -77,10 +77,10 @@ export default function ModerationsPage() {
   };
 
   return (
-    <div className="flex h-screen bg-blue-50" style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
+    <div className="flex h-screen bg-background" style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
       {/* Mobile/iPad Overlay */}
       {isMobile && sidebarOpen && (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-30 z-40" onClick={toggleSidebar} />
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 z-40" onClick={toggleSidebar} />
       )}
 
       {/* Sidebar */}
@@ -93,10 +93,10 @@ export default function ModerationsPage() {
         {isMobile && sidebarOpen && (
           <button
             onClick={toggleSidebar}
-            className="absolute top-4 right-4 z-50 p-2 rounded-full shadow-md bg-white"
+            className="absolute top-4 right-4 z-50 p-2 rounded-xl shadow-md bg-background-light"
             aria-label="Close menu"
           >
-            <FiX className="w-5 h-5 text-indigo-600" />
+            <FiX className="w-5 h-5 text-primary-2" />
           </button>
         )}
         <Sidebar title="Moderations" organizationId={organizationId} />
@@ -109,25 +109,25 @@ export default function ModerationsPage() {
           ${!isMobile && sidebarOpen ? "ml-64" : "ml-0"}
         `}
       >
-        <div className="h-full p-6 space-y-6 bg-blue-50 flex-1 overflow-auto">
+        <div className="h-full p-4 space-y-4 bg-background flex-1 overflow-auto scrollbar-hide">
           {/* Header with Menu Button and Title */}
           <div className="flex items-center gap-3">
             {isMobile && !sidebarOpen && (
               <button
                 onClick={toggleSidebar}
-                className="p-2 rounded-md shadow-sm bg-white"
+                className="p-2 rounded-xl shadow-md bg-background-light"
                 aria-label="Open menu"
               >
-                <FiMenu className="w-5 h-5 text-indigo-600" />
+                <FiMenu className="w-5 h-5 text-primary-2" />
               </button>
             )}
-            <h1 className="text-2xl font-bold text-gray-800">Assessments</h1>
+            <h1 className="text-xl font-bold text-foreground">Assessments</h1>
           </div>
 
           {/* Search, Add Button, and Filter Section */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Search and Add Button Row */}
-            <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
+            <div className="flex flex-col lg:flex-row gap-3 justify-between items-start lg:items-center">
               <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                 <div className="flex-1 min-w-0 sm:min-w-[280px]">
                   <Search onSearchChange={handleSearchChange} placeholder="Search assessment..." />
@@ -136,9 +136,9 @@ export default function ModerationsPage() {
                 {!userLoading && isAdminOrSuperAdmin && (
                   <button
                     onClick={handleAddAssessment}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap flex-shrink-0"
+                    className="flex items-center justify-center gap-2 px-3 py-2 bg-primary-3 hover:bg-primary-3/90 text-primary-1 font-medium rounded-xl transition-all duration-200 shadow-md hover:shadow-lg whitespace-nowrap flex-shrink-0"
                   >
-                    <Plus className="w-5 h-5" />
+                    <Plus className="w-4 h-4" />
                     Add Assessment
                   </button>
                 )}
@@ -152,7 +152,7 @@ export default function ModerationsPage() {
           </div>
 
           {/* Assessment List */}
-          <div className="bg-white rounded-lg shadow-sm">
+          <div className="bg-background">
             <AssessmentList 
               organizationId={organizationId} 
               filters={filters} 

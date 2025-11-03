@@ -5,8 +5,8 @@ const FiltersDataManagement = ({ filters, onFilterChange }) => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h2 className="text-xl font-bold text-gray-900 mb-6 tracking-wide">
+    <div className="bg-background-light rounded-2xl shadow-lg border border-gray-600 p-6">
+      <h2 className="text-xl font-bold text-foreground mb-6 tracking-wide">
         FILTERS & DATA MANAGEMENT
       </h2>
 
@@ -15,13 +15,13 @@ const FiltersDataManagement = ({ filters, onFilterChange }) => {
         <div className="space-y-4">
           {/* School Filter */}
           <div className="flex items-center">
-            <label className="text-base text-gray-800 w-40 flex-shrink-0">
+            <label className="text-base text-foreground w-40 flex-shrink-0">
               School:
             </label>
             <select
               value={filters.school}
               onChange={(e) => onFilterChange({ school: e.target.value })}
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="flex-1 border border-gray-500 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-2 bg-background-lighter text-foreground"
             >
               <option value="">All Schools</option>
               <option value="school-a">School A</option>
@@ -32,13 +32,13 @@ const FiltersDataManagement = ({ filters, onFilterChange }) => {
 
           {/* Grade Filter */}
           <div className="flex items-center">
-            <label className="text-base text-gray-800 w-40 flex-shrink-0">
+            <label className="text-base text-foreground w-40 flex-shrink-0">
               Grade:
             </label>
             <select
               value={filters.grade}
               onChange={(e) => onFilterChange({ grade: e.target.value })}
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="flex-1 border border-gray-500 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-2 bg-background-lighter text-foreground"
             >
               <option value="">All Grades</option>
               <option value="grade1">Grade 1</option>
@@ -51,13 +51,13 @@ const FiltersDataManagement = ({ filters, onFilterChange }) => {
 
           {/* Gender Filter */}
           <div className="flex items-center">
-            <label className="text-base text-gray-800 w-40 flex-shrink-0">
+            <label className="text-base text-foreground w-40 flex-shrink-0">
               Gender:
             </label>
             <select
               value={filters.gender}
               onChange={(e) => onFilterChange({ gender: e.target.value })}
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="flex-1 border border-gray-500 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-2 bg-background-lighter text-foreground"
             >
               <option value="">All Genders</option>
               <option value="male">Male</option>
@@ -67,13 +67,13 @@ const FiltersDataManagement = ({ filters, onFilterChange }) => {
 
           {/* Assessment Period */}
           {/* <div className="flex items-center">
-            <label className="text-base text-gray-800 w-40 flex-shrink-0">
+            <label className="text-base text-foreground w-40 flex-shrink-0">
               Assessment Period:
             </label>
             <select
               value={filters.assessmentPeriod}
               onChange={(e) => onFilterChange({ assessmentPeriod: e.target.value })}
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="flex-1 border border-gray-500 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-2 bg-background-lighter text-foreground"
             >
               <option value="">All Periods</option>
               <option value="q1">Quarter 1</option>
@@ -92,7 +92,7 @@ const FiltersDataManagement = ({ filters, onFilterChange }) => {
 
       {/* File Naming Convention */}
       <div className="mb-6">
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-gray-300">
           File Naming Convention: [Filter Type] → School Name.filetype
         </p>
       </div>
@@ -101,13 +101,13 @@ const FiltersDataManagement = ({ filters, onFilterChange }) => {
       <div className="flex gap-3">
         <button
           onClick={() => handleDownload('excel')}
-          className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          className="flex-1 px-6 py-3 bg-primary-2 text-white rounded-xl hover:bg-blue-400 transition-colors font-medium shadow-md hover:shadow-lg"
         >
           Download as Excel
         </button>
         <button
           onClick={() => handleDownload('csv')}
-          className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          className="flex-1 px-6 py-3 bg-primary-2 text-white rounded-xl hover:bg-blue-400 transition-colors font-medium shadow-md hover:shadow-lg"
         >
           Download as CSV
         </button>

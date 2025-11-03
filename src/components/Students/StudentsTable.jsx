@@ -101,7 +101,7 @@ export default function StudentsTable({
     }
 
     router.push(
-      `/dashboard/${currentFilter.organizationId}/projects/${currentFilter.projectId}/schools/${currentFilter.schoolId}/students/${student.id}`
+      // `/dashboard/${currentFilter.organizationId}/projects/${currentFilter.projectId}/schools/${currentFilter.schoolId}/students/${student.id}`
     );
   };
 
@@ -137,10 +137,10 @@ export default function StudentsTable({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow border p-6">
+      <div className="bg-background-light rounded-2xl shadow-lg border border-gray-600 p-6">
         <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading students from {currentFilter.schoolName}...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-3 mx-auto mb-4"></div>
+          <p className="text-gray-300">Loading students from {currentFilter.schoolName}...</p>
         </div>
       </div>
     );
@@ -148,26 +148,26 @@ export default function StudentsTable({
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-        <p className="text-red-600">{error}</p>
+      <div className="bg-red-500/20 border border-red-500/30 rounded-2xl p-6">
+        <p className="text-red-400">{error}</p>
       </div>
     );
   }
 
   return (
     <>
-      <div className="bg-white rounded-lg shadow border">
+      <div className="bg-background-light rounded-2xl shadow-lg border border-gray-600">
         {/* Table Header */}
-        <div className="p-6 border-b">
+        <div className="p-6 border-b border-gray-600">
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="text-lg font-semibold text-gray-800">
+              <h3 className="text-lg font-semibold text-foreground">
                 Students at {currentFilter.schoolName}
               </h3>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-300">
                 {students.length} students found
                 {duplicateCount > 0 && (
-                  <span className="text-yellow-600 ml-2">
+                  <span className="text-primary-3 ml-2">
                     • {duplicateCount} potential duplicate(s)
                   </span>
                 )}
@@ -175,7 +175,7 @@ export default function StudentsTable({
             </div>
             <button
               onClick={handleAddClick}
-              className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold rounded-xl transition-colors shadow-md hover:shadow-lg"
             >
               <UserPlus className="w-4 h-4" />
               Add Student
@@ -184,7 +184,7 @@ export default function StudentsTable({
         </div>
 
         {/* Search and Controls */}
-        <div className="p-6 border-b">
+        <div className="p-6 border-b border-gray-600">
           <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
             <div className="relative w-full sm:w-auto sm:max-w-md">
               <input
@@ -192,30 +192,30 @@ export default function StudentsTable({
                 placeholder="Search students by name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg 
-                          focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400
-                          bg-white text-gray-900 placeholder-gray-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-500 rounded-xl 
+                          focus:outline-none focus:ring-2 focus:ring-primary-2 focus:border-primary-2
+                          bg-background-lighter text-foreground placeholder-gray-400 shadow-md"
               />
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             </div>
 
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600">Show:</label>
+              <label className="text-sm text-gray-300">Show:</label>
               <select
                 value={itemsPerPage}
                 onChange={(e) => {
                   setItemsPerPage(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="border border-gray-300 rounded px-3 py-2 text-sm 
-                          focus:outline-none focus:ring-1 focus:ring-yellow-400 focus:border-yellow-400
-                          bg-white text-gray-900 cursor-pointer"
+                className="border border-gray-500 rounded-xl px-3 py-2 text-sm 
+                          focus:outline-none focus:ring-1 focus:ring-primary-2 focus:border-primary-2
+                          bg-background-lighter text-foreground cursor-pointer shadow-md"
               >
                 <option value="10">10</option>
                 <option value="20">20</option>
                 <option value="50">50</option>
               </select>
-              <span className="text-sm text-gray-700">per page</span>
+              <span className="text-sm text-gray-300">per page</span>
             </div>
           </div>
         </div>
@@ -224,13 +224,13 @@ export default function StudentsTable({
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead>
-              <tr className="bg-gray-50 border-b">
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Student Name</th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Grade</th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Gender</th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Group</th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Status</th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Actions</th>
+              <tr className="bg-background-lighter border-b border-gray-600">
+                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Student Name</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Grade</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Gender</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Group</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Status</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -241,34 +241,34 @@ export default function StudentsTable({
                   return (
                     <tr 
                       key={student.id} 
-                      className="border-b hover:bg-gray-50 cursor-pointer"
-                      onClick={() => handleStudentClick(student)}
+                      className="border-b border-gray-600 hover:bg-background-lighter cursor-pointer transition-colors"
+                      // onClick={() => handleStudentClick(student)}
                     >
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      <td className="px-6 py-4 text-sm font-medium text-foreground">
                         <div className="flex items-center gap-2">
                           {student.displayName}
                           <Eye className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
+                      <td className="px-6 py-4 text-sm text-gray-300">
                         Grade {student.grade}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
+                      <td className="px-6 py-4 text-sm text-gray-300">
                         {student.sex}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
+                      <td className="px-6 py-4 text-sm text-gray-300">
                         {student.group || "-"}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         {isDuplicate ? (
                           <span 
-                            className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full cursor-help"
+                            className="px-2 py-1 bg-primary-3/20 text-primary-3 text-xs rounded-full border border-primary-3/30 cursor-help"
                             title="Same first name, last name, grade, and gender as another student"
                           >
                             Potential Duplicate
                           </span>
                         ) : (
-                          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                          <span className="px-2 py-1 bg-secondary-2/20 text-secondary-2 text-xs rounded-full border border-secondary-2/30">
                             Unique
                           </span>
                         )}
@@ -280,33 +280,33 @@ export default function StudentsTable({
                               e.stopPropagation();
                               setActionMenuOpen(actionMenuOpen === student.id ? null : student.id);
                             }}
-                            className="p-2 rounded hover:bg-yellow-100 text-yellow-600 hover:text-yellow-700 transition-colors"
+                            className="p-2 rounded-xl hover:bg-primary-3/20 text-primary-3 hover:text-yellow-400 transition-colors"
                           >
                             <MoreVertical className="w-4 h-4" />
                           </button>
                           
                           {actionMenuOpen === student.id && (
                             <div 
-                              className="absolute right-0 mt-1 w-56 bg-white rounded-md shadow-lg z-10 border border-yellow-200"
+                              className="absolute right-0 mt-1 w-56 bg-background-light rounded-2xl shadow-xl z-10 border border-gray-600"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <button
+                              {/* <button
                                 onClick={() => handleStudentClick(student)}
-                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors border-b border-gray-100"
+                                className="flex items-center w-full px-4 py-2 text-sm text-foreground hover:bg-primary-2/20 hover:text-primary-2 transition-colors border-b border-gray-600 rounded-t-2xl"
                               >
                                 <Eye className="w-4 h-4 mr-2" />
                                 View Details
-                              </button>
+                              </button> */}
                               <button
                                 onClick={() => handleEditClick(student)}
-                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 transition-colors border-b border-gray-100"
+                                className="flex items-center w-full px-4 py-2 text-sm text-foreground hover:bg-primary-3/20 hover:text-primary-3 transition-colors border-b border-gray-600"
                               >
                                 <Edit className="w-4 h-4 mr-2" />
                                 Update
                               </button>
                               <button
                                 onClick={() => handleDeleteClick(student.id)}
-                                className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                className="flex items-center w-full px-4 py-2 text-sm text-red-400 hover:bg-red-500/20 transition-colors rounded-b-2xl"
                               >
                                 <Trash2 className="w-4 h-4 mr-2" />
                                 Delete
@@ -320,7 +320,7 @@ export default function StudentsTable({
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-400">
                     No students found in the selected school.
                   </td>
                 </tr>
@@ -331,9 +331,9 @@ export default function StudentsTable({
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="p-6 border-t">
+          <div className="p-6 border-t border-gray-600">
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-gray-300">
                 Showing {startIndex + 1} to {Math.min(endIndex, filteredStudents.length)} of {filteredStudents.length} students
               </div>
               
@@ -341,9 +341,9 @@ export default function StudentsTable({
                 <button
                   onClick={() => setCurrentPage(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="p-2 rounded border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-yellow-50 hover:border-yellow-300 transition-colors"
+                  className="p-2 rounded-xl border border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-3/20 hover:border-primary-3 transition-colors"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <ChevronLeft className="w-4 h-4 text-foreground" />
                 </button>
                 
                 <div className="flex gap-1">
@@ -351,10 +351,10 @@ export default function StudentsTable({
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-1 text-sm rounded border ${
+                      className={`px-3 py-1 text-sm rounded-xl border ${
                         currentPage === page
-                          ? 'bg-yellow-500 text-white border-yellow-500 font-semibold'
-                          : 'border-gray-300 hover:bg-yellow-50 hover:border-yellow-300 text-gray-700'
+                          ? 'bg-primary-3 text-primary-1 border-primary-3 font-semibold shadow-md'
+                          : 'border-gray-500 hover:bg-primary-3/20 hover:border-primary-3 text-foreground'
                       } transition-colors`}
                     >
                       {page}
@@ -365,9 +365,9 @@ export default function StudentsTable({
                 <button
                   onClick={() => setCurrentPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="p-2 rounded border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-yellow-50 hover:border-yellow-300 transition-colors"
+                  className="p-2 rounded-xl border border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-3/20 hover:border-primary-3 transition-colors"
                 >
-                  <ChevronRight className="w-4 h-4 text-gray-800" />
+                  <ChevronRight className="w-4 h-4 text-foreground" />
                 </button>
               </div>
             </div>

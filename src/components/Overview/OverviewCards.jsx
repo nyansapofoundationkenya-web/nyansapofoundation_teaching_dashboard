@@ -1,28 +1,27 @@
-// components/Overview/OverviewCards.tsx
 const OverviewCards = () => {
   const cards = [
     {
       title: "Average Literacy Score (All Grades)",
       value: "78%",
-      color: "bg-blue-500",
+      color: "bg-primary-2",
       icon: "📊"
     },
     {
       title: "Average Numeracy Score (All Grades)",
       value: "65%",
-      color: "bg-green-500",
+      color: "bg-secondary-2",
       icon: "🔢"
     },
     {
       title: "Schools Above Grade Level Target",
       value: "85%",
-      color: "bg-purple-500",
+      color: "bg-primary-3",
       icon: "🎯"
     },
     {
       title: "Total Learners Tracked",
       value: "15,200",
-      color: "bg-orange-500",
+      color: "bg-secondary-1",
       icon: "👥"
     }
   ];
@@ -32,23 +31,23 @@ const OverviewCards = () => {
       {cards.map((card, index) => (
         <div
           key={index}
-          className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+          className="bg-background-light rounded-2xl shadow-lg border border-gray-600 p-6 hover:shadow-xl transition-all"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600 mb-1">
+              <p className="text-sm font-medium text-gray-300 mb-1">
                 {card.title}
               </p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-2xl font-bold text-foreground">
                 {card.value}
               </p>
             </div>
-            <div className={`${card.color} w-12 h-12 rounded-lg flex items-center justify-center text-white text-xl`}>
+            <div className={`${card.color} w-12 h-12 rounded-xl flex items-center justify-center text-white text-xl`}>
               {card.icon}
             </div>
           </div>
           <div className="mt-4">
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-background-lighter rounded-full h-2">
               <div
                 className={`${card.color} h-2 rounded-full`}
                 style={{

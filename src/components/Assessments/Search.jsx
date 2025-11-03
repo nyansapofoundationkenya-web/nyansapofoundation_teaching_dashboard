@@ -21,13 +21,13 @@ export default function Search({ placeholder = "Search ", onSearchChange }) {
 
   return (
     <div className="relative">
-      <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-600" />
+      <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
       <input
         type="text"
         placeholder={placeholder}
         value={searchQuery}
         onChange={handleChange}
-        className="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-600"
+        className="pl-10 pr-4 py-2 w-64 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-2 focus:border-transparent placeholder:text-gray-400 text-foreground bg-background-lighter shadow-md"
       />
     </div>
   )

@@ -67,30 +67,30 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-grow" onClick={onClose}></div>
 
-      <div className="w-full max-w-md bg-white shadow-lg h-full overflow-auto p-6 relative flex flex-col">
-        <div className="flex justify-between items-center border-b pb-4 mb-6">
-          <div className="flex items-center gap-3">
+      <div className="w-full max-w-md bg-background-light shadow-xl h-full overflow-auto p-4 relative flex flex-col border-l border-gray-600">
+        <div className="flex justify-between items-center border-b border-gray-600 pb-3 mb-4">
+          <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="text-xl text-gray-500 hover:text-black"
+              className="text-xl text-gray-400 hover:text-foreground"
               aria-label="Close"
             >
               ×
             </button>
-            <h2 className="text-xl font-semibold text-gray-600">Upload Schools</h2>
+            <h2 className="text-lg font-semibold text-foreground">Upload Schools</h2>
           </div>
 
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="text-sm px-4 py-1 border rounded text-gray-600 hover:bg-gray-100"
+              className="text-sm px-3 py-1.5 border border-gray-500 rounded-xl text-gray-300 hover:bg-background-lighter"
             >
               Cancel
             </button>
             <button
               type="submit"
               form="school-modal-form"
-              className="text-sm px-4 py-1 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded"
+              className="text-sm px-3 py-1.5 bg-primary-3 hover:bg-primary-3/90 text-primary-1 font-semibold rounded-xl shadow-md hover:shadow-lg"
               disabled={loading}
             >
               {loading ? "Uploading..." : "Submit"}
@@ -101,21 +101,21 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
         <form
           id="school-modal-form"
           onSubmit={handleSubmit}
-          className="space-y-5 flex-1"
+          className="space-y-4 flex-1"
           encType="multipart/form-data"
         >
           <div className="text-left">
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-gray-300 mb-3">
               Upload a CSV or Excel file with school information. The file must have the following
               columns: <span className="font-medium">name, county</span>. {/* Changed location to county */}
             </p>
           </div>
 
-          <div className="text-left flex gap-2">
+          <div className="text-left flex gap-2 flex-wrap">
             <button
               type="button"
               onClick={() => handleDownloadTemplate("csv")}
-              className="flex items-center text-sm px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded"
+              className="flex items-center text-sm px-3 py-1.5 bg-primary-3 hover:bg-primary-3/90 text-primary-1 font-semibold rounded-xl shadow-md"
             >
               <Download className="w-4 h-4 mr-2" />
               CSV Template
@@ -123,7 +123,7 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
             <button
               type="button"
               onClick={() => handleDownloadTemplate("excel")}
-              className="flex items-center text-sm px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded"
+              className="flex items-center text-sm px-3 py-1.5 bg-primary-3 hover:bg-primary-3/90 text-primary-1 font-semibold rounded-xl shadow-md"
             >
               <Download className="w-4 h-4 mr-2" />
               Excel Template
@@ -131,7 +131,7 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
             <button
               type="button"
               onClick={() => setShowRequirements((prev) => !prev)}
-              className="flex items-center text-sm px-4 py-2 border rounded text-gray-600 hover:bg-gray-100"
+              className="flex items-center text-sm px-3 py-1.5 border border-gray-500 rounded-xl text-gray-300 hover:bg-background-lighter"
             >
               <Info className="w-4 h-4 mr-2" />
               Info Requirements
@@ -139,19 +139,19 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
           </div>
 
           {showRequirements && (
-            <div className="text-left bg-gray-100 p-4 rounded-lg">
-              <p className="text-sm font-medium text-gray-800">Required Fields:</p>
-              <ul className="list-disc list-inside text-sm text-gray-600">
+            <div className="text-left bg-background-lighter p-3 rounded-xl border border-gray-600">
+              <p className="text-sm font-medium text-foreground">Required Fields:</p>
+              <ul className="list-disc list-inside text-sm text-gray-300 mt-1">
                 <li>name: The name of the school (e.g., "Springfield High")</li>
                 <li>county: The county where the school is located (e.g., "Springfield County")</li> {/* Updated description */}
               </ul>
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-gray-400 mt-2">
                 Note: The "county" field will be saved as "location" in the system.
               </p>
             </div>
           )}
 
-          <div className="text-left border-dashed border-2 border-gray-300 rounded-lg p-6 flex items-center justify-center">
+          <div className="text-left border-dashed border-2 border-gray-500 rounded-xl p-4 flex items-center justify-center">
             <label className="flex flex-col items-center cursor-pointer">
               <svg
                 className="w-8 h-8 text-gray-400"
@@ -166,8 +166,8 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
                   d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12a1 1 0 01-1 1H9a1 1 0 01-1-1V8a1 1 0 011-1h6a1 1 0 011 1z"
                 />
               </svg>
-              <span className="text-blue-500 mt-2">Click or drag file to this area to upload</span>
-              <span className="text-gray-500 text-sm mt-1">Support for CSV or Excel file upload</span>
+              <span className="text-primary-2 mt-2">Click or drag file to this area to upload</span>
+              <span className="text-gray-300 text-xs mt-1">Support for CSV or Excel file upload</span>
               <input
                 type="file"
                 name="file"
@@ -179,12 +179,12 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
           </div>
 
           {formState.file && (
-            <div className="text-left text-sm text-gray-600">
-              <p>Uploaded file: <span className="font-medium">{formState.file.name}</span></p>
+            <div className="text-left text-sm text-gray-300">
+              <p>Uploaded file: <span className="font-medium text-foreground">{formState.file.name}</span></p>
             </div>
           )}
 
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {error && <p className="text-red-400 text-sm">{error}</p>}
         </form>
       </div>
     </div>

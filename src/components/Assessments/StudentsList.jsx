@@ -10,23 +10,23 @@ export default function StudentsList({ students, organizationId, assessmentId })
   }
 
   return (
-    <div className="space-y-2 ">
+    <div className="space-y-2">
       {students.map((student) => (
         <div
           key={student.id}
           onClick={() => handleStudentClick(student.id)}
-          className="flex justify-between items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+          className="flex justify-between items-center p-4 border border-gray-600 rounded-xl cursor-pointer hover:bg-background-lighter transition-colors bg-background-light shadow-sm hover:shadow-md"
         >
           <div>
-            <h3 className="font-medium text-gray-700">{student.first_name} {student.last_name}</h3>
-            <p className="text-sm text-gray-600">{student.grade}</p>
+            <h3 className="font-medium text-foreground">{student.first_name} {student.last_name}</h3>
+            <p className="text-sm text-gray-300">{student.grade}</p>
           </div>
           <div className="flex gap-4 items-center">
-            <span className="text-sm text-gray-600 capitalize">{student.sex}</span>
+            <span className="text-sm text-gray-300 capitalize">{student.sex}</span>
             <span className={`text-xs px-2 py-1 rounded-full ${
-              student.baseline === "Beginner" ? "bg-blue-100 text-blue-800" :
-              student.baseline === "Intermediate" ? "bg-green-100 text-green-800" :
-              "bg-purple-100 text-purple-800"
+              student.baseline === "Beginner" ? "bg-primary-2/20 text-primary-2 border border-primary-2/30" :
+              student.baseline === "Intermediate" ? "bg-secondary-2/20 text-secondary-2 border border-secondary-2/30" :
+              "bg-purple-500/20 text-purple-400 border border-purple-500/30"
             }`}>
               {student.baseline}
             </span>

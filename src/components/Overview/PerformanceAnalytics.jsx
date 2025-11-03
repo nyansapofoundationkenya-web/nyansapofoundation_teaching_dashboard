@@ -16,12 +16,12 @@ const PerformanceAnalytics = () => {
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-sm">
-          <p className="font-semibold text-gray-800">{label}</p>
-          <p className="text-blue-600">
+        <div className="bg-background-light p-3 border border-gray-600 rounded-xl shadow-lg">
+          <p className="font-semibold text-foreground">{label}</p>
+          <p className="text-primary-2">
             Literacy: <span className="font-bold">{payload[0].value}%</span>
           </p>
-          <p className="text-green-600">
+          <p className="text-secondary-2">
             Numeracy: <span className="font-bold">{payload[1].value}%</span>
           </p>
         </div>
@@ -31,13 +31,13 @@ const PerformanceAnalytics = () => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-full">
-      <h2 className="text-xl font-bold text-gray-900 mb-6">
+    <div className="bg-background-light rounded-2xl shadow-lg border border-gray-600 p-6 h-full">
+      <h2 className="text-xl font-bold text-foreground mb-6">
         PERFORMANCE ANALYTICS
       </h2>
       
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">
+        <h3 className="text-lg font-semibold text-foreground mb-4">
           Average Scores per Grade
         </h3>
         
@@ -48,17 +48,17 @@ const PerformanceAnalytics = () => {
               data={gradeData}
               margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis 
                 dataKey="grade" 
-                tick={{ fill: '#374151' }}
-                axisLine={{ stroke: '#d1d5db' }}
+                tick={{ fill: '#d1d5db' }}
+                axisLine={{ stroke: '#6b7280' }}
                 padding={{ left: 20, right: 20 }}
               />
               <YAxis 
                 domain={[0, 100]}
-                tick={{ fill: '#374151' }}
-                axisLine={{ stroke: '#d1d5db' }}
+                tick={{ fill: '#d1d5db' }}
+                axisLine={{ stroke: '#6b7280' }}
                 tickFormatter={(value) => `${value}%`}
                 orientation="left"
               />
@@ -66,24 +66,27 @@ const PerformanceAnalytics = () => {
               <Legend 
                 verticalAlign="top" 
                 height={36}
-                wrapperStyle={{ paddingBottom: '10px' }}
+                wrapperStyle={{ 
+                  paddingBottom: '10px',
+                  color: '#d1d5db'
+                }}
               />
               <Line
                 type="monotone"
                 dataKey="literacy"
-                stroke="#3b82f6"
+                stroke="#5aa2ce"
                 strokeWidth={3}
-                dot={{ fill: '#3b82f6', strokeWidth: 2, r: 6 }}
-                activeDot={{ r: 8, fill: '#1d4ed8' }}
+                dot={{ fill: '#5aa2ce', strokeWidth: 2, r: 6 }}
+                activeDot={{ r: 8, fill: '#3b82c8' }}
                 name="Literacy"
               />
               <Line
                 type="monotone"
                 dataKey="numeracy"
-                stroke="#10b981"
+                stroke="#4caf50"
                 strokeWidth={3}
-                dot={{ fill: '#10b981', strokeWidth: 2, r: 6 }}
-                activeDot={{ r: 8, fill: '#047857' }}
+                dot={{ fill: '#4caf50', strokeWidth: 2, r: 6 }}
+                activeDot={{ r: 8, fill: '#3d8b40' }}
                 name="Numeracy"
               />
             </LineChart>
@@ -92,11 +95,11 @@ const PerformanceAnalytics = () => {
       </div>
 
       {/* Grade 3 Performance Highlight */}
-      <div className="bg-gray-100 border border-blue-70 rounded-lg p-4">
+      <div className="bg-background-lighter border border-primary-2/50 rounded-xl p-4">
         <div className="text-center">
-          <span className="font-semibold text-gray-800">Grade 3 | </span>
-          <span className="text-blue-600 font-medium">Literacy: 70% | </span>
-          <span className="text-green-600 font-medium">Numeracy: 60%</span>
+          <span className="font-semibold text-foreground">Grade 3 | </span>
+          <span className="text-primary-2 font-medium">Literacy: 75% | </span>
+          <span className="text-secondary-2 font-medium">Numeracy: 65%</span>
         </div>
       </div>
     </div>

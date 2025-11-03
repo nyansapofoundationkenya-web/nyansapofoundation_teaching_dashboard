@@ -61,12 +61,12 @@ export default function AssessmentBarGraph({ organizationId, onDateClick, select
 
   if (loading) {
     return (
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-background-light p-6 rounded-2xl shadow-lg border border-gray-600">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Assessments Timeline</h3>
+          <h3 className="text-lg font-semibold text-foreground">Assessments Timeline</h3>
         </div>
         <div className="h-32 flex items-center justify-center">
-          <div className="text-gray-500">Loading chart...</div>
+          <div className="text-gray-400">Loading chart...</div>
         </div>
       </div>
     )
@@ -74,21 +74,21 @@ export default function AssessmentBarGraph({ organizationId, onDateClick, select
 
   if (chartData.length === 0) {
     return (
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-background-light p-6 rounded-2xl shadow-lg border border-gray-600">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Assessments Timeline</h3>
+          <h3 className="text-lg font-semibold text-foreground">Assessments Timeline</h3>
         </div>
         <div className="h-32 flex items-center justify-center">
-          <div className="text-gray-500">No assessment data available</div>
+          <div className="text-gray-400">No assessment data available</div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+    <div className="bg-background-light p-6 rounded-2xl shadow-lg border border-gray-600">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Assessments Timeline</h3>
+        <h3 className="text-lg font-semibold text-foreground">Assessments Timeline</h3>
       </div>
       
       <div className="flex items-end justify-between gap-1 h-32">
@@ -101,27 +101,27 @@ export default function AssessmentBarGraph({ organizationId, onDateClick, select
             <div key={item.date} className="flex-1 flex flex-col items-center">
               {/* Bar */}
               <div
-                className={`w-full max-w-8 rounded-t transition-all duration-200 cursor-pointer relative group ${
+                className={`w-full max-w-8 rounded-t-xl transition-all duration-200 cursor-pointer relative group ${
                   isSelected 
-                    ? 'bg-blue-600' 
-                    : 'bg-blue-400 hover:bg-blue-500'
+                    ? 'bg-primary-2' 
+                    : 'bg-primary-2/70 hover:bg-primary-2/90'
                 }`}
                 style={{ height: `${Math.max(heightPercentage, 8)}%` }}
                 onClick={() => onDateClick(item.date)}
               >
                 {/* Tooltip */}
                 <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                  <div className="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                  <div className="bg-background-lighter text-foreground text-xs rounded-xl py-2 px-3 whitespace-nowrap border border-gray-600 shadow-lg">
                     <div className="font-semibold">{item.displayDate}</div>
                     <div>{item.count} assessment{item.count !== 1 ? 's' : ''}</div>
                   </div>
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-background-lighter"></div>
                 </div>
               </div>
               
               {/* Date Label */}
               <div className={`text-xs mt-2 ${
-                isSelected ? 'text-blue-600 font-semibold' : 'text-gray-500'
+                isSelected ? 'text-primary-2 font-semibold' : 'text-gray-400'
               }`}>
                 {item.displayDate}
               </div>

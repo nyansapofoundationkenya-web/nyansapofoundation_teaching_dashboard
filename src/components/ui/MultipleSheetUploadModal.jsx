@@ -121,40 +121,40 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black bg-opacity-50" onClick={handleClose}></div>
+      <div className="fixed inset-0 bg-gray-900 bg-opacity-50" onClick={handleClose}></div>
 
-      <div className="relative w-full max-w-2xl bg-white rounded-lg shadow-xl max-h-[90vh] overflow-auto m-4">
-        <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-xl font-semibold text-gray-800">Upload Student Data</h2>
+      <div className="relative w-full max-w-2xl bg-background-light rounded-2xl shadow-xl max-h-[90vh] overflow-auto m-4 border border-gray-600">
+        <div className="flex justify-between items-center p-4 border-b border-gray-600">
+          <h2 className="text-lg font-semibold text-foreground">Upload Student Data</h2>
           <button
             onClick={handleClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-background-lighter rounded-xl transition-colors"
             aria-label="Close"
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-4">
           {uploadResults ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="text-center">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FileSpreadsheet className="w-8 h-8 text-green-600" />
+                <div className="w-16 h-16 bg-secondary-2/20 rounded-full flex items-center justify-center mx-auto mb-3 border border-secondary-2/30">
+                  <FileSpreadsheet className="w-8 h-8 text-secondary-2" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Upload Successful!</h3>
-                <p className="text-sm text-gray-600 mb-4">
+                <h3 className="text-base font-semibold text-foreground mb-2">Upload Successful!</h3>
+                <p className="text-sm text-gray-300 mb-3">
                   Processed {uploadResults.totalSheets} sheets with student data
                 </p>
               </div>
 
-              <div className="space-y-3 max-h-60 overflow-y-auto">
+              <div className="space-y-2 max-h-60 overflow-y-auto">
                 {uploadResults.results.map((result, index) => (
-                  <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium text-gray-800 mb-2">{result.sheetName}</h4>
-                    <div className="grid grid-cols-1 gap-4 text-sm">
+                  <div key={index} className="bg-background-lighter p-3 rounded-xl border border-gray-600">
+                    <h4 className="font-medium text-foreground mb-2 text-sm">{result.sheetName}</h4>
+                    <div className="grid grid-cols-1 gap-3 text-sm">
                       <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-blue-500" />
+                        <Users className="w-4 h-4 text-primary-2" />
                         <span>{result.studentsCount} students</span>
                       </div>
                     </div>
@@ -164,7 +164,7 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
 
               <button
                 onClick={handleClose}
-                className="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors"
+                className="w-full bg-primary-3 hover:bg-primary-3/90 text-primary-1 font-semibold py-2 px-4 rounded-xl transition-colors shadow-md hover:shadow-lg"
               >
                 Done
               </button>
@@ -172,27 +172,27 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
           ) : (
             <>
               {loading && (
-                <div className="mb-6 bg-blue-50 p-4 rounded-lg">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                    <span className="text-sm font-medium text-blue-700">
+                <div className="mb-4 bg-primary-2/20 p-3 rounded-xl border border-primary-2/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-2"></div>
+                    <span className="text-sm font-medium text-primary-2">
                       Processing sheet {progress.current} of {progress.total}
                     </span>
                   </div>
-                  {progress.sheet && <p className="text-xs text-blue-600">Current: {progress.sheet}</p>}
-                  <div className="w-full bg-blue-200 rounded-full h-2 mt-2">
+                  {progress.sheet && <p className="text-xs text-primary-2">Current: {progress.sheet}</p>}
+                  <div className="w-full bg-primary-2/30 rounded-full h-2 mt-2">
                     <div
-                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                      className="bg-primary-2 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${(progress.current / progress.total) * 100}%` }}
                     ></div>
                   </div>
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-5" encType="multipart/form-data">
+              <form onSubmit={handleSubmit} className="space-y-4" encType="multipart/form-data">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Bulk Upload Student Data</h3>
-                  <p className="text-sm text-gray-600 mb-4">
+                  <h3 className="text-base font-semibold text-foreground mb-2">Bulk Upload Student Data</h3>
+                  <p className="text-sm text-gray-300 mb-3">
                     Upload an Excel file with multiple sheets containing student data. Each sheet should
                     represent a different school and contain properly formatted student data.
                   </p>
@@ -202,7 +202,7 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                   <button
                     type="button"
                     onClick={downloadTemplate}
-                    className="flex items-center text-sm px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-800 font-semibold rounded-lg transition-colors"
+                    className="flex items-center text-sm px-3 py-1.5 bg-primary-3 hover:bg-primary-3/90 text-primary-1 font-semibold rounded-xl transition-colors shadow-md"
                   >
                     <Download className="w-4 h-4 mr-2" />
                     Download Excel Template
@@ -210,7 +210,7 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                   <button
                     type="button"
                     onClick={() => setShowRequirements((prev) => !prev)}
-                    className="flex items-center text-sm px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
+                    className="flex items-center text-sm px-3 py-1.5 border border-gray-500 rounded-xl text-gray-300 hover:bg-background-lighter transition-colors"
                   >
                     <Info className="w-4 h-4 mr-2" />
                     Format Requirements
@@ -218,9 +218,9 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                 </div>
 
                 {showRequirements && (
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm font-medium text-gray-800 mb-2">Excel File Requirements:</p>
-                    <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                  <div className="bg-background-lighter p-3 rounded-xl border border-gray-600">
+                    <p className="text-sm font-medium text-foreground mb-2">Excel File Requirements:</p>
+                    <ul className="list-disc list-inside text-sm text-gray-300 space-y-1">
                       <li>
                         <strong>Sheet Names:</strong> Each sheet should be named with the school name (e.g., "school name 1", "school name 2", etc.)
                       </li>
@@ -243,8 +243,8 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                         <strong>Column E:</strong> Sex (Male/Female)
                       </li>
                     </ul>
-                    <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
-                      <p className="text-xs text-yellow-800">
+                    <div className="mt-2 p-2 bg-primary-3/20 border border-primary-3/30 rounded-xl">
+                      <p className="text-xs text-primary-1">
                         <strong>Important:</strong> The template includes three sample sheets. You can add more sheets as needed, but each sheet name must match an existing school name in your system.
                         Students will be saved to their respective school's subcollection.
                       </p>
@@ -252,11 +252,11 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                   </div>
                 )}
 
-                <div className="border-dashed border-2 border-gray-300 rounded-lg p-8 text-center">
+                <div className="border-dashed border-2 border-gray-500 rounded-xl p-6 text-center">
                   <label className="cursor-pointer">
-                    <FileSpreadsheet className="w-12 h-12 text-blue-500 mx-auto mb-3" />
-                    <span className="text-blue-500 font-medium block mb-2">Click to upload Excel file</span>
-                    <span className="text-gray-500 text-sm">
+                    <FileSpreadsheet className="w-12 h-12 text-primary-2 mx-auto mb-3" />
+                    <span className="text-primary-2 font-medium block mb-2">Click to upload Excel file</span>
+                    <span className="text-gray-300 text-xs">
                       Support for .xlsx files with multiple sheets. Use the template for proper format.
                     </span>
                     <input type="file" name="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileChange} />
@@ -273,38 +273,38 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                 )}
 
                 {formState.file && (
-                  <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+                  <div className="text-sm text-gray-300 bg-primary-2/20 p-3 rounded-xl border border-primary-2/30">
                     <p>
-                      Selected file: <span className="font-medium text-blue-700">{formState.file.name}</span>
+                      Selected file: <span className="font-medium text-primary-2">{formState.file.name}</span>
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-400 mt-1">
                       File size: {(formState.file.size / 1024 / 1024).toFixed(2)} MB
                     </p>
-                    <p className="text-xs text-blue-600 mt-1">
+                    <p className="text-xs text-primary-2 mt-1">
                       Sheets detected: {sheetNames.join(", ")}
                     </p>
                   </div>
                 )}
 
                 {error && (
-                  <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
+                  <div className="text-red-400 text-sm bg-red-500/20 p-3 rounded-xl border border-red-500/30">
                     <p className="font-medium">Upload Error:</p>
                     <p>{error}</p>
                   </div>
                 )}
 
-                <div className="flex gap-3 pt-4">
+                <div className="flex gap-2 pt-3">
                   <button
                     type="button"
                     onClick={handleClose}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="flex-1 px-3 py-1.5 border border-gray-500 rounded-xl text-foreground hover:bg-background-lighter transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={loading || !formState.file || !isValidated}
-                    className="flex-1 px-4 py-2 bg-yellow-400 hover:bg-yellow-500 disabled:bg-gray-300 disabled:cursor-not-allowed text-gray-800 font-semibold rounded-lg transition-colors"
+                    className="flex-1 px-3 py-1.5 bg-primary-3 hover:bg-primary-3/90 disabled:bg-gray-600 disabled:cursor-not-allowed text-primary-1 font-semibold rounded-xl transition-colors shadow-md hover:shadow-lg"
                   >
                     {loading ? "Processing..." : !isValidated && formState.file ? "Validation Required" : "Upload Data"}
                   </button>

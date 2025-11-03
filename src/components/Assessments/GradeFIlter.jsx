@@ -29,10 +29,10 @@ export default function GradeFilter({ selectedGrade, onGradeChange, students = [
     <select
       value={selectedGrade}
       onChange={handleChange}
-      className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px] text-gray-700"
+      className="border border-gray-500 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-2 min-w-[120px] text-foreground bg-background-lighter shadow-md"
     >
       {availableGrades.map((grade) => (
-        <option key={grade} value={grade}>
+        <option key={grade} value={grade} className="text-foreground bg-background-light">
           {grade}
         </option>
       ))}

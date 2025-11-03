@@ -65,15 +65,15 @@ export default function AssessmentDetailsPage() {
       <Sidebar organizationId={organizationId} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
+        <main className="flex-1 overflow-y-auto p-6 bg-background">
           {/* Show skeleton metrics while loading */}
           <StudentMetrics loading={true} />
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
             <div className="animate-pulse">
-              <div className="h-6 bg-gray-200 rounded w-48 mb-4"></div>
+              <div className="h-6 bg-background-lighter rounded w-48 mb-4"></div>
               <div className="space-y-3">
                 {[...Array(5)].map((_, index) => (
-                  <div key={index} className="h-12 bg-gray-200 rounded"></div>
+                  <div key={index} className="h-12 bg-background-lighter rounded-xl"></div>
                 ))}
               </div>
             </div>
@@ -88,8 +88,8 @@ export default function AssessmentDetailsPage() {
       <Sidebar organizationId={organizationId} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6 bg-gray-50 flex items-center justify-center">
-          <div className="text-red-500">Error: {error}</div>
+        <main className="flex-1 overflow-y-auto p-6 bg-background flex items-center justify-center">
+          <div className="text-red-400">Error: {error}</div>
         </main>
       </div>
     </div>
@@ -100,8 +100,8 @@ export default function AssessmentDetailsPage() {
       <Sidebar organizationId={organizationId} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6 bg-gray-50 flex items-center justify-center">
-          <div>Assessment not found</div>
+        <main className="flex-1 overflow-y-auto p-6 bg-background flex items-center justify-center">
+          <div className="text-foreground">Assessment not found</div>
         </main>
       </div>
     </div>
@@ -118,11 +118,11 @@ export default function AssessmentDetailsPage() {
         <Header />
         
         {/* Scrollable main content */}
-        <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
+        <main className="flex-1 overflow-y-auto p-6 bg-background">
           {/* Header Section */}
-          <div className="bg-white border-b border-gray-200 px-6 py-4 mb-6 rounded-lg shadow-sm">
+          <div className="bg-background-light border-b border-gray-600 px-6 py-4 mb-6 rounded-2xl shadow-lg">
             <div className="flex items-center justify-between">
-              <h1 className="text-xl font-semibold text-gray-700">{assessment.name}</h1>
+              <h1 className="text-xl font-semibold text-foreground">{assessment.name}</h1>
               <div className="flex items-center gap-4">
                 <GradeFilter 
                   selectedGrade={gradeFilter}
@@ -144,8 +144,8 @@ export default function AssessmentDetailsPage() {
           />
 
           {/* Students List Section */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4 text-gray-700">
+          <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
+            <h2 className="text-lg font-semibold mb-4 text-foreground">
               Assigned Students ({filteredStudents.length})
             </h2>
             {filteredStudents.length > 0 ? (
@@ -155,7 +155,7 @@ export default function AssessmentDetailsPage() {
                 assessmentId={assessmentId}
               />
             ) : (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-gray-400">
                 No students match your search criteria
               </div>
             )}

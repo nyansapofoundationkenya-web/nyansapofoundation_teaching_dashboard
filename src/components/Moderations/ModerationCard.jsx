@@ -105,25 +105,25 @@ export default function ModerationCard({
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-background-light rounded-2xl shadow-lg border border-gray-600 p-6">
       {/* Navigation Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-4">
           <button
             onClick={onBack}
             disabled={currentResult === 1}
-            className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center px-3 py-2 text-sm font-medium text-foreground bg-background-light border border-gray-500 rounded-xl hover:bg-background-lighter disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md hover:shadow-lg"
           >
             <ChevronLeftIcon className="h-4 w-4 mr-1" />
             Back
           </button>
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-gray-300">
             {currentResult} of {totalResults}
           </span>
           <button
             onClick={onNext}
             disabled={currentResult === totalResults}
-            className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center px-3 py-2 text-sm font-medium text-foreground bg-background-light border border-gray-500 rounded-xl hover:bg-background-lighter disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md hover:shadow-lg"
           >
             Next
             <ChevronRightIcon className="h-4 w-4 ml-1" />
@@ -135,13 +135,13 @@ export default function ModerationCard({
       <div className="space-y-6">
         {/* Original Text */}
         <div>
-          <h3 className="text-sm font-medium text-gray-900 mb-2">Original Text</h3>
-          <p className="text-gray-700 bg-gray-50 p-3 rounded-md">
+          <h3 className="text-sm font-medium text-foreground mb-2">Original Text</h3>
+          <p className="text-foreground bg-background-lighter p-3 rounded-xl border border-gray-600">
             {sample.originalText.split(sample.highlightedWord).map((part, index, array) => (
               <span key={index}>
                 {part}
                 {index < array.length - 1 && (
-                  <span className="bg-yellow-200 px-1 rounded">{sample.highlightedWord}</span>
+                  <span className="bg-primary-3/30 text-primary-3 px-1 rounded-lg border border-primary-3/50">{sample.highlightedWord}</span>
                 )}
               </span>
             ))}
@@ -150,13 +150,13 @@ export default function ModerationCard({
 
         {/* Audio Player */}
         <div>
-          <h3 className="text-sm font-medium text-gray-900 mb-2">Audio Recording</h3>
-          <div className="bg-gray-50 p-4 rounded-md">
+          <h3 className="text-sm font-medium text-foreground mb-2">Audio Recording</h3>
+          <div className="bg-background-lighter p-4 rounded-xl border border-gray-600">
             <audio ref={audioRef} src={sample.audioUrl} preload="metadata" />
 
             {audioError && (
-              <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-sm text-red-600">{audioError}</p>
+              <div className="mb-3 p-2 bg-red-500/20 border border-red-500/30 rounded-xl">
+                <p className="text-sm text-red-400">{audioError}</p>
               </div>
             )}
 
@@ -164,7 +164,7 @@ export default function ModerationCard({
               <button
                 onClick={togglePlayPause}
                 disabled={isLoading || !!audioError}
-                className="flex items-center justify-center w-10 h-10 bg-blue-500 text-white rounded-full hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center w-10 h-10 bg-primary-2 text-white rounded-full hover:bg-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md hover:shadow-lg"
               >
                 {isLoading ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -176,13 +176,16 @@ export default function ModerationCard({
               </button>
 
               <div className="flex-1">
-                <div className="w-full h-2 bg-gray-200 rounded-full cursor-pointer" onClick={handleProgressClick}>
+                <div 
+                  className="w-full h-2 bg-gray-600 rounded-full cursor-pointer" 
+                  onClick={handleProgressClick}
+                >
                   <div
-                    className="h-2 bg-blue-500 rounded-full transition-all duration-100"
+                    className="h-2 bg-primary-2 rounded-full transition-all duration-100"
                     style={{ width: `${progressPercentage}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <div className="flex justify-between text-xs text-gray-400 mt-1">
                   <span>{formatTime(currentTime)}</span>
                   <span>{duration > 0 ? formatTime(duration) : sample.duration}</span>
                 </div>
@@ -195,17 +198,17 @@ export default function ModerationCard({
 
         {/* Model Prediction */}
         <div>
-          <h3 className="text-sm font-medium text-gray-900 mb-2">Model Prediction</h3>
-          <p className="text-gray-700 bg-gray-50 p-3 rounded-md">{sample.modelPrediction}</p>
+          <h3 className="text-sm font-medium text-foreground mb-2">Model Prediction</h3>
+          <p className="text-foreground bg-background-lighter p-3 rounded-xl border border-gray-600">{sample.modelPrediction}</p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-center space-x-4 pt-4 border-t border-gray-200">
-          <button className="flex items-center px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">
+        <div className="flex justify-center space-x-4 pt-4 border-t border-gray-600">
+          <button className="flex items-center px-6 py-2 bg-secondary-2 text-white rounded-xl hover:bg-green-600 transition-colors shadow-md hover:shadow-lg">
             <CheckIcon className="h-4 w-4 mr-2" />
             Approve
           </button>
-          <button className="flex items-center px-6 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">
+          <button className="flex items-center px-6 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors shadow-md hover:shadow-lg">
             <XMarkIcon className="h-4 w-4 mr-2" />
             Reject
           </button>

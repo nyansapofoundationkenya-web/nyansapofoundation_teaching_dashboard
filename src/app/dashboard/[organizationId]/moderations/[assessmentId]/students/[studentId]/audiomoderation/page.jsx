@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
@@ -226,7 +226,7 @@ export default function AudioModerationPage() {
         <span
           key={index}
           className={`mr-1 font-semibold ${
-            matched ? "text-green-600" : "text-red-500"
+            matched ? "text-secondary-2" : "text-red-400"
           }`}
         >
           {word}
@@ -399,7 +399,7 @@ export default function AudioModerationPage() {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 flex bg-gray-50">
+      <div className="fixed inset-0 flex bg-background">
         <div className="fixed top-0 left-0 h-full w-64">
           <Sidebar organizationId={organizationId} />
         </div>
@@ -407,7 +407,7 @@ export default function AudioModerationPage() {
           <div className="fixed top-0 left-64 right-0 z-10">
             <Header />
           </div>
-          <div className="flex-1 mt-16 p-6 text-center overflow-x-hidden">Loading...</div>
+          <div className="flex-1 mt-16 p-4 text-center overflow-x-hidden">Loading...</div>
         </div>
       </div>
     );
@@ -415,7 +415,7 @@ export default function AudioModerationPage() {
 
   if (error) {
     return (
-      <div className="fixed inset-0 flex bg-gray-50">
+      <div className="fixed inset-0 flex bg-background">
         <div className="fixed top-0 left-0 h-full w-64">
           <Sidebar organizationId={organizationId} />
         </div>
@@ -423,7 +423,7 @@ export default function AudioModerationPage() {
           <div className="fixed top-0 left-64 right-0 z-10">
             <Header />
           </div>
-          <div className="flex-1 mt-16 p-6 text-center text-red-500 overflow-x-hidden">{error}</div>
+          <div className="flex-1 mt-16 p-4 text-center text-red-400 overflow-x-hidden">{error}</div>
         </div>
       </div>
     );
@@ -441,7 +441,7 @@ export default function AudioModerationPage() {
   const isAtLastIndex = currentIndex >= results.length - 1;
 
   return (
-    <div className="fixed inset-0 flex bg-gray-50">
+    <div className="fixed inset-0 flex bg-background">
       <div className="fixed top-0 left-0 h-full w-64">
         <Sidebar organizationId={organizationId} />
       </div>
@@ -449,27 +449,27 @@ export default function AudioModerationPage() {
         <div className="fixed top-0 left-64 right-0 z-10">
           <Header />
         </div>
-        <div className="flex-1 mt-16 pt-20 p-6 overflow-y-auto overflow-x-hidden">
+        <div className="flex-1 mt-16 pt-20 p-4 overflow-y-auto overflow-x-hidden">
           <div className="max-w-4xl mx-auto">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 max-w-full">
+            <div className="bg-background-light rounded-xl shadow-md border border-gray-600 p-4 max-w-full">
               {hasNoResults ? (
                 // No assessment results view
-                <div className="text-center py-12">
-                  <div className="mb-6">
-                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                <div className="text-center py-8">
+                  <div className="mb-4">
+                    <div className="w-16 h-16 mx-auto mb-3 bg-background-lighter/50 rounded-full flex items-center justify-center">
                       <AlertCircle className="w-8 h-8 text-gray-400" />
                     </div>
-                    <h2 className="text-xl font-semibold text-gray-700 mb-2">No Assessment Results</h2>
-                    <p className="text-gray-500 max-w-md mx-auto">
+                    <h2 className="text-base font-semibold text-foreground mb-2">No Assessment Results</h2>
+                    <p className="text-gray-300 max-w-md mx-auto">
                       This student doesn't have any assessment rounds to moderate. 
                       You can proceed to the next student.
                     </p>
                   </div>
                   
-                  <div className="flex justify-center gap-4">
+                  <div className="flex justify-center gap-3">
                     <button
                       onClick={() => router.back()}
-                      className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+                      className="flex items-center gap-2 px-3 py-1.5 text-gray-300 hover:text-foreground transition-colors"
                     >
                       <ArrowLeft className="w-4 h-4" />
                       Back to List
@@ -477,10 +477,10 @@ export default function AudioModerationPage() {
                     
                     <button
                       onClick={handleNextStudent}
-                      className={`px-6 py-2 rounded-lg transition-colors ${
+                      className={`px-4 py-1.5 rounded-xl transition-colors ${
                         currentStudentIndex < studentIds.length - 1
-                          ? "bg-blue-500 text-white hover:bg-blue-600"
-                          : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                          ? "bg-primary-2 text-foreground hover:bg-primary-2/90"
+                          : "bg-gray-600 text-gray-300 cursor-not-allowed"
                       }`}
                       disabled={currentStudentIndex >= studentIds.length - 1}
                     >
@@ -491,32 +491,32 @@ export default function AudioModerationPage() {
               ) : (
                 // Normal assessment moderation view
                 <>
-                  <div className="mb-6 flex justify-between items-center">
+                  <div className="mb-4 flex justify-between items-center">
                     <div>
-                      <h2 className="text-lg font-semibold text-gray-700 mb-2">
+                      <h2 className="text-base font-semibold text-foreground mb-2">
                         {allModerated ? "All Results Validated" : "Unvalidated Results"}
                       </h2>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-gray-300">
                         {stats.moderated}/{stats.total} results validated
                         {!allModerated && ` (${stats.unmoderated} remaining)`}
                       </p>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-gray-300">
                         {currentIndex + 1}/{results.length}
                       </div>
                       {currentResult && !isResultModerated(currentResult) && (
-                        <div className="text-xs text-orange-600 mt-1">Not Moderated</div>
+                        <div className="text-xs text-primary-3 mt-1">Not Moderated</div>
                       )}
                     </div>
                   </div>
 
-                  <div className="mb-8 text-center">
-                    <div className="text-2xl mb-6 leading-relaxed max-w-full break-words">
+                  <div className="mb-6 text-center">
+                    <div className="text-xl mb-4 leading-relaxed max-w-full break-words">
                       {currentResult.type === "Letter Recognition" || currentResult.type === "Word" ? (
                         <span
                           className={`font-medium ${
-                            currentResult.metadata?.passed ? "text-green-500" : "text-red-500"
+                            currentResult.metadata?.passed ? "text-secondary-2" : "text-red-400"
                           }`}
                         >
                           {currentResult.content}
@@ -525,21 +525,21 @@ export default function AudioModerationPage() {
                         getColoredWords(currentResult.content, currentResult.metadata?.transcript)
                       )}
                     </div>
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 max-w-md mx-auto">
-                      <h3 className="font-medium text-gray-700 mb-2">Model Prediction</h3>
+                    <div className="bg-background-lighter border border-gray-600 rounded-xl p-3 mb-4 max-w-md mx-auto">
+                      <h3 className="font-medium text-foreground mb-2">Model Prediction</h3>
                       {editMode ? (
                         <>
                           <input
                             type="text"
                             value={editedTranscript}
                             onChange={(e) => setEditedTranscript(e.target.value)}
-                            className="w-full p-2 border rounded max-w-full text-gray-600"
+                            className="w-full p-2 border border-gray-500 rounded text-gray-300 bg-background"
                             placeholder="Enter transcript"
                           />
-                          {error && <p className="text-red-500 text-sm mt-2 max-w-full break-words">{error}</p>}
+                          {error && <p className="text-red-400 text-sm mt-2 max-w-full break-words">{error}</p>}
                         </>
                       ) : (
-                        <p className="text-gray-600 max-h-20 overflow-y-auto max-w-full break-words">
+                        <p className="text-gray-300 max-h-20 overflow-y-auto max-w-full break-words">
                           {currentResult?.metadata?.transcript 
                           ? currentResult?.metadata?.transcript
                           : "No transcript available"
@@ -547,32 +547,32 @@ export default function AudioModerationPage() {
                         </p>
                       )}
                     </div>
-                    <div className="bg-yellow-400 rounded-lg p-4 mb-6 max-w-md mx-auto">
+                    <div className="bg-primary-3 rounded-xl p-3 mb-4 max-w-md mx-auto">
                       <div className="flex items-center gap-3">
                         <button onClick={togglePlayPause} className="flex-shrink-0">
                           {isPlaying ? (
-                            <Pause className="w-6 h-6 text-black" />
+                            <Pause className="w-6 h-6 text-primary-1" />
                           ) : (
-                            <Play className="w-6 h-6 text-black" />
+                            <Play className="w-6 h-6 text-primary-1" />
                           )}
                         </button>
                         <div className="flex-1 max-w-full">
-                          <div className="text-sm font-medium text-black mb-1">
+                          <div className="text-sm font-medium text-primary-1 mb-1">
                             {formatTime(currentTime)}/{formatTime(duration)}
                           </div>
                           <div
-                            className="w-full h-2 bg-black bg-opacity-20 rounded-full cursor-pointer"
+                            className="w-full h-2 bg-primary-1 bg-opacity-20 rounded-full cursor-pointer"
                             onClick={handleSeek}
                           >
                             <div
-                              className="h-full bg-black rounded-full"
+                              className="h-full bg-primary-1 rounded-full"
                               style={{
                                 width: duration ? `${(currentTime / duration) * 100}%` : "0%",
                               }}
                             />
                           </div>
                         </div>
-                        <Volume2 className="w-5 h-5 text-black flex-shrink-0" />
+                        <Volume2 className="w-5 h-5 text-primary-1 flex-shrink-0" />
                       </div>
                       {currentResult.metadata?.audio_url ? (
                         <audio
@@ -583,13 +583,13 @@ export default function AudioModerationPage() {
                           onEnded={() => setIsPlaying(false)}
                         />
                       ) : (
-                        <p className="text-red-500 text-sm mt-2 max-w-full">No audio available</p>
+                        <p className="text-primary-1 text-sm mt-2 max-w-full">No audio available</p>
                       )}
                     </div>
-                    <div className="flex gap-3 justify-center mb-8 flex-wrap">
+                    <div className="flex gap-3 justify-center mb-6 flex-wrap">
                       <button
                         onClick={handleBadAudio}
-                        className="flex items-center gap-2 px-4 py-2 border-2 border-red-500 text-red-600 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0"
+                        className="flex items-center gap-2 px-3 py-1.5 border-2 border-red-400 text-red-300 rounded-xl hover:bg-red-500/20 transition-colors flex-shrink-0"
                       >
                         <AlertCircle className="w-4 h-4" />
                         Bad Audio
@@ -597,14 +597,14 @@ export default function AudioModerationPage() {
                       {editMode ? (
                         <button
                           onClick={handleSaveEdit}
-                          className="flex items-center gap-2 px-4 py-2 border-2 border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors flex-shrink-0"
+                          className="flex items-center gap-2 px-3 py-1.5 border-2 border-primary-2 text-primary-1 rounded-xl hover:bg-primary-2/20 transition-colors flex-shrink-0"
                         >
                           Save
                         </button>
                       ) : (
                         <button
                           onClick={handleEdit}
-                          className="flex items-center gap-2 px-4 py-2 border-2 border-yellow-500 text-yellow-600 rounded-lg hover:bg-yellow-50 transition-colors flex-shrink-0"
+                          className="flex items-center gap-2 px-3 py-1.5 border-2 border-primary-3 text-primary-1 rounded-xl hover:bg-primary-3/20 transition-colors flex-shrink-0"
                         >
                           <Edit className="w-4 h-4" />
                           Edit
@@ -612,19 +612,19 @@ export default function AudioModerationPage() {
                       )}
                       <button
                         onClick={handleOk}
-                        className="flex items-center gap-2 px-4 py-2 border-2 border-green-500 text-green-600 rounded-lg hover:bg-green-50 transition-colors flex-shrink-0"
+                        className="flex items-center gap-2 px-3 py-1.5 border-2 border-secondary-2 text-secondary-1 rounded-xl hover:bg-secondary-2/20 transition-colors flex-shrink-0"
                       >
                         <ThumbsUp className="w-4 h-4" />
                         Ok
                       </button>
                     </div>
-                    <div className="flex justify-between items-center flex-wrap gap-4">
+                    <div className="flex justify-between items-center flex-wrap gap-3">
                       <button
                         onClick={handleBack}
-                        className={`flex items-center gap-2 px-4 py-2 ${
+                        className={`flex items-center gap-2 px-3 py-1.5 ${
                           currentIndex > 0
-                            ? "text-gray-600 hover:text-gray-900"
-                            : "text-gray-400 cursor-not-allowed"
+                            ? "text-gray-300 hover:text-foreground"
+                            : "text-gray-500 cursor-not-allowed"
                         } transition-colors flex-shrink-0`}
                         disabled={currentIndex <= 0}
                       >
@@ -633,13 +633,13 @@ export default function AudioModerationPage() {
                       </button>
                       <button
                         onClick={handleNextStudent}
-                        className={`px-4 py-2 ${
+                        className={`px-4 py-1.5 ${
                           allModerated && currentStudentIndex < studentIds.length - 1
-                            ? "bg-blue-500 text-white hover:bg-blue-600"
+                            ? "bg-primary-2 text-foreground hover:bg-primary-2/90"
                             : hasUnmoderatedItems
-                            ? "bg-orange-500 text-white hover:bg-orange-600"
-                            : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                        } rounded-lg transition-colors flex-shrink-0`}
+                            ? "bg-primary-3 text-primary-1 hover:bg-primary-3/90"
+                            : "bg-gray-600 text-gray-300 cursor-not-allowed"
+                        } rounded-xl transition-colors flex-shrink-0`}
                         disabled={currentStudentIndex >= studentIds.length - 1}
                         title={hasUnmoderatedItems ? "Some items are not yet moderated" : ""}
                       >
@@ -647,10 +647,10 @@ export default function AudioModerationPage() {
                       </button>
                       <button
                         onClick={handleNext}
-                        className={`flex items-center gap-2 px-4 py-2 ${
+                        className={`flex items-center gap-2 px-3 py-1.5 ${
                           currentIndex < results.length - 1 || (isAtLastIndex && nextUnmoderatedFromStart !== -1)
-                            ? "text-gray-600 hover:text-gray-900"
-                            : "text-gray-400 cursor-not-allowed"
+                            ? "text-gray-300 hover:text-foreground"
+                            : "text-gray-500 cursor-not-allowed"
                         } transition-colors flex-shrink-0`}
                         disabled={currentIndex >= results.length - 1 && nextUnmoderatedFromStart === -1}
                       >
@@ -667,11 +667,11 @@ export default function AudioModerationPage() {
             </div>
           </div>
         </div>
-        <div className="fixed top-16 left-64 right-0 bg-white border-b border-gray-200 px-6 py-4 z-0 max-w-full">
+        <div className="fixed top-16 left-64 right-0 bg-background-light border-b border-gray-600 px-4 py-3 z-0 max-w-full">
           <div className="flex items-center justify-between max-w-full">
             <div>
-              <p className="text-lg font-semibold text-gray-900 max-w-full break-words">{studentName}</p>
-              <p className="text-gray-500 max-w-full break-words">
+              <p className="text-base font-semibold text-foreground max-w-full break-words">{studentName}</p>
+              <p className="text-gray-300 max-w-full break-words">
                 {hasNoResults 
                   ? "No Assessment Results" 
                   : `${displayStatus} • ${stats.moderated}/${stats.total} validated`

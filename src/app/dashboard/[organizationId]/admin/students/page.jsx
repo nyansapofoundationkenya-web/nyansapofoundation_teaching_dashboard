@@ -50,20 +50,20 @@ export default function StudentsPage() {
 
   // Skeleton Loader Component
   const SkeletonLoader = () => (
-    <div className="bg-white rounded-lg shadow border p-6">
+    <div className="bg-background-light rounded-2xl shadow-lg border border-gray-600 p-6">
       <div className="animate-pulse">
         {/* Header Skeleton */}
         <div className="flex justify-between items-center mb-6">
-          <div className="h-8 bg-gray-200 rounded w-48"></div>
-          <div className="h-10 bg-gray-200 rounded w-32"></div>
+          <div className="h-8 bg-background-lighter rounded w-48"></div>
+          <div className="h-10 bg-background-lighter rounded w-32"></div>
         </div>
         
         {/* Search Bar Skeleton */}
         <div className="flex justify-between items-center mb-6">
-          <div className="h-10 bg-gray-200 rounded w-64"></div>
+          <div className="h-10 bg-background-lighter rounded w-64"></div>
           <div className="flex gap-4">
-            <div className="h-8 bg-gray-200 rounded w-20"></div>
-            <div className="h-8 bg-gray-200 rounded w-24"></div>
+            <div className="h-8 bg-background-lighter rounded w-20"></div>
+            <div className="h-8 bg-background-lighter rounded w-24"></div>
           </div>
         </div>
         
@@ -72,7 +72,7 @@ export default function StudentsPage() {
           {/* Table Header */}
           <div className="grid grid-cols-5 gap-4 mb-4">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-6 bg-gray-200 rounded"></div>
+              <div key={i} className="h-6 bg-background-lighter rounded"></div>
             ))}
           </div>
           
@@ -80,19 +80,19 @@ export default function StudentsPage() {
           {[...Array(5)].map((_, rowIndex) => (
             <div key={rowIndex} className="grid grid-cols-5 gap-4 py-3">
               {[...Array(5)].map((_, colIndex) => (
-                <div key={colIndex} className="h-4 bg-gray-200 rounded"></div>
+                <div key={colIndex} className="h-4 bg-background-lighter rounded"></div>
               ))}
             </div>
           ))}
         </div>
         
         {/* Pagination Skeleton */}
-        <div className="flex justify-between items-center mt-6 pt-4 border-t">
-          <div className="h-4 bg-gray-200 rounded w-32"></div>
+        <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-600">
+          <div className="h-4 bg-background-lighter rounded w-32"></div>
           <div className="flex gap-2">
-            <div className="h-8 bg-gray-200 rounded w-8"></div>
-            <div className="h-8 bg-gray-200 rounded w-24"></div>
-            <div className="h-8 bg-gray-200 rounded w-8"></div>
+            <div className="h-8 bg-background-lighter rounded w-8"></div>
+            <div className="h-8 bg-background-lighter rounded w-24"></div>
+            <div className="h-8 bg-background-lighter rounded w-8"></div>
           </div>
         </div>
       </div>
@@ -100,7 +100,7 @@ export default function StudentsPage() {
   );
 
   return (
-    <div className="flex h-screen bg-blue-50" style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
+    <div className="flex h-screen bg-background" style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
       {/* Mobile/iPad Overlay */}
       {isMobile && sidebarOpen && (
         <div className="fixed inset-0 bg-gray-800 bg-opacity-30 z-40" onClick={toggleSidebar} />
@@ -116,10 +116,10 @@ export default function StudentsPage() {
         {isMobile && sidebarOpen && (
           <button
             onClick={toggleSidebar}
-            className="absolute top-4 right-4 z-50 p-2 rounded-full shadow-md bg-white"
+            className="absolute top-4 right-4 z-50 p-2 rounded-full shadow-lg bg-background-light border border-gray-600"
             aria-label="Close menu"
           >
-            <FiX className="w-5 h-5 text-indigo-600" />
+            <FiX className="w-5 h-5 text-primary-2" />
           </button>
         )}
         <Sidebar title="Students" organizationId={organizationId} />
@@ -132,28 +132,28 @@ export default function StudentsPage() {
           ${!isMobile && sidebarOpen ? "ml-64" : "ml-0"}
         `}
       >
-        <div className="h-full p-6 space-y-6 bg-blue-50 flex-1 overflow-auto">
+        <div className="h-full p-6 space-y-6 bg-background flex-1 overflow-auto">
           {/* Header */}
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
               {isMobile && !sidebarOpen && (
                 <button
                   onClick={toggleSidebar}
-                  className="p-2 rounded-md shadow-sm bg-white"
+                  className="p-2 rounded-xl shadow-md bg-background-light border border-gray-600"
                   aria-label="Open menu"
                 >
-                  <FiMenu className="w-5 h-5 text-indigo-600" />
+                  <FiMenu className="w-5 h-5 text-primary-2" />
                 </button>
               )}
-              <h1 className="text-2xl font-bold text-gray-800">Students Management</h1>
+              <h1 className="text-2xl font-bold text-foreground">Students Management</h1>
             </div>
           </div>
 
           {/* Filter Section */}
-          <div className="bg-white p-6 rounded-lg shadow border">
+          <div className="bg-background-light p-6 rounded-2xl shadow-lg border border-gray-600">
             <div className="mb-4">
-              <h2 className="text-lg font-semibold text-gray-800 mb-2">Filter Students</h2>
-              <p className="text-sm text-gray-600">
+              <h2 className="text-lg font-semibold text-foreground mb-2">Filter Students</h2>
+              <p className="text-sm text-gray-300">
                 Select an organization, project, and school to view students
               </p>
             </div>
