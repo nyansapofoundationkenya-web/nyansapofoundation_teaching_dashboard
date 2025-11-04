@@ -1,18 +1,19 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Base theme colors */
-  --background: #142848; /* Main background */
-  --background-light: #1e3a63; /* Sidebar / navbar */
-  --background-lighter: #26487c; /* Cards / panels */
-  --foreground: #ffffff; /* Text on dark background */
+  /* Base colors */
+  --background: #142848;
+  --background-light: #1e3a63;
+  --background-lighter: #26487c;
+  --foreground: #ffffff;
 
-  /* Primary palette */
+  /* Primary colors */
   --primary-1: #142848;
   --primary-2: #5aa2ce;
   --primary-3: #f7cc1c;
 
-  /* Secondary palette */
+  /* Secondary colors */
   --secondary-1: #e67e22;
   --secondary-2: #4caf50;
   --secondary-3: #e3e6eb;
@@ -32,9 +33,8 @@
   --color-secondary-2: var(--secondary-2);
   --color-secondary-3: var(--secondary-3);
 
-  /* Fonts */
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: 'Raleway', sans-serif;
+  --font-mono: 'Raleway', sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -47,16 +47,15 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Raleway', sans-serif
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
+/* Hide scrollbars */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
 
-/* Hide scrollbar for IE, Edge and Firefox */
 .scrollbar-hide {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

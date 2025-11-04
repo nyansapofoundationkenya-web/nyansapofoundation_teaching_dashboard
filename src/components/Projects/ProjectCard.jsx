@@ -82,21 +82,21 @@ export default function ProjectCard({ project, organizationId, userRole }) {
       )}
 
       {/* Title */}
-      <h2 className="text-base font-semibold mb-3 line-clamp-2 leading-tight pr-8">{project?.name}</h2>
+      <h2 className="text-lg font-semibold mb-3 line-clamp-2 leading-tight pr-8">{project?.name}</h2>
 
       {/* Location tags */}
       <div className="flex gap-1 mb-4 flex-wrap">
         {project.location?.slice(0, 3).map((loc) => (
           <span
             key={loc}
-            className="bg-background-lighter text-foreground px-2 py-1 rounded-full text-xs font-medium truncate max-w-[80px] border border-gray-500"
+            className="bg-background-lighter text-foreground px-2 py-1 rounded-full text-sm font-medium truncate max-w-[80px] border border-gray-500"
             title={loc}
           >
             {loc}
           </span>
         ))}
         {project.location?.length > 3 && (
-          <span className="bg-primary-2/20 text-primary-2 px-2 py-1 rounded-full text-xs font-medium border border-primary-2/30">
+          <span className="bg-primary-2/20 text-primary-2 px-2 py-1 rounded-full text-sm font-medium border border-primary-2/30">
             +{project.location.length - 3}
           </span>
         )}
@@ -104,7 +104,7 @@ export default function ProjectCard({ project, organizationId, userRole }) {
 
       {/* Statistics */}
       <div className="border-t border-gray-600 pt-3 space-y-2 xl:grid xl:grid-cols-2 xl:gap-2 xl:space-y-0">
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-base">
           <Building size={16} className="flex-shrink-0 text-primary-2" />
           <span className="truncate">
             <span className="font-medium">{project.total_schools || 0}</span>
@@ -112,7 +112,7 @@ export default function ProjectCard({ project, organizationId, userRole }) {
             <span className="sm:hidden"> Schools</span>
           </span>
         </div>
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-base">
           <Users size={16} className="flex-shrink-0 text-primary-2" />
           <span className="truncate">
             <span className="font-medium">{project.total_students || 0}</span>
@@ -120,7 +120,7 @@ export default function ProjectCard({ project, organizationId, userRole }) {
             <span className="sm:hidden"> Students</span>
           </span>
         </div>
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-base">
           <Tent size={16} className="flex-shrink-0 text-primary-2" />
           <span className="truncate">
             <span className="font-medium">{project.total_camps || 0}</span>
@@ -128,7 +128,7 @@ export default function ProjectCard({ project, organizationId, userRole }) {
             <span className="sm:hidden"> Camps</span>
           </span>
         </div>
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-base">
           <FaChalkboardTeacher size={16} className="flex-shrink-0 text-primary-2" />
           <span className="truncate">
             <span className="font-medium">{project.total_teachers || 0}</span>
@@ -141,7 +141,7 @@ export default function ProjectCard({ project, organizationId, userRole }) {
       {/* Dashboard Button */}
       <button
         onClick={handleViewDashboard}
-        className="mt-4 w-full bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold py-2 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors duration-200 text-sm shadow-md hover:shadow-lg"
+        className="mt-4 w-full bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold py-2 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors duration-200 text-base shadow-md hover:shadow-lg"
       >
         <Gauge size={14} />
         <span>View Dashboard</span>

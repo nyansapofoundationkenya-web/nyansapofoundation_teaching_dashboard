@@ -192,7 +192,7 @@ export default function ProjectDetails() {
         {!userLoading && isAdminOrSuperAdmin && (
           <div className="flex flex-col sm:flex-row gap-2" ref={dropdownRef}>
             <button
-              className="flex items-center justify-center px-3 py-2 border border-primary-3 rounded-xl bg-primary-3/20 hover:bg-primary-3/30 text-sm text-foreground transition-colors w-full sm:w-auto"
+              className="flex items-center justify-center px-3 py-2 border border-primary-3 rounded-xl bg-primary-3/20 hover:bg-primary-3/30 text-base text-foreground transition-colors w-full sm:w-auto"
               onClick={() => console.log("Download clicked")}
             >
               <span>Download Data</span>
@@ -202,7 +202,7 @@ export default function ProjectDetails() {
             <div className="relative w-full sm:w-auto">
               <button
                 onClick={() => setDropdownOpen((p) => !p)}
-                className="flex items-center justify-center px-3 py-2 bg-primary-3 text-primary-1 rounded-xl hover:bg-yellow-400 text-sm transition-colors w-full sm:w-auto font-medium"
+                className="flex items-center justify-center px-3 py-2 bg-primary-3 text-primary-1 rounded-xl hover:bg-yellow-400 text-base transition-colors w-full sm:w-auto font-medium"
               >
                 <span>Actions</span>
                 <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />

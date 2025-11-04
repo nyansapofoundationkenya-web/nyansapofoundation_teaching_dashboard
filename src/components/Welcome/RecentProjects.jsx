@@ -35,30 +35,30 @@ export default function RecentProjects({ organizationId, refreshTrigger, onProje
       <h2 className="text-lg font-semibold mb-4 text-foreground">Recent Projects</h2>
 
       {projects.length === 0 ? (
-        <p className="text-gray-300 text-center py-6 text-sm">No projects yet. Create your first project to get started!</p>
+        <p className="text-gray-300 text-center py-6 text-base">No projects yet. Create your first project to get started!</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {projects.map((project) => (
             <div key={project.id} className="bg-background-light p-4 rounded-2xl shadow-md flex flex-col justify-between border border-gray-600">
               <div>
-                <h3 className="font-semibold text-foreground text-base mb-3">{project.name}</h3>
+                <h3 className="font-semibold text-foreground text-lg mb-3">{project.name}</h3>
 
                 <div className="flex gap-2 mb-3 flex-wrap">
                   {Array.isArray(project.location) &&
                     project.location.map((country, idx) => (
-                      <span key={idx} className="bg-background text-gray-300 text-xs px-2 py-1 rounded-full border border-gray-500">
+                      <span key={idx} className="bg-background text-gray-300 text-sm px-2 py-1 rounded-full border border-gray-500">
                         {country.trim()}
                       </span>
                     ))}
                 </div>
 
-                <div className="flex items-center text-sm text-gray-300 mb-2">
+                <div className="flex items-center text-base text-gray-300 mb-2">
                   <FaSchool className="mr-2 text-gray-300" />
                   {project.total_schools || 0} School
                   {(project.total_schools || 0) !== 1 ? "s" : ""}
                 </div>
 
-                <div className="flex items-center text-sm text-gray-300">
+                <div className="flex items-center text-base text-gray-300">
                   <GiCampingTent className="mr-2 text-gray-300" />
                   {project.total_camps || 0} Camp
                   {(project.total_camps || 0) !== 1 ? "s" : ""}

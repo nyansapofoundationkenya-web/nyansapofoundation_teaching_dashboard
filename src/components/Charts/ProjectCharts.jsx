@@ -288,7 +288,7 @@ export default function ProjectCharts({ chartData }) {
         <div className="relative w-full sm:w-auto">
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center justify-between w-full sm:min-w-[280px] md:min-w-[320px] px-3 py-2.5 sm:py-2 bg-background-light border border-gray-600 rounded-xl hover:bg-background-lighter text-sm font-medium text-foreground shadow-md transition-all"
+            className="flex items-center justify-between w-full sm:min-w-[280px] md:min-w-[320px] px-3 py-2.5 sm:py-2 bg-background-light border border-gray-600 rounded-xl hover:bg-background-lighter text-base font-medium text-foreground shadow-md transition-all"
           >
             <span className="truncate text-left">
               {chartOptions.find((option) => option.value === selectedType)?.label || "Select Chart"}
