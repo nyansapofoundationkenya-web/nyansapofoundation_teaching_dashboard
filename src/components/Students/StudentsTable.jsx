@@ -228,7 +228,7 @@ export default function StudentsTable({
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Student Name</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Grade</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Gender</th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Group</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Baseline</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Status</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Actions</th>
               </tr>
