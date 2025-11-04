@@ -1,12 +1,16 @@
 import { useState, useEffect } from "react";
 import {
+  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPhoneNumber,
+  PhoneAuthProvider,
+  linkWithCredential,
   signOut,
   onAuthStateChanged,
+  deleteUser,
   RecaptchaVerifier,
 } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import Cookies from "js-cookie";
 import { parsePhoneNumber } from "libphonenumber-js";
 import { auth, db } from "@/firebase/config";
@@ -72,7 +76,6 @@ export function useAuth() {
     }
   };
 
-  // Monitor auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -93,36 +96,114 @@ export function useAuth() {
     return () => unsubscribe();
   }, [dispatch]);
 
-  // Initialize reCAPTCHA only when needed for phone login
-  const initializeRecaptcha = () => {
-    if (recaptchaVerifier) {
-      return recaptchaVerifier; // Already initialized
-    }
+  // Setup invisible reCAPTCHA once on mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && !window.recaptchaVerifier) {
+      try {
+        const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+          size: "invisible",
+          callback: (response) => {
+            console.log("reCAPTCHA solved:", response);
+          },
+          "expired-callback": () => {
+            console.warn("reCAPTCHA expired. Please try again.");
+            setRecaptchaReady(false);
+          },
+        });
 
-    const container = document.getElementById("recaptcha-container");
-    if (!container) {
-      throw new Error("reCAPTCHA container not found. Please ensure it exists on the page.");
-    }
-
-    try {
-      const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-        size: "invisible",
-        callback: (response) => {
-          console.log("reCAPTCHA solved:", response);
+        verifier.render().then((widgetId) => {
+          window.recaptchaWidgetId = widgetId;
+          window.recaptchaVerifier = verifier;
+          setRecaptchaVerifier(verifier);
           setRecaptchaReady(true);
-        },
-        "expired-callback": () => {
-          console.warn("reCAPTCHA expired. Please try again.");
-          setRecaptchaReady(false);
-        },
+        }).catch(err => {
+          console.error("reCAPTCHA render error:", err);
+          setError("Failed to initialize reCAPTCHA. Please refresh the page.");
+        });
+
+      } catch (err) {
+        console.error("reCAPTCHA initialization error:", err);
+        setError("Failed to initialize security verification. Please refresh the page.");
+      }
+    }
+
+    return () => {
+      if (window.recaptchaWidgetId) {
+        window.grecaptcha?.reset(window.recaptchaWidgetId);
+      }
+    };
+  }, []);
+
+  const handleSignup = async ({ email, password, name, phone }) => {
+    setError(null);
+    let user = null;
+    try {
+      // if (!recaptchaReady) {
+      //   throw new Error("Security verification is not ready yet. Please try again.");
+      // }
+
+      const phoneNumber = parsePhoneNumber(phone || "");
+      if (!phoneNumber || !phoneNumber.isValid()) {
+        throw new Error("Invalid phone number format. Please include country code.");
+      }
+      const formattedPhone = phoneNumber.format("E.164");
+
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      user = userCredential.user;
+
+      const confirmation = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
+      setConfirmationResult(confirmation);
+
+      return { user, confirmation, email, name, phone: formattedPhone };
+    } catch (err) {
+      console.error("Signup error:", err);
+      if (user) {
+        try {
+          await deleteUser(user);
+        } catch (delErr) {
+          console.error("Failed to delete partial user:", delErr);
+        }
+      }
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const verifyPhoneCode = async (code, user, email, name, phone) => {
+    setError(null);
+    try {
+      if (!confirmationResult) throw new Error("No phone verification in progress.");
+      
+      const phoneCredential = PhoneAuthProvider.credential(
+        confirmationResult.verificationId, 
+        code
+      );
+      await linkWithCredential(user, phoneCredential);
+
+      const userRef = doc(db, "user", user.uid); 
+      await setDoc(userRef, {
+        uid: user.uid,
+        email,
+        phone,
+        name,
+        role: "teacher", // Add default role here
+        createdAt: new Date().toISOString(),
       });
 
-      setRecaptchaVerifier(verifier);
-      setRecaptchaReady(true);
-      return verifier;
+      const token = await user.getIdToken();
+      Cookies.set("auth_token", token, { expires: 7 });
+      return user;
     } catch (err) {
-      console.error("reCAPTCHA initialization error:", err);
-      throw new Error("Failed to initialize security verification. Please refresh the page.");
+      console.error("Verification error:", err);
+      if (user) {
+        try {
+          await deleteUser(user);
+        } catch (delErr) {
+          console.error("Failed to delete partial user:", delErr);
+        }
+      }
+      setError(err.message);
+      throw err;
     }
   };
 
@@ -139,8 +220,9 @@ export function useAuth() {
         await fetchAndStoreUserProfile(user);
         return user;
       } else {
-        // Initialize reCAPTCHA on demand for phone login
-        const verifier = initializeRecaptcha();
+        if (!recaptchaReady) {
+          throw new Error("Security verification is not ready yet. Please try again.");
+        }
 
         const phoneNumber = parsePhoneNumber(phone || "");
         if (!phoneNumber || !phoneNumber.isValid()) {
@@ -151,7 +233,7 @@ export function useAuth() {
         const confirmation = await signInWithPhoneNumber(
           auth, 
           formattedPhone, 
-          verifier
+          recaptchaVerifier
         );
         setConfirmationResult(confirmation);
         return { confirmation };
@@ -229,7 +311,7 @@ export function useAuth() {
     if (!currentUser) {
       throw new Error("No user is currently logged in");
     }
-    return await fetchAndStoreUserProfile(auth.currentUser);
+    return await fetchAndStoreUserProfile(currentUser);
   };
 
   // Update user profile in Redux and Firestore
@@ -259,6 +341,8 @@ export function useAuth() {
     loading: loading || reduxLoading,
     error,
     recaptchaReady,
+    handleSignup,
+    verifyPhoneCode,
     handleLogin,
     verifyPhoneLoginCode,
     handleLogout,
