@@ -20,26 +20,68 @@ ChartJS.register(
   Legend
 )
 
-// Define your baseline levels with their order
-const baselineLevels = {
-  "Beginner": 1,
-  "Letter": 2,
-  "Word": 3,
-  "Paragraph": 4,
-  "Story": 5,
-  "Above": 6
-}
+// Define competence levels for both types
+const COMPETENCE_LEVELS = {
+  literacy: {
+    "beginner": 0,
+    "letter": 1,
+    "word": 2,
+    "paragraph": 3,
+    "story": 4,
+    "above_level": 5
+  },
+  numeracy: {
+    "beginner": 0,
+    "number_recognition": 1,
+    "addition": 2,
+    "subtraction": 3,
+    "multiplication": 4,
+    "division": 5,
+    "above_level": 6
+  }
+};
 
-export default function StudentChart({ baseline }) {
-  // Convert the baseline to proper case to match your levels
-  const formattedBaseline = baseline.charAt(0).toUpperCase() + baseline.slice(1).toLowerCase()
+// Format labels for display
+const FORMATTED_LABELS = {
+  literacy: {
+    "beginner": "Beginner",
+    "letter": "Letter",
+    "word": "Word",
+    "paragraph": "Paragraph",
+    "story": "Story",
+    "above": "Above"
+  },
+  numeracy: {
+    "beginner": "Beginner",
+    "number_recognition": "Number Recognition",
+    "addition": "Addition",
+    "subtraction": "Subtraction",
+    "multiplication": "Multiplication",
+    "division": "Division",
+    "above": "Above"
+  }
+};
+
+export default function StudentChart({ baseline, assessmentType = 'literacy' }) {
+  // Get the appropriate competence levels based on assessment type
+  const baselineLevels = COMPETENCE_LEVELS[assessmentType] || COMPETENCE_LEVELS.literacy;
+  const formattedLabels = FORMATTED_LABELS[assessmentType] || FORMATTED_LABELS.literacy;
   
+  // Convert the baseline to lowercase to match our keys
+  const baselineKey = baseline.toLowerCase();
+  
+  // Get the numeric value for the baseline
+  const baselineValue = baselineLevels[baselineKey] || 0;
+  
+  // Get the maximum level for this assessment type
+  const maxLevel = Math.max(...Object.values(baselineLevels));
+
   const data = {
-    labels: ["Baseline"],
+    labels: ["Current Level"],
     datasets: [
       {
         label: "Current Level",
-        data: [baselineLevels[formattedBaseline] || 0],
+        data: [baselineValue],
         backgroundColor: "#5aa2ce", // primary-2 color
         borderColor: "#3b82c8", // darker shade of primary-2
         borderWidth: 1,
@@ -64,11 +106,11 @@ export default function StudentChart({ baseline }) {
         borderWidth: 1,
         callbacks: {
           label: function(context) {
-            const value = context.raw
+            const value = context.raw;
             const level = Object.keys(baselineLevels).find(
               key => baselineLevels[key] === value
-            ) || ''
-            return `Level: ${level}`
+            );
+            return `Level: ${formattedLabels[level] || level || 'Unknown'}`;
           }
         }
       }
@@ -76,15 +118,17 @@ export default function StudentChart({ baseline }) {
     scales: {
       y: {
         beginAtZero: true,
-        max: 6,
+        max: maxLevel,
         min: 0,
         ticks: {
           stepSize: 1,
           color: "#d1d5db", // gray-300
           callback: function(value) {
-            return Object.keys(baselineLevels).find(
+            // Find the level name for this numeric value
+            const level = Object.keys(baselineLevels).find(
               key => baselineLevels[key] === value
-            ) || ""
+            );
+            return formattedLabels[level] || "";
           }
         },
         grid: {
@@ -114,6 +158,10 @@ export default function StudentChart({ baseline }) {
         options={options}
         className="w-full h-full"
       />
+      {/* <div className="mt-4 text-sm text-gray-400">
+        <p>Assessment Type: <span className="text-white font-medium">{assessmentType.charAt(0).toUpperCase() + assessmentType.slice(1)}</span></p>
+        <p>Current Level: <span className="text-white font-medium">{formattedLabels[baselineKey] || baseline}</span></p>
+      </div> */}
     </div>
   )
 }

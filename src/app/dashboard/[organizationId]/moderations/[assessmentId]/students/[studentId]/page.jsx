@@ -8,6 +8,27 @@ import DashboardLayout from "@/app/dashboard/[organizationId]/DashboardLayout";
 import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
 
+// Define competence levels for both types
+const COMPETENCE_LEVELS = {
+  literacy: {
+    "beginner": 0,
+    "letter": 1,
+    "word": 2,
+    "paragraph": 3,
+    "story": 4,
+    "above": 5
+  },
+  numeracy: {
+    "beginner": 0,
+    "number_recognition": 1,
+    "addition": 2,
+    "subtraction": 3,
+    "multiplication": 4,
+    "division": 5,
+    "above": 6
+  }
+};
+
 export default function StudentDetailsPage() {
   const { organizationId, assessmentId, studentId } = useParams();
   const [student, setStudent] = useState(null);
@@ -103,33 +124,46 @@ export default function StudentDetailsPage() {
   /*  Main Content                                                      */
   /* ------------------------------------------------------------------ */
   const pageTitle = `${student.first_name} ${student.last_name}`;
+  const assessmentType = assessment.type?.toLowerCase() || 'literacy';
 
   return (
     <DashboardLayout title={pageTitle} organizationId={organizationId}>
-      <div className="p-6 space-y-6">
-        {/* Student Header */}
-        <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
-          <h1 className="text-2xl font-bold text-foreground">
-            {student.first_name} {student.last_name}
-          </h1>
-          <h2 className="text-lg text-gray-300 mt-1">{student.baseline}</h2>
-        </div>
+      {/* Scrollable content area */}
+      <div className="h-full overflow-auto">
+        <div className="p-6 space-y-6">
+          {/* Student Header */}
+          <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
+            <h1 className="text-2xl font-bold text-foreground">
+              {student.first_name} {student.last_name}
+            </h1>
+            <h2 className="text-lg text-gray-300 mt-1">{student.baseline}</h2>
+            <div className="mt-2">
+              <span className="inline-block bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                {assessmentType.charAt(0).toUpperCase() + assessmentType.slice(1)} Assessment
+              </span>
+            </div>
+          </div>
 
-        {/* Baseline Chart */}
-        <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
-          <h2 className="text-xl font-semibold mb-4 text-foreground">
-            Assessment Results
-          </h2>
-          <StudentChart baseline={student.baseline} />
-        </div>
+          {/* Baseline Chart */}
+          <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
+            <h2 className="text-xl font-semibold mb-4 text-foreground">
+              Assessment Results - {assessmentType.charAt(0).toUpperCase() + assessmentType.slice(1)}
+            </h2>
+            <StudentChart 
+              baseline={student.baseline} 
+              assessmentType={assessmentType}
+            />
+          </div>
 
-        {/* Assessment Results Table */}
-        <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
-          <StudentAssessmentResults
-            assessmentId={assessmentId}
-            studentId={studentId}
-            organizationId={organizationId}
-          />
+          {/* Assessment Results Table */}
+          <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
+            <StudentAssessmentResults
+              assessmentId={assessmentId}
+              studentId={studentId}
+              organizationId={organizationId}
+              assessmentType={assessmentType}
+            />
+          </div>
         </div>
       </div>
     </DashboardLayout>

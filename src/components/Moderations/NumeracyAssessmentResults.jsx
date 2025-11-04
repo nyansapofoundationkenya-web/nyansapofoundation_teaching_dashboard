@@ -1,0 +1,316 @@
+// components/Moderations/NumeracyAssessmentResults.jsx
+"use client";
+
+import { useState, useEffect } from "react";
+import { db } from "@/firebase/config";
+import { doc, getDoc } from "firebase/firestore";
+import { useRouter } from "next/navigation";
+
+export default function NumeracyAssessmentResults({ assessmentId, studentId, organizationId, results }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const router = useRouter();
+
+  const handleResultsClick = (result, type, section, index) => {
+    router.push(
+    //   `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/numeracymoderation?section=${section}&index=${index}`
+    );
+  };
+
+  useEffect(() => {
+    setLoading(false);
+  }, [results]);
+
+  if (loading) return <div className="text-foreground">Loading...</div>;
+  if (error) return <div className="text-red-400">Error: {error}</div>;
+  if (!results) return <div className="text-foreground">No data available</div>;
+
+  const numeracyResults = results.numeracy_results || {};
+
+  // Helper function to get operation symbol
+  const getOperationSymbol = (type) => {
+    switch(type?.toLowerCase()) {
+      case 'addition': return '+';
+      case 'subtraction': return '-';
+      case 'multiplication': return '×';
+      case 'division': return '÷';
+      default: return '';
+    }
+  };
+
+  return (
+    <div className="p-6 max-w-6xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6 text-foreground">Numeracy Assessment</h1>
+
+      {/* Count and Match Results */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4 text-primary-3">Count and match</h2>
+        {numeracyResults.count_and_match?.length > 0 ? (
+          <div className="flex flex-wrap gap-4">
+            {numeracyResults.count_and_match.map((item, index) => (
+              <div
+                key={index}
+                onClick={() => handleResultsClick(item, "Count and Match", "count_and_match", index)}
+                className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 cursor-pointer transition-all hover:scale-105 ${
+                  item.passed
+                    ? "border-green-500 bg-green-500/10"
+                    : "border-red-500 bg-red-500/10"
+                }`}
+              >
+                <div className={`text-2xl font-bold ${
+                  item.passed ? "text-green-400" : "text-red-400"
+                }`}>
+                  {item.expected_number}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-gray-400">No count and match results available</div>
+        )}
+      </div>
+
+      {/* Number Recognition Results */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4 text-primary-3">Number recognition</h2>
+        {numeracyResults.number_recognition?.length > 0 ? (
+          <div className="flex flex-wrap gap-4">
+            {numeracyResults.number_recognition.map((item, index) => (
+              <div
+                key={index}
+                onClick={() => handleResultsClick(item, "Number Recognition", "number_recognition", index)}
+                className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 cursor-pointer transition-all hover:scale-105 ${
+                  item.metadata?.passed
+                    ? "border-green-500 bg-green-500/10"
+                    : "border-red-500 bg-red-500/10"
+                }`}
+              >
+                <div className={`text-2xl font-bold ${
+                  item.metadata?.passed ? "text-green-400" : "text-red-400"
+                }`}>
+                  {item.content}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-gray-400">No number recognition results available</div>
+        )}
+      </div>
+
+      {/* Number Operations - Addition */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4 text-primary-3">Addition</h2>
+        {getOperationsByType(numeracyResults.number_operations, 'addition').length > 0 ? (
+          <div className="flex flex-wrap gap-4">
+            {getOperationsByType(numeracyResults.number_operations, 'addition').map((operation, index) => (
+              <div
+                key={index}
+                onClick={() => handleResultsClick(operation, "Addition", "number_operations", 
+                  numeracyResults.number_operations.indexOf(operation))}
+                className="rounded-lg p-4 cursor-pointer transition-all hover:scale-105 min-w-[80px] border border-gray-600"
+              >
+                <div className="text-center space-y-1">
+                  {/* First number */}
+                  <div className="text-xl font-semibold text-gray-300">
+                    {operation.operations_number1}
+                  </div>
+                  {/* Operation symbol and second number */}
+                  <div className="text-xl font-semibold text-gray-300">
+                    <span className="mr-2">{getOperationSymbol('addition')}</span>
+                    {operation.operations_number2}
+                  </div>
+                  {/* Divider line */}
+                  <div className="border-t-2 border-gray-500 my-1"></div>
+                  {/* Answer */}
+                  <div className={`text-xl font-bold ${
+                    operation.metadata?.passed ? "text-green-400" : "text-red-400"
+                  }`}>
+                    {operation.expected_answer}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-gray-400">No addition results available</div>
+        )}
+      </div>
+
+      {/* Number Operations - Subtraction */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4 text-primary-3">Subtraction</h2>
+        {getOperationsByType(numeracyResults.number_operations, 'subtraction').length > 0 ? (
+          <div className="flex flex-wrap gap-4">
+            {getOperationsByType(numeracyResults.number_operations, 'subtraction').map((operation, index) => (
+              <div
+                key={index}
+                onClick={() => handleResultsClick(operation, "Subtraction", "number_operations", 
+                  numeracyResults.number_operations.indexOf(operation))}
+                className="rounded-lg p-4 cursor-pointer transition-all hover:scale-105 min-w-[80px] border border-gray-600"
+              >
+                <div className="text-center space-y-1">
+                  {/* First number */}
+                  <div className="text-xl font-semibold text-gray-300">
+                    {operation.operations_number1}
+                  </div>
+                  {/* Operation symbol and second number */}
+                  <div className="text-xl font-semibold text-gray-300">
+                    <span className="mr-2">{getOperationSymbol('subtraction')}</span>
+                    {operation.operations_number2}
+                  </div>
+                  {/* Divider line */}
+                  <div className="border-t-2 border-gray-500 my-1"></div>
+                  {/* Answer */}
+                  <div className={`text-xl font-bold ${
+                    operation.metadata?.passed ? "text-green-400" : "text-red-400"
+                  }`}>
+                    {operation.expected_answer}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-gray-400">No subtraction results available</div>
+        )}
+      </div>
+
+      {/* Number Operations - Multiplication */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4 text-primary-3">Multiplication</h2>
+        {getOperationsByType(numeracyResults.number_operations, 'multiplication').length > 0 ? (
+          <div className="flex flex-wrap gap-4">
+            {getOperationsByType(numeracyResults.number_operations, 'multiplication').map((operation, index) => (
+              <div
+                key={index}
+                onClick={() => handleResultsClick(operation, "Multiplication", "number_operations", 
+                  numeracyResults.number_operations.indexOf(operation))}
+                className="rounded-lg p-4 cursor-pointer transition-all hover:scale-105 min-w-[80px] border border-gray-600"
+              >
+                <div className="text-center space-y-1">
+                  {/* First number */}
+                  <div className="text-xl font-semibold text-gray-300">
+                    {operation.operations_number1}
+                  </div>
+                  {/* Operation symbol and second number */}
+                  <div className="text-xl font-semibold text-gray-300">
+                    <span className="mr-2">{getOperationSymbol('multiplication')}</span>
+                    {operation.operations_number2}
+                  </div>
+                  {/* Divider line */}
+                  <div className="border-t-2 border-gray-500 my-1"></div>
+                  {/* Answer */}
+                  <div className={`text-xl font-bold ${
+                    operation.metadata?.passed ? "text-green-400" : "text-red-400"
+                  }`}>
+                    {operation.expected_answer}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-gray-400">No multiplication results available</div>
+        )}
+      </div>
+
+      {/* Number Operations - Division */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4 text-primary-3">Division</h2>
+        {getOperationsByType(numeracyResults.number_operations, 'division').length > 0 ? (
+          <div className="flex flex-wrap gap-4">
+            {getOperationsByType(numeracyResults.number_operations, 'division').map((operation, index) => (
+              <div
+                key={index}
+                onClick={() => handleResultsClick(operation, "Division", "number_operations", 
+                  numeracyResults.number_operations.indexOf(operation))}
+                className="rounded-lg p-4 cursor-pointer transition-all hover:scale-105 min-w-[80px] border border-gray-600"
+              >
+                <div className="text-center space-y-1">
+                  {/* First number */}
+                  <div className="text-xl font-semibold text-gray-300">
+                    {operation.operations_number1}
+                  </div>
+                  {/* Operation symbol and second number */}
+                  <div className="text-xl font-semibold text-gray-300">
+                    <span className="mr-2">{getOperationSymbol('division')}</span>
+                    {operation.operations_number2}
+                  </div>
+                  {/* Divider line */}
+                  <div className="border-t-2 border-gray-500 my-1"></div>
+                  {/* Answer */}
+                  <div className={`text-xl font-bold ${
+                    operation.metadata?.passed ? "text-green-400" : "text-red-400"
+                  }`}>
+                    {operation.expected_answer}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-gray-400">No division results available</div>
+        )}
+      </div>
+
+      {/* Word Problem Results */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4 text-primary-3">Word Problems</h2>
+        {numeracyResults.word_problem?.length > 0 ? (
+          numeracyResults.word_problem.map((problem, index) => (
+            <div 
+              key={index} 
+              className="mb-4 p-4 bg-background-light rounded-xl border border-gray-600 cursor-pointer hover:border-primary-3 transition-colors"
+              onClick={() => handleResultsClick(problem, "Word Problem", "word_problem", index)}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <p className="font-medium text-foreground flex-1">{problem.question}</p>
+                <span className={`ml-4 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                  problem.metadata?.passed
+                    ? "bg-secondary-2/20 text-secondary-2"
+                    : "bg-red-400/20 text-red-400"
+                }`}>
+                  {problem.metadata?.passed ? "✓ Correct" : "✗ Incorrect"}
+                </span>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-background-lighter">
+                  <span className="text-gray-400">Expected Answer:</span>
+                  <span className="text-foreground font-medium">{problem.expected_number}</span>
+                </div>
+                
+                <div className={`flex items-center justify-between py-2 px-3 rounded-lg ${
+                  problem.metadata?.passed 
+                    ? "bg-secondary-2/20 text-secondary-2 border border-secondary-2/30" 
+                    : "bg-red-400/20 text-red-400 border border-red-400/30"
+                }`}>
+                  <span>Student Answer:</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold">
+                      {problem.metadata?.transcript || problem.student_answer || "No answer provided"}
+                    </span>
+                    <span className={`font-bold ${problem.metadata?.passed ? "text-secondary-2" : "text-red-400"}`}>
+                      {problem.metadata?.passed ? "✓" : "✗"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="text-gray-400">No word problem results available</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Helper function to filter operations by type
+function getOperationsByType(operations, type) {
+  if (!operations || !Array.isArray(operations)) return [];
+  return operations.filter(op => 
+    op.type?.toLowerCase() === type.toLowerCase()
+  );
+}
