@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreVertical, Edit, Trash2 } from "lucide-react";
+import { MoreVertical, Edit, Trash2, ChevronLeft,ChevronRight } from "lucide-react";
 
 export default function InstructorTable({ 
   instructors, 
