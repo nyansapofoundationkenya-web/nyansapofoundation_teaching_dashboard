@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { useProjectDetails } from "@/hooks/useProjectDetails";
 import {
@@ -13,12 +13,12 @@ import {
   Download,
   ChevronDown,
   Building2,
-  MapPin,
 } from "lucide-react";
 import { FaChalkboardTeacher } from "react-icons/fa";
 
 import StatsCard from "@/components/ProjectDetails/StatsCard";
 import SchoolModal from "@/components/ui/SchoolModal";
+import SchoolsListModal from "@/components/ui/SchoolsListModal";
 import InstructorModal from "@/components/ui/InstructorModal";
 import Modal from "@/components/ui/Modal";
 import ProjectCharts from "@/components/Charts/ProjectCharts";
@@ -28,6 +28,7 @@ import DashboardLayout from "@/app/dashboard/[organizationId]/DashboardLayout";
 
 export default function ProjectDetails() {
   const { organizationId, projectId } = useParams();
+  const router = useRouter();
 
   // -------------------------------------------------------------------------
   // Auth & Role
@@ -57,6 +58,7 @@ export default function ProjectDetails() {
   // -------------------------------------------------------------------------
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false);
+  const [isSchoolsListModalOpen, setIsSchoolsListModalOpen] = useState(false);
   const [isCampModalOpen, setIsCampModalOpen] = useState(false);
   const [isInstructorModalOpen, setIsInstructorModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -84,6 +86,23 @@ export default function ProjectDetails() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // -------------------------------------------------------------------------
+  // Handle Schools card click
+  // -------------------------------------------------------------------------
+  const handleSchoolsCardClick = () => {
+    if (schools.length > 0) {
+      setIsSchoolsListModalOpen(true);
+    }
+  };
+
+  // -------------------------------------------------------------------------
+  // Handle individual school click
+  // -------------------------------------------------------------------------
+  const handleSchoolClick = (school) => {
+    router.push(`/dashboard/${organizationId}/projects/${projectId}/schools/${school.id}/schoolDetails`);
+    setIsSchoolsListModalOpen(false);
+  };
 
   // -------------------------------------------------------------------------
   // Camp creation
@@ -273,6 +292,8 @@ export default function ProjectDetails() {
                 value={project.total_schools ?? 0}
                 iconColor="text-primary-2"
                 valueColor="text-primary-2"
+                onClick={handleSchoolsCardClick}
+                clickable={true}
               />
               <StatsCard
                 icon={<FaChalkboardTeacher />}
@@ -328,6 +349,13 @@ export default function ProjectDetails() {
         onClose={() => setIsSchoolModalOpen(false)}
         organizationId={organizationId}
         projectId={projectId}
+      />
+
+      <SchoolsListModal
+        isOpen={isSchoolsListModalOpen}
+        onClose={() => setIsSchoolsListModalOpen(false)}
+        schools={schools}
+        onSchoolClick={handleSchoolClick}
       />
 
       <Modal

@@ -233,7 +233,7 @@ const Sidebar = ({ initialTitle, organizationId }) => {
       </div>
 
       {/* Scrollable Menu Area - Hidden scrollbar */}
-      <div className="flex-grow overflow-y-auto scrollbar-hide">
+      <div className="flex-grow overflow-y-auto scrollbar-hide pb-6 mb-2">
         <nav className="flex flex-col space-y-3">
           {menuItems.map((item, index) => {
             const isActive = isMenuItemActive(item.path);
