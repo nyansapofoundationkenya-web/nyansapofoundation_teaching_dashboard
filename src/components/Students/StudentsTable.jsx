@@ -1,9 +1,17 @@
-// components/Students/StudentsTable.js
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, MoreVertical, Edit, Trash2, UserPlus, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { 
+  Search, 
+  MoreVertical, 
+  Edit, 
+  Trash2, 
+  UserPlus, 
+  ChevronLeft, 
+  ChevronRight, 
+  Eye 
+} from "lucide-react";
 import StudentModal from "./StudentModal";
 
 export default function StudentsTable({
@@ -22,21 +30,9 @@ export default function StudentsTable({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [actionMenuOpen, setActionMenuOpen] = useState(null);
-
-  const filteredStudents = students.filter((student) =>
-    student.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.last_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentStudents = filteredStudents.slice(startIndex, endIndex);
+  const [duplicates, setDuplicates] = useState(new Set());
 
   // Enhanced duplicate detection: first name + last name + grade + gender
-  const [duplicates, setDuplicates] = useState(new Set());
-  
   useEffect(() => {
     const duplicateMap = new Map();
     
@@ -52,9 +48,8 @@ export default function StudentsTable({
       }
     });
 
-    // Create a set of student IDs that are duplicates
     const duplicateIds = new Set();
-    duplicateMap.forEach((studentGroup, key) => {
+    duplicateMap.forEach((studentGroup) => {
       if (studentGroup.length > 1) {
         studentGroup.forEach(student => {
           duplicateIds.add(student.id);
@@ -69,6 +64,28 @@ export default function StudentsTable({
     return duplicates.has(student.id);
   };
 
+  // Apply search filter to students
+  const filteredStudents = students.filter(student => {
+    // Search filter
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = 
+        student.displayName?.toLowerCase().includes(searchLower) ||
+        student.first_name?.toLowerCase().includes(searchLower) ||
+        student.last_name?.toLowerCase().includes(searchLower);
+      if (!matchesSearch) return false;
+    }
+    
+    return true;
+  });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentStudents = filteredStudents.slice(startIndex, endIndex);
+
+  // Student actions
   const handleAddClick = () => {
     setSelectedStudent(null);
     setIsModalOpen(true);
@@ -94,28 +111,24 @@ export default function StudentsTable({
     }
   };
 
-  // Handle student click to navigate to student detail page
   const handleStudentClick = (student) => {
     if (!currentFilter?.organizationId || !currentFilter?.projectId || !currentFilter?.schoolId) {
       return;
     }
-
-    router.push(
-      // `/dashboard/${currentFilter.organizationId}/projects/${currentFilter.projectId}/schools/${currentFilter.schoolId}/students/${student.id}`
-    );
+    // Uncomment and modify this route when you have student detail pages
+    // router.push(
+    //   `/dashboard/${currentFilter.organizationId}/projects/${currentFilter.projectId}/schools/${currentFilter.schoolId}/students/${student.id}`
+    // );
   };
 
   const handleModalSubmit = async (studentData) => {
     try {
       if (selectedStudent) {
-        // Update existing student
         await onUpdateStudent(selectedStudent.id, studentData);
       } else {
-        // Add new student
         await onAddStudent(studentData);
       }
     } catch (err) {
-      // Error is handled in the modal
       throw err;
     }
   };
@@ -165,7 +178,7 @@ export default function StudentsTable({
                 Students at {currentFilter.schoolName}
               </h3>
               <p className="text-sm text-gray-300">
-                {students.length} students found
+                {filteredStudents.length} of {students.length} students match search
                 {duplicateCount > 0 && (
                   <span className="text-primary-3 ml-2">
                     • {duplicateCount} potential duplicate(s)
@@ -228,7 +241,6 @@ export default function StudentsTable({
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Student Name</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Grade</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Gender</th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Baseline</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Status</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Actions</th>
               </tr>
@@ -242,7 +254,6 @@ export default function StudentsTable({
                     <tr 
                       key={student.id} 
                       className="border-b border-gray-600 hover:bg-background-lighter cursor-pointer transition-colors"
-                      // onClick={() => handleStudentClick(student)}
                     >
                       <td className="px-6 py-4 text-sm font-medium text-foreground">
                         <div className="flex items-center gap-2">
@@ -255,9 +266,6 @@ export default function StudentsTable({
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-300">
                         {student.sex}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-300">
-                        {student.group || "-"}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         {isDuplicate ? (
@@ -290,16 +298,9 @@ export default function StudentsTable({
                               className="absolute right-0 mt-1 w-56 bg-background-light rounded-2xl shadow-xl z-10 border border-gray-600"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              {/* <button
-                                onClick={() => handleStudentClick(student)}
-                                className="flex items-center w-full px-4 py-2 text-sm text-foreground hover:bg-primary-2/20 hover:text-primary-2 transition-colors border-b border-gray-600 rounded-t-2xl"
-                              >
-                                <Eye className="w-4 h-4 mr-2" />
-                                View Details
-                              </button> */}
                               <button
                                 onClick={() => handleEditClick(student)}
-                                className="flex items-center w-full px-4 py-2 text-sm text-foreground hover:bg-primary-3/20 hover:text-primary-3 transition-colors border-b border-gray-600"
+                                className="flex items-center w-full px-4 py-2 text-sm text-foreground hover:bg-primary-3/20 hover:text-primary-3 transition-colors border-b border-gray-600 rounded-t-2xl"
                               >
                                 <Edit className="w-4 h-4 mr-2" />
                                 Update
@@ -320,8 +321,11 @@ export default function StudentsTable({
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-400">
-                    No students found in the selected school.
+                  <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-400">
+                    {students.length === 0 
+                      ? "No students found in the selected school." 
+                      : "No students match the current search."
+                    }
                   </td>
                 </tr>
               )}
