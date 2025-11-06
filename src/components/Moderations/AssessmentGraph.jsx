@@ -1,13 +1,33 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import { useRef, useState, useEffect } from "react"
 
 export default function AssessmentGraph({ organizationId, assessmentData, loading }) {
   const router = useRouter()
+  const containerRef = useRef(null)
+  const [containerWidth, setContainerWidth] = useState(0)
 
-  // Find max completed count for scaling bar height
+  useEffect(() => {
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.clientWidth)
+      }
+    }
+
+    updateWidth()
+    window.addEventListener("resize", updateWidth)
+    return () => window.removeEventListener("resize", updateWidth)
+  }, [])
+
+  // Assume assessmentData is sorted newest first; slice for mobile to avoid scrolling
+  const visibleData = containerWidth > 0 
+    ? assessmentData.slice(0, Math.max(1, Math.floor((containerWidth - 80) / 60))) // ~60px per group (bars + gaps + margin); adjust as needed
+    : assessmentData
+
+  // Find max completed count for scaling bar height (using visible data)
   const maxCount = Math.max(
-    ...assessmentData.flatMap(dateGroup => 
+    ...visibleData.flatMap(dateGroup => 
       dateGroup.assessments.map(assessment => assessment.completedCount)
     ),
     1
@@ -19,7 +39,7 @@ export default function AssessmentGraph({ organizationId, assessmentData, loadin
 
   if (loading) {
     return (
-      <div className="bg-background-light border border-gray-600 rounded-2xl p-4 md:p-6 max-w-4xl">
+      <div ref={containerRef} className="bg-background-light border border-gray-600 rounded-2xl p-4 md:p-6 max-w-4xl">
         <h3 className="text-sm md:text-base font-medium text-foreground mb-4">Assessments Completed</h3>
         <div className="h-40 flex items-center justify-center text-gray-400 text-sm">
           Loading graph...
@@ -30,7 +50,7 @@ export default function AssessmentGraph({ organizationId, assessmentData, loadin
 
   if (assessmentData.length === 0) {
     return (
-      <div className="bg-background-light border border-gray-600 rounded-2xl p-4 md:p-6 max-w-4xl">
+      <div ref={containerRef} className="bg-background-light border border-gray-600 rounded-2xl p-4 md:p-6 max-w-4xl">
         <h3 className="text-sm md:text-base font-medium text-foreground mb-4">Assessments Completed</h3>
         <div className="h-40 flex items-center justify-center text-gray-400 text-sm">
           No completed assessments available
@@ -39,12 +59,20 @@ export default function AssessmentGraph({ organizationId, assessmentData, loadin
     )
   }
 
-  // Calculate total bars and dynamic width
-  const totalBarCount = assessmentData.reduce(
+  // Calculate total bars and dynamic width - now based on visible data, fits container
+  const totalBarCount = visibleData.reduce(
     (acc, dateGroup) => acc + dateGroup.assessments.length,
     0
   )
-  const graphWidth = Math.max(totalBarCount * 45, 400) // 45px per bar minimum 400px width
+  
+  // Responsive width calculation - always fits, no min forcing scroll
+  const getGraphWidth = () => {
+    const baseWidthPerBar = containerWidth < 640 ? 20 : 40 // Squeeze on mobile
+    const calculatedWidth = totalBarCount * baseWidthPerBar
+    return Math.min(calculatedWidth, Math.max(containerWidth - 80, 300)) // Cap at container, min 300 but won't scroll
+  }
+
+  const graphWidth = getGraphWidth()
 
   // Bar color palette using only your specified colors
   const getBarColor = (index) => {
@@ -65,43 +93,49 @@ export default function AssessmentGraph({ organizationId, assessmentData, loadin
   }
 
   return (
-    <div className="bg-background-light border border-gray-600 rounded-2xl p-4 md:p-6 max-w-4xl">
+    <div ref={containerRef} className="bg-background-light border border-gray-600 rounded-2xl p-4 md:p-6 max-w-4xl">
       <h3 className="text-sm md:text-base font-medium text-foreground mb-6">
         Assessments Done
+        {visibleData.length < assessmentData.length && (
+          <span className="text-xs text-gray-400 ml-2">(showing recent)</span>
+        )}
       </h3>
       
-      {/* Graph container (scrollable horizontally, starts left) */}
-      <div className="relative overflow-x-auto">
+      {/* Graph container - conditional scroll only if needed, but with slicing, rarely */}
+      <div className={`relative ${graphWidth > containerWidth ? 'overflow-x-auto scrollbar-hide' : ''}`}>
         <div
-          className="relative min-h-[200px]"
+          className="relative min-h-[200px] mx-auto"
           style={{ width: `${graphWidth}px` }}
         >
           {/* Y-axis labels */}
-          <div className="absolute left-0 top-0 bottom-8 w-10 flex flex-col justify-between text-xs md:text-sm text-gray-400 font-medium">
+          <div className="absolute left-0 top-0 bottom-8 w-8 md:w-10 flex flex-col justify-between text-xs md:text-sm text-gray-400 font-medium">
             <span>{maxCount}</span>
             <span>{Math.floor(maxCount * 0.5)}</span>
             <span>0</span>
           </div>
 
-          {/* Bars */}
-          <div className="absolute left-12 right-4 top-0 bottom-8 flex items-end gap-3 md:gap-4">
-            {assessmentData.map((dateGroup) => {
-              const baseWidth = dateGroup.assessments.length === 1 ? 32 : 24
+          {/* Bars container */}
+          <div className="absolute left-8 md:left-12 right-0 top-0 bottom-8 flex items-end gap-1 md:gap-2 lg:gap-3">
+            {visibleData.map((dateGroup) => {
+              // Responsive bar widths - smaller on mobile
+              const baseWidth = containerWidth < 640 
+                ? (dateGroup.assessments.length === 1 ? 14 : 10) 
+                : (dateGroup.assessments.length === 1 ? 28 : 20)
+              const gapBetweenBars = containerWidth < 640 ? 1 : 4
               const totalWidth =
                 baseWidth * dateGroup.assessments.length +
-                (dateGroup.assessments.length - 1) * 4
+                (dateGroup.assessments.length - 1) * gapBetweenBars
 
               return (
                 <div
                   key={dateGroup.date}
-                  className="flex flex-col items-center justify-end h-full relative"
+                  className="flex flex-col items-center justify-end h-full relative flex-shrink-0"
                   style={{
-                    minWidth: `${Math.max(totalWidth, 32)}px`,
-                    flex: '0 0 auto'
+                    minWidth: `${Math.max(totalWidth, containerWidth < 640 ? 20 : 28)}px`
                   }}
                 >
                   {/* Bars for each date */}
-                  <div className="flex items-end justify-center gap-1 w-full h-full pb-6">
+                  <div className={`flex items-end justify-center ${containerWidth < 640 ? 'gap-0.5' : 'gap-1'} w-full h-full pb-6`}>
                     {dateGroup.assessments.map((assessment, index) => {
                       const heightPercent = maxCount > 0 
                         ? Math.max((assessment.completedCount / maxCount) * 100, 10)
@@ -115,11 +149,6 @@ export default function AssessmentGraph({ organizationId, assessmentData, loadin
                           className="flex flex-col items-center group relative h-full"
                         >
                           <div className="relative flex flex-col justify-end h-full w-full">
-                            {/* Count label */}
-                            <div className="absolute -top-7 left-1/2 transform -translate-x-1/2 text-xs font-bold text-gray-200 bg-gray-800/90 px-2 py-0.5 rounded min-w-[20px] text-center z-10 backdrop-blur-sm border border-gray-600 transition-all group-hover:scale-110 group-hover:bg-gray-700">
-                              {assessment.completedCount}
-                            </div>
-
                             {/* Bar */}
                             <button
                               onClick={() => handleViewDetails(assessment.id)}
@@ -134,8 +163,8 @@ export default function AssessmentGraph({ organizationId, assessmentData, loadin
                           </div>
 
                           {/* Enhanced Tooltip */}
-                          <div className="absolute bottom-full mb-3 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap z-20 border border-gray-600 shadow-2xl backdrop-blur-sm">
-                            <div className="font-semibold mb-1 max-w-[200px] truncate text-[var(--primary-2)]">
+                          <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap z-20 border border-gray-600 shadow-2xl backdrop-blur-sm max-w-[150px] md:max-w-[200px]">
+                            <div className="font-semibold mb-1 truncate text-[var(--primary-2)]">
                               {assessment.name}
                             </div>
                             <div className="text-[var(--secondary-2)] font-medium">
@@ -154,8 +183,8 @@ export default function AssessmentGraph({ organizationId, assessmentData, loadin
                   </div>
 
                   {/* Date label */}
-                  <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-center whitespace-nowrap w-full">
-                    <div className="text-xs md:text-sm text-gray-300 font-semibold px-1">
+                  <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-center whitespace-nowrap w-full px-1">
+                    <div className={`text-xs text-gray-300 font-semibold ${containerWidth < 640 ? 'truncate max-w-[40px]' : ''}`}>
                       {(() => {
                         const day = dateGroup.displayDate.getDate()
                         const month = dateGroup.displayDate.toLocaleDateString('en-US', { month: 'short' })
@@ -176,7 +205,7 @@ export default function AssessmentGraph({ organizationId, assessmentData, loadin
           </div>
 
           {/* Grid lines */}
-          <div className="absolute left-12 right-4 top-0 bottom-8 pointer-events-none">
+          <div className="absolute left-8 md:left-12 right-0 top-0 bottom-8 pointer-events-none">
             <div className="absolute top-0 left-0 right-0 h-px bg-gray-600/30"></div>
             <div className="absolute top-1/3 left-0 right-0 h-px bg-gray-600/30"></div>
             <div className="absolute top-2/3 left-0 right-0 h-px bg-gray-600/30"></div>
