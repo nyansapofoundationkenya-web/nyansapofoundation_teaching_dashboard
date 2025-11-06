@@ -76,6 +76,16 @@ const Sidebar = ({ initialTitle, organizationId }) => {
   // Get user data directly from Redux store
   const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
 
+
+   const handleLogoutClick = async () => {
+    try {
+      await handleLogout();
+      router.push("/")
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+  };
+
   const baseMenuItems = [
     { 
       name: "Home", 
@@ -261,7 +271,7 @@ const Sidebar = ({ initialTitle, organizationId }) => {
       {/* Bottom: Logout Button - Fixed at bottom */}
       <div className="flex-shrink-0">
         <button
-          onClick={handleLogout}
+          onClick={handleLogoutClick }
           className="flex items-center space-x-3 p-4 rounded-2xl text-primary-1 bg-primary-3 hover:bg-yellow-400 hover:shadow-lg transition-all duration-200 w-full font-medium"
         >
           <FiLogOut size={20} />

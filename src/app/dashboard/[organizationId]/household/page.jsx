@@ -17,7 +17,17 @@ export default function HouseholdsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
 
-  const { households: rawHouseholds, metrics: rawMetrics, loading, error } = useOrganizationHouseholds(organizationId)
+  // Destructure export functions from the hook
+  const { 
+    households: rawHouseholds, 
+    metrics: rawMetrics, 
+    loading, 
+    error,
+    exportToCSV,      
+    exportToExcel,    
+    isExporting,     
+    exportError       
+  } = useOrganizationHouseholds(organizationId)
 
   const handlePageChange = (newPage) => {
     setCurrentPage(newPage)
@@ -86,11 +96,21 @@ export default function HouseholdsPage() {
         {/* Metrics Cards */}
         <HouseholdMetrics metrics={pageMetrics} />
 
-        {/* Filters and Search */}
+        {/* Export Error Display */}
+        {exportError && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400">
+            Export error: {exportError}
+          </div>
+        )}
+
+        {/* Filters and Search*/}
         <HouseholdFilters 
           filters={filters}
           onFilterChange={handleFilterChange}
           organizationId={organizationId}
+          exportToCSV={exportToCSV}
+          exportToExcel={exportToExcel}
+          isExporting={isExporting}
         />
 
         {/* Household List */}
