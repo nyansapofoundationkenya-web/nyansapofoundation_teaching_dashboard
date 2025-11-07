@@ -40,7 +40,7 @@ export default function AssessmentGraph({ organizationId, assessmentData, loadin
   if (loading) {
     return (
       <div ref={containerRef} className="bg-background-light border border-gray-600 rounded-2xl p-4 md:p-6 max-w-4xl">
-        <h3 className="text-sm md:text-base font-medium text-foreground mb-4">Assessments Completed</h3>
+        <h3 className="text-sm md:text-base font-medium text-foreground mb-4">Assessments By Date</h3>
         <div className="h-40 flex items-center justify-center text-gray-400 text-sm">
           Loading graph...
         </div>
