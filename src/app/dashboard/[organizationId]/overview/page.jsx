@@ -37,12 +37,16 @@ export default function OverviewPage() {
           </div>
 
           {/* Overview Cards */}
-          <OverviewCards />
+          <OverviewCards 
+           orgId={organizationId}
+           />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left Column - Average Scores per Grade */}
             <div className="h-full">
-              <PerformanceAnalytics />
+              <PerformanceAnalytics 
+                orgId={organizationId}
+              />
             </div>
 
             {/* Right Column - FILTERS & DATA MANAGEMENT */}
@@ -57,7 +61,9 @@ export default function OverviewPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left Column - Average Scores per School */}
             <div className="h-full">
-              <SchoolPerformance />
+              <SchoolPerformance 
+                orgId={organizationId}
+              />
             </div>
 
             {/* Right Column - DATA QUALITY & COMPLETENESS */}
