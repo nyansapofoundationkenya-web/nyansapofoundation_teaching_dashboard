@@ -32,7 +32,7 @@ export default function InstructorModal({
   const [schoolOptions, setSchoolOptions] = useState([]);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [fetchError, setFetchError] = useState(null);
-  const { updateInstructor, loading, error } = useInstructors(organizationId);
+  const { updateInstructorAssignment, loading, error } = useInstructors(organizationId);
 
   useEffect(() => {
     if (!isOpen) {
@@ -173,10 +173,6 @@ export default function InstructorModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formState.name) {
-      alert("Instructor name is required.");
-      return;
-    }
 
     if (!formState.organization || !formState.project || formState.schools.length === 0) {
       alert("Please select organization, project, and at least one school.");
@@ -185,21 +181,20 @@ export default function InstructorModal({
 
     try {
       const schoolIds = formState.schools.map(school => school.value);
-      const result = await updateInstructor(
+      
+      const result = await updateInstructorAssignment(
         selectedInstructor?.uid,
         formState.organization.value,
         formState.project.value,
-        schoolIds,
-        {
-          name: formState.name,
-        }
+        schoolIds
       );
+      
       if (result.success) {
         onSubmit(result.instructorId);
         onClose();
       }
     } catch (err) {
-      console.error("Error updating instructor:", err);
+      console.error("Error updating instructor assignment:", err);
       alert("Failed to update instructor assignment.");
     }
   };

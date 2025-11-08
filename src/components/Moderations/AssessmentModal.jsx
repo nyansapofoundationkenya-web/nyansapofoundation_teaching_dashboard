@@ -2,13 +2,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { doc, setDoc, getDoc, collection, getDocs } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, getDocs, query, orderBy } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid";
 import { useAssessment } from "@/hooks/useAssessment";
 import { db } from "@/firebase/config";
 
 export default function AssessmentModal({ organizationId, onClose }) {
-  const { projects, schools, students, fetchSchools, fetchStudents } = useAssessment(organizationId);
+  const { projects, schools, fetchSchools } = useAssessment(organizationId);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -34,22 +34,29 @@ export default function AssessmentModal({ organizationId, onClose }) {
     }
 
     const fetchStudentsForSchools = async () => {
-      const newSchoolStudents = { ...schoolStudents };
+      const newSchoolStudents = {};
       for (const schoolId of formData.schoolIds) {
-        if (!newSchoolStudents[schoolId]) {
-          try {
-            await fetchStudents(formData.projectId, schoolId);
-            newSchoolStudents[schoolId] = [...students];
-          } catch (err) {
-            console.error(`Error fetching students for school ${schoolId}:`, err);
-          }
+        try {
+          const studentsQuery = query(
+            collection(db, `organization/${organizationId}/projects/${formData.projectId}/schools/${schoolId}/students`),
+            orderBy("last_name")
+          );
+          const querySnapshot = await getDocs(studentsQuery);
+          const schoolStuds = [];
+          querySnapshot.forEach((docSnap) => {
+            schoolStuds.push({ id: docSnap.id, ...docSnap.data() });
+          });
+          newSchoolStudents[schoolId] = schoolStuds;
+        } catch (err) {
+          console.error(`Error fetching students for school ${schoolId}:`, err);
+          newSchoolStudents[schoolId] = [];
         }
       }
       setSchoolStudents(newSchoolStudents);
     };
 
     fetchStudentsForSchools();
-  }, [formData.projectId, formData.schoolIds, fetchStudents, students, schoolStudents]);
+  }, [formData.projectId, formData.schoolIds, organizationId]);
 
   // Handle select all schools
   useEffect(() => {
@@ -196,7 +203,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
           baseline: "",
           completed_assessment: false,
           first_name: student.first_name || "",
-          grade: student.grade || "",
+          grade: Number(student.grade) || 0,
           group: student.group || "",
           has_done: false,
           id: student.id,

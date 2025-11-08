@@ -104,6 +104,7 @@ export default function OrganizationPage({
     try {
       await handleLogout();
       onLogout();
+      router.push("/")
     } catch (err) {
       console.error("Logout error:", err);
     }
