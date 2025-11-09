@@ -5,6 +5,7 @@ import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { getFirebaseErrorMessage } from "@/utils/firebaseErrorHandler"; // Added import for error mapping
 import * as Yup from "yup";
 
 // Validation schemas
@@ -20,13 +21,27 @@ const baseValidationSchema = Yup.object({
     then: () => Yup.string().min(6).required("Required"),
     otherwise: () => Yup.string().notRequired(),
   }),
-  phone: Yup.string().when("loginMethod", {
-    is: "phone",
-    then: () => Yup.string()
-      .matches(/^\+?[1-9]\d{1,14}$/, "Invalid phone number. Include country code (e.g., +2547xxxxxxx)")
-      .required("Required"),
-    otherwise: () => Yup.string().notRequired(),
-  }),
+   phone: Yup.string()
+      .required("Phone number is required")
+      .test('phone-format', function(value) {
+        if (!value) return true; // Let required() handle empty values
+        
+        // Check if it starts with +
+        if (!value.startsWith('+')) {
+          return this.createError({
+            message: "Please start your phone number with '+' (e.g., +254712345678)"
+          });
+        }
+        
+        // Check if it matches the international format
+        if (!/^\+?[1-9]\d{1,14}$/.test(value)) {
+          return this.createError({
+            message: "Please enter a valid phone number with country code (e.g., +254712345678)"
+          });
+        }
+        
+        return true;
+      }),
 });
 
 const verificationValidationSchema = Yup.object({
@@ -47,6 +62,18 @@ export default function LoginForm() {
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
+
+  // Helper to extract Firebase error code from raw error string (e.g., "Firebase: Error (auth/invalid-verification-code).")
+  const extractErrorCode = (rawError) => {
+    if (!rawError) return null;
+    const match = rawError.match(/\(([^)]+)\)/);
+    return match ? match[1].trim() : null;
+  };
+
+  // Process raw error from hook using the Firebase error mapper
+  const displayError = error 
+    ? getFirebaseErrorMessage({ code: extractErrorCode(error) })
+    : null;
 
   const formik = useFormik({
     initialValues: {
@@ -114,10 +141,10 @@ export default function LoginForm() {
         </div>
       )}
       
-      {/* Only show hook's error—no duplicate */}
-      {error && (
+      {/* Only show processed error—no duplicate */}
+      {displayError && (
         <div className="mb-4 p-3 bg-red-500/20 text-red-400 rounded-xl border border-red-500/30">
-          {error}
+          {displayError}
         </div>
       )}
 

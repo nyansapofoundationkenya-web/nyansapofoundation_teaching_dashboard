@@ -5,14 +5,33 @@ import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useSignup } from "@/hooks/Auth/useSignup";
+import { getFirebaseErrorMessage } from "@/utils/firebaseErrorHandler"; // Added import for error mapping
 import * as Yup from "yup";
 
 const validationSchemaStep1 = Yup.object({
   name: Yup.string().required("Name is required"),
   email: Yup.string().email("Invalid email address").required("Email is required"),
   phone: Yup.string()
-    .matches(/^\+?[1-9]\d{1,14}$/, "Invalid phone number. Include country code (e.g., +2547xxxxxxx)")
-    .required("Phone number is required"),
+    .required("Phone number is required")
+    .test('phone-format', function(value) {
+      if (!value) return true; // Let required() handle empty values
+      
+      // Check if it starts with +
+      if (!value.startsWith('+')) {
+        return this.createError({
+          message: "Please start your phone number with '+' (e.g., +254712345678)"
+        });
+      }
+      
+      // Check if it matches the international format
+      if (!/^\+?[1-9]\d{1,14}$/.test(value)) {
+        return this.createError({
+          message: "Please enter a valid phone number with country code (e.g., +254712345678)"
+        });
+      }
+      
+      return true;
+    }),
   password: Yup.string().min(6, "Password must be at least 6 characters").required("Password is required"),
 });
 
@@ -28,6 +47,18 @@ export default function SignupForm() {
   const [signupData, setSignupData] = useState(null);
   const [signupSuccess, setSignupSuccess] = useState(false);
 
+  // Helper to extract Firebase error code from raw error string (e.g., "Firebase: Error (auth/invalid-verification-code).")
+  const extractErrorCode = (rawError) => {
+    if (!rawError) return null;
+    const match = rawError.match(/\(([^)]+)\)/);
+    return match ? match[1].trim() : null;
+  };
+
+  // Process raw error from hook using the Firebase error mapper
+  const displayError = error 
+    ? getFirebaseErrorMessage({ code: extractErrorCode(error) })
+    : null;
+
   const formik = useFormik({
     initialValues: {
       name: "",
@@ -37,7 +68,7 @@ export default function SignupForm() {
       verificationCode: "",
     },
     validationSchema: step === 1 ? validationSchemaStep1 : validationSchemaStep2,
-    onSubmit: async (values, { setSubmitting, setErrors, resetForm }) => {
+    onSubmit: async (values, { setSubmitting, resetForm }) => {
       try {
         if (step === 1) {
           setSignupSuccess(false);
@@ -65,7 +96,7 @@ export default function SignupForm() {
         }
       } catch (err) {
         console.error("Signup error:", err);
-        setErrors({ general: err.message || "Signup failed. Try again." });
+        // Hook handles error display
       } finally {
         setSubmitting(false);
       }
@@ -83,15 +114,9 @@ export default function SignupForm() {
         </div>
       )}
 
-      {formik.errors.general && (
+      {displayError && (
         <div className="mb-4 p-3 bg-red-500/20 text-red-400 rounded-xl border border-red-500/30 text-center">
-          {formik.errors.general}
-        </div>
-      )}
-
-      {error && (
-        <div className="mb-4 p-3 bg-red-500/20 text-red-400 rounded-xl border border-red-500/30 text-center">
-          {error}
+          {displayError}
         </div>
       )}
 
