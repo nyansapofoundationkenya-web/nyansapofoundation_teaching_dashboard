@@ -68,7 +68,7 @@ export default function StudentChart({ baseline, assessmentType = 'literacy' }) 
   const formattedLabels = FORMATTED_LABELS[assessmentType] || FORMATTED_LABELS.literacy;
   
   // Convert the baseline to lowercase to match our keys
-  const baselineKey = baseline.toLowerCase();
+  const baselineKey = (baseline || 'beginner').toLowerCase();
   
   // Get the numeric value for the baseline
   const baselineValue = baselineLevels[baselineKey] || 0;

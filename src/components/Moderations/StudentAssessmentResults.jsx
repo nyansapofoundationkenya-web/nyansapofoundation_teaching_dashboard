@@ -49,9 +49,13 @@ export default function StudentAssessmentResults({
   }, [assessmentId, studentId]);
 
   if (loading) return <div className="text-foreground">Loading assessment results...</div>;
-  if (error) return <div className="text-red-400">Error: {error}</div>;
-  if (!results) return <div className="text-foreground">No assessment data available</div>;
-
+  if (error || !results) {
+  return (
+    <div className="text-foreground">
+      No assessments results available for this student
+    </div>
+  );
+}
   // Render the appropriate component based on assessment type
   if (assessmentType.toLowerCase() === 'numeracy') {
     return (

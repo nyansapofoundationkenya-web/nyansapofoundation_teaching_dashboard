@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useRef, useState, useEffect } from "react"
 
-export default function AssessmentGraph({ organizationId, assessmentData, loading }) {
+export default function AssessmentGraph({ organizationId, assessmentData, loading, assessmentType}) {
   const router = useRouter()
   const containerRef = useRef(null)
   const [containerWidth, setContainerWidth] = useState(0)

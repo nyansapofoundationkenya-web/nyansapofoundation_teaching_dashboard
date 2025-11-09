@@ -125,6 +125,7 @@ export default function StudentDetailsPage() {
   /* ------------------------------------------------------------------ */
   const pageTitle = `${student.first_name} ${student.last_name}`;
   const assessmentType = assessment.type?.toLowerCase() || 'literacy';
+  console.log(assessmentType)
 
   return (
     <DashboardLayout title={pageTitle} organizationId={organizationId}>
