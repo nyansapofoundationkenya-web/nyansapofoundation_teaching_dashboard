@@ -177,7 +177,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
     }
   };
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.projectId || formData.schoolIds.length === 0) {
       setError("Please fill in all required fields and select at least one school.");
@@ -213,6 +213,8 @@ export default function AssessmentModal({ organizationId, onClose }) {
         }));
 
         const assessmentId = uuidv4();
+        
+        // Create the main assessment document
         await setDoc(doc(db, "assessments", assessmentId), {
           created_at: new Date().toISOString(),
           id: assessmentId,
@@ -225,6 +227,26 @@ export default function AssessmentModal({ organizationId, onClose }) {
           assessmentNumber: formData.assessmentNumber,
           assigned_students: assignedStudents,
         });
+
+        // Create assessment-results subcollection for each student
+        const resultsPromises = schoolStuds.map(async (student) => {
+          const resultId = `${assessmentId}_${student.id}`;
+          await setDoc(
+            doc(db, "assessments", assessmentId, "assessments-results", resultId),
+            {
+              assessmentId: assessmentId,
+              school_id: schoolId,
+              student_id: student.id,
+              student_first_name: student.first_name || "",
+              student_last_name: student.last_name || "",
+              student_name: "",
+              student_grade: Number(student.grade) || 0,
+              competence_level: 0,
+            }
+          );
+        });
+
+        await Promise.all(resultsPromises);
       });
 
       await Promise.all(promises.filter(Boolean));

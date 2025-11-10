@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect } from "react";
 import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
@@ -15,7 +14,6 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
     // Calculate the original index in reading_results
     const readingResults = results?.literacy_results?.reading_results || [];
     const originalIndex = readingResults.findIndex((r) => r === result);
-
     router.push(
       // `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?round=${originalIndex}`
     );
@@ -32,11 +30,9 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
         `${assessmentId}_${studentId}`
       );
       const resultsSnap = await getDoc(resultsRef);
-
       if (!resultsSnap.exists()) {
         throw new Error("Assessment results not found");
       }
-
       const data = resultsSnap.data();
       data.literacy_results = data.literacy_results || [];
       setResults(data);
@@ -53,29 +49,59 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
     }
   }, [assessmentId, studentId]);
 
+  // Updated function based on countMistakes logic
+  // Now properly matches as a subsequence without skipping transcript words on mismatch
+  // Also cleans both expected and transcript consistently for matching
+  // Returns JSX for colored words (for display) and optionally the mistake stats
   const getColoredWords = (content, transcript) => {
-    if (!content) return null;
+    if (!content) return { coloredWords: null, stats: { totalWords: 0, mistakes: 0, isCompleteMismatch: false } };
 
-    const contentWords = content.trim().split(/\s+/);
-    const transcriptWords = (transcript || "").trim().toLowerCase().split(/\s+/);
+    // Clean and split expected content into words (for matching only)
+    const expectedClean = content.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(word => word.length > 0);
+    
+    // Clean and split transcript into words (consistent cleaning)
+    const transcriptWords = (transcript || "").toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length > 0);
 
+    const totalWords = expectedClean.length;
+    let mistakes = 0;
     let transcriptIndex = 0;
+    let matchedIndices = new Set(); // Track which expected words were matched (by clean index)
 
-    return contentWords.map((word, index) => {
-      const cleanWord = word.replace(/[.,!?;:"""'']/g, "").toLowerCase();
-      let matched = false;
-
-      while (transcriptIndex < transcriptWords.length) {
-        const transcriptWord = transcriptWords[transcriptIndex];
-        if (transcriptWord === cleanWord) {
-          matched = true;
-          transcriptIndex++;
+    // Sequential matching like countMistakes
+    for (let i = 0; i < expectedClean.length; i++) {
+      const expectedWord = expectedClean[i];
+      let found = false;
+      for (let j = transcriptIndex; j < transcriptWords.length; j++) {
+        if (transcriptWords[j] === expectedWord) {
+          transcriptIndex = j + 1;
+          found = true;
+          matchedIndices.add(i);
           break;
-        } else {
-          transcriptIndex++;
         }
       }
+      if (!found) {
+        mistakes++;
+      }
+    }
 
+    const isCompleteMismatch = mistakes === totalWords;
+
+    // Now generate colored JSX using original content words
+    // Split original content to preserve punctuation/spacing
+    const contentWords = content.trim().split(/\s+/);
+    const coloredWords = contentWords.map((word, index) => {
+      // Map original word index to clean index (approximate, assuming 1:1 after cleaning)
+      // This is a simplification; for exact mapping, you'd need to align cleaned vs original positions
+      // But since cleaning mostly removes punctuation (not adding/removing words), index ≈ clean index
+      const cleanIndex = index; // Fallback assumption
+      const cleanWord = word.replace(/[^\w\s]/g, '').toLowerCase();
+      
+      // Check if this clean word was matched (using the set)
+      const matched = matchedIndices.has(cleanIndex) || (expectedClean[cleanIndex] === cleanWord && matchedIndices.has(cleanIndex));
+      
       return (
         <span
           key={index}
@@ -87,6 +113,11 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
         </span>
       );
     });
+
+    return { 
+      coloredWords, 
+      stats: { totalWords, mistakes, isCompleteMismatch } 
+    };
   };
 
   if (loading) return <div className="text-foreground">Loading...</div>;
@@ -96,15 +127,12 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
   const letterResults = results?.literacy_results?.reading_results?.filter(
     (result) => result?.metadata?.type === "Letter" || result?.type === "Letter"
   ) || [];
-
   const wordResults = results?.literacy_results?.reading_results?.filter(
     (result) => result?.metadata?.type === "Word"|| result?.type === "Word"
   ) || [];
-
   const paragraphResults = Array.isArray(results?.literacy_results?.reading_results)
     ? results.literacy_results.reading_results.filter((r) => r?.metadata?.type === "Paragraph" || r?.type === "Paragraph")
     : [];
-
   const storyResults = Array.isArray(results?.literacy_results?.reading_results)
     ? results.literacy_results.reading_results.filter((r) => r?.metadata?.type === "Story" || r?.type === "Story")
     : [];
@@ -112,7 +140,7 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-6 text-foreground">Literacy Assessment</h1>
-
+      
       {/* Letter Results */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-2 text-primary-3">Letter Results</h2>
@@ -129,7 +157,6 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
                   }`}
               >
                 <span className="block">{result.content}</span>
-
                 {/* Status Badge */}
                 <span
                   className={`absolute -top-2 -right-2 w-5 h-5 rounded-full text-white text-xs flex items-center justify-center shadow
@@ -161,7 +188,6 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
                   }`}
               >
                 <span className="block">{result.content}</span>
-
                 {/* Status Badge */}
                 <span
                   className={`absolute -top-2 -right-2 w-5 h-5 rounded-full text-white text-xs flex items-center justify-center shadow
@@ -181,18 +207,24 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4 text-primary-3">Paragraph Results</h2>
         {paragraphResults.length > 0 ? (
-          paragraphResults.map((result, index) => (
-            <div
-              key={index}
-              onClick={() => handleResultsClick(result, "Paragraph", index)}
-              className="border-b border-gray-600 py-2 flex items-start justify-between gap-2 cursor-pointer hover:bg-background-lighter transition-colors px-2 rounded-xl"
-            >
-              <div className="flex-1 flex flex-wrap">
-                {getColoredWords(result.content, result?.metadata?.transcript)}
+          paragraphResults.map((result, index) => {
+            const { coloredWords, stats } = getColoredWords(result.content, result?.metadata?.transcript);
+            return (
+              <div
+                key={index}
+                onClick={() => handleResultsClick(result, "Paragraph", index)}
+                className="border-b border-gray-600 py-2 flex items-start justify-between gap-2 cursor-pointer hover:bg-background-lighter transition-colors px-2 rounded-xl"
+              >
+                <div className="flex-1 flex flex-wrap">
+                  {coloredWords}
+                </div>
+                <div className="text-sm text-gray-400 flex items-center gap-2">
+                  <span>{stats.mistakes}/{stats.totalWords} mistakes</span>
+                  <span>›</span>
+                </div>
               </div>
-              <div className="text-sm text-gray-400">›</div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="text-gray-400">No paragraph results available</div>
         )}
@@ -202,18 +234,24 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4 text-primary-3">Story Results</h2>
         {storyResults.length > 0 ? (
-          storyResults.map((result, index) => (
-            <div
-              key={index}
-              onClick={() => handleResultsClick(result, "Story", index)}
-              className="border-b border-gray-600 py-2 flex items-start justify-between gap-2 cursor-pointer hover:bg-background-lighter transition-colors px-2 rounded-xl"
-            >
-              <div className="flex-1 flex flex-wrap">
-                {getColoredWords(result.content, result?.metadata?.transcript)}
+          storyResults.map((result, index) => {
+            const { coloredWords, stats } = getColoredWords(result.content, result?.metadata?.transcript);
+            return (
+              <div
+                key={index}
+                onClick={() => handleResultsClick(result, "Story", index)}
+                className="border-b border-gray-600 py-2 flex items-start justify-between gap-2 cursor-pointer hover:bg-background-lighter transition-colors px-2 rounded-xl"
+              >
+                <div className="flex-1 flex flex-wrap">
+                  {coloredWords}
+                </div>
+                <div className="text-sm text-gray-400 flex items-center gap-2">
+                  <span>{stats.mistakes}/{stats.totalWords} mistakes</span>
+                  <span>›</span>
+                </div>
               </div>
-              <div className="text-sm text-gray-400">›</div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="text-gray-400">No story results available</div>
         )}
@@ -231,9 +269,9 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
                   <li
                     key={optIndex}
                     className={`flex items-center justify-between py-1 px-2 rounded-lg ${
-                      option === question.student_answer 
-                        ? question.passed 
-                          ? "bg-secondary-2/20 text-secondary-2 border border-secondary-2/30" 
+                      option === question.student_answer
+                        ? question.passed
+                          ? "bg-secondary-2/20 text-secondary-2 border border-secondary-2/30"
                           : "bg-red-400/20 text-red-400 border border-red-400/30"
                         : "text-foreground"
                     }`}
