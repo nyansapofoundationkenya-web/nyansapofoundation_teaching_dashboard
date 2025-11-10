@@ -81,6 +81,9 @@ export default function StudentDetailsPage() {
     }
   }, [organizationId, assessmentId, studentId]);
 
+
+  console.log(student)
+
   /* ------------------------------------------------------------------ */
   /*  Loading State                                                     */
   /* ------------------------------------------------------------------ */
@@ -125,7 +128,8 @@ export default function StudentDetailsPage() {
   /* ------------------------------------------------------------------ */
   const pageTitle = `${student.first_name} ${student.last_name}`;
   const assessmentType = assessment.type?.toLowerCase() || 'literacy';
-  console.log(assessmentType)
+  const baseline = student?.[assessmentType]?.baseline || "";
+  // console.log(assessmentType)
 
   return (
     <DashboardLayout title={pageTitle} organizationId={organizationId}>
@@ -137,7 +141,7 @@ export default function StudentDetailsPage() {
             <h1 className="text-2xl font-bold text-foreground">
               {student.first_name} {student.last_name}
             </h1>
-            <h2 className="text-lg text-gray-300 mt-1">{student.baseline}</h2>
+            <h2 className="text-lg text-gray-300 mt-1">{baseline}</h2>
             <div className="mt-2">
               <span className="inline-block bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
                 {assessmentType.charAt(0).toUpperCase() + assessmentType.slice(1)} Assessment
@@ -151,7 +155,7 @@ export default function StudentDetailsPage() {
               Assessment Results - {assessmentType.charAt(0).toUpperCase() + assessmentType.slice(1)}
             </h2>
             <StudentChart 
-              baseline={student.baseline} 
+              baseline={baseline} 
               assessmentType={assessmentType}
             />
           </div>

@@ -42,6 +42,8 @@ export default function StudentAssessmentResults({
     }
   };
 
+  // console.log(results)
+
   useEffect(() => {
     if (assessmentId && studentId) {
       fetchStudentResults();

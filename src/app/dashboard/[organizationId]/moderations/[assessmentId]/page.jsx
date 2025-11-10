@@ -43,6 +43,7 @@ export default function AssessmentDetailsPage() {
 
   const handleSearchChange = (q) => setSearchQuery(q);
   const handleGradeFilterChange = (g) => setGradeFilter(g);
+  const assessmentType = assessment?.type || "literacy";
 
   /* ------------------------------------------------------------------ */
   /*  Filter students (search + grade)                                   */
