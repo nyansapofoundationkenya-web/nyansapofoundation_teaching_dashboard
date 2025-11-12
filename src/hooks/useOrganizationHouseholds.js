@@ -119,8 +119,9 @@ export const useOrganizationHouseholds = (orgId) => {
   const flattenHouseholdData = (household) => {
     const flattened = {
       // Basic Info
-      'Project Name': household.projectName,
-      'School Name': household.schoolName,
+      // 'Project Name': household.projectName,
+      // 'School Name': household.schoolName,
+      'Interview Date': household.interviewDate ? new Date(household.interviewDate).toLocaleDateString() : 'N/A',
       'Household Head Name': household.householdHeadName,
       'Household Head Phone': household.householdHeadPhone,
       'Is Household Head': household.householdHead ? 'Yes' : 'No',
@@ -145,7 +146,6 @@ export const useOrganizationHouseholds = (orgId) => {
       'Household Assets': household.householdAssets?.join(', ') || 'None',
       
       // Interview Info
-      'Interview Date': household.interviewDate ? new Date(household.interviewDate).toLocaleDateString() : 'N/A',
       'Interviewer Name': household.interviewerName,
       'Consent Given': household.consentGiven ? 'Yes' : 'No',
     }

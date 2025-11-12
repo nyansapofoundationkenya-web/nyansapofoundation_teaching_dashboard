@@ -41,11 +41,11 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
   // Function to generate and download a template (CSV or Excel)
   const handleDownloadTemplate = (format) => {
     const data = [
-      { name: "Example School", county: "County Name" }, // Changed location to county for display
+      { name: "Example School", county: "County Name" }, // Template remains unchanged
     ];
 
     if (format === "csv") {
-      const csvContent = "name,county\nExample School,County Name"; // Changed location to county
+      const csvContent = "name,county\nExample School,County Name"; // Template remains unchanged
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -107,7 +107,8 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
           <div className="text-left">
             <p className="text-sm text-gray-300 mb-3">
               Upload a CSV or Excel file with school information. The file must have the following
-              columns: <span className="font-medium">name, county</span>. {/* Changed location to county */}
+              columns: <span className="font-medium">name, county</span>.{" "}
+              <span className="text-primary-2">Subcounty is now optional for Excel files.</span>
             </p>
           </div>
 
@@ -143,10 +144,15 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
               <p className="text-sm font-medium text-foreground">Required Fields:</p>
               <ul className="list-disc list-inside text-sm text-gray-300 mt-1">
                 <li>name: The name of the school (e.g., "Springfield High")</li>
-                <li>county: The county where the school is located (e.g., "Springfield County")</li> {/* Updated description */}
+                <li>county: The county where the school is located (e.g., "Springfield County")</li>
+              </ul>
+              <p className="text-sm font-medium text-foreground mt-3">Optional Field (Excel only):</p>
+              <ul className="list-disc list-inside text-sm text-gray-300 mt-1">
+                <li>subcounty: The subcounty where the school is located (e.g., "Downtown District")</li>
               </ul>
               <p className="text-xs text-gray-400 mt-2">
                 Note: The "county" field will be saved as "location" in the system.
+                "subcounty" will be saved as additional information if provided.
               </p>
             </div>
           )}

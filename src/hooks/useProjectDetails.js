@@ -99,7 +99,7 @@ const addSchoolsByFile = async (projectId, file) => {
       let schoolsData = [];
 
       if (fileType === "csv") {
-        // Parse CSV
+        // Parse CSV - maintain existing behavior for CSV files
         schoolsData = await new Promise((resolve, reject) => {
           Papa.parse(file, {
             header: true,
@@ -109,7 +109,7 @@ const addSchoolsByFile = async (projectId, file) => {
           });
         });
       } else if (fileType === "xlsx" || fileType === "xls") {
-        // Parse Excel
+        // Parse Excel - enhanced to accept subcounty
         schoolsData = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = (e) => {
@@ -132,16 +132,23 @@ const addSchoolsByFile = async (projectId, file) => {
         return;
       }
 
-      // Transform county to location for backend compatibility
+      // Transform data for backend compatibility - enhanced for Excel files
       const transformedSchools = schoolsData.map(school => {
-        // If county exists, use it as location (for new templates)
-        // If location exists, use it as is (for backward compatibility)
+        // For CSV files: maintain existing behavior (county → location)
+        // For Excel files: accept subcounty as optional field
         const locationValue = school.county !== undefined ? school.county : school.location;
         
-        return {
+        const transformedSchool = {
           name: school.name,
           location: locationValue
         };
+
+        // Add subcounty for Excel files if present
+        if ((fileType === "xlsx" || fileType === "xls") && school.subcounty !== undefined) {
+          transformedSchool.subcounty = school.subcounty;
+        }
+
+        return transformedSchool;
       });
 
       // Validate both name and location
@@ -192,7 +199,8 @@ const addSchoolsByFile = async (projectId, file) => {
       const schoolUids = [];
       for (const school of newSchools) {
         const schoolRef = doc(collection(db, `organization/${organizationId}/projects/${projectId}/schools`));
-        batch.set(schoolRef, {
+        
+        const schoolData = {
           name: school.name.toString().trim(),
           location: school.location.toString().trim(), // Saved as location in DB
           createdAt: new Date().toISOString(),
@@ -200,7 +208,14 @@ const addSchoolsByFile = async (projectId, file) => {
           total_teachers: 0, // Initialize total_teachers
           camps: [], // Initialize camps array
           total_camps: 0, // Initialize total_camps
-        });
+        };
+
+        // Add subcounty if it exists (for Excel files)
+        if (school.subcounty !== undefined && school.subcounty.toString().trim() !== "") {
+          schoolData.subcounty = school.subcounty.toString().trim();
+        }
+
+        batch.set(schoolRef, schoolData);
         schoolUids.push(schoolRef.id);
       }
 
