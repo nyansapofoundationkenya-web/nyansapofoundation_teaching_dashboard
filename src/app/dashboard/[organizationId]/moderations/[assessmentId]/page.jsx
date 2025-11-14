@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect ,useMemo} from "react";
 import { useParams } from "next/navigation";
 import Search from "@/components/Assessments/Search";
 import GradeFilter from "@/components/Assessments/GradeFIlter";
@@ -48,15 +48,30 @@ export default function AssessmentDetailsPage() {
   /* ------------------------------------------------------------------ */
   /*  Filter students (search + grade)                                   */
   /* ------------------------------------------------------------------ */
-  const filteredStudents = assessment?.assigned_students?.filter((s) => {
+ // Pre-filter: Get only linked students first
+const eligibleStudents = useMemo(() => {
+  return assessment?.assigned_students?.filter((s) => {
+    const isEligible = s.linked === true || s.has_done === true;
+    console.log(`Pre-filter check - Student ${s.first_name} ${s.last_name}: linked=${s.linked}, has_done=${s.has_done}, eligible=${isEligible}`); // Debug each
+    return isEligible;
+  }) ?? [];
+}, [assessment?.assigned_students]); // Depend only on raw data
+
+console.log('Eligible students (linked OR has_done):', eligibleStudents); // Should show only those passing OR
+
+// Now apply search + grade on the eligible list
+const filteredStudents = useMemo(() => {
+  return eligibleStudents.filter((s) => {
     const matchesSearch = `${s.first_name} ${s.last_name}`
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
     const matchesGrade =
       gradeFilter === "All Grades" || String(s.grade) === gradeFilter;
-    return matchesSearch && matchesGrade;
-  }) ?? [];
-
+    const isEligible = s.linked === true || s.has_done === true; // Re-check for logging, but it's already filtered
+    console.log(`Full filter - Student ${s.first_name} ${s.last_name}: search=${matchesSearch}, grade=${matchesGrade}, eligible=${isEligible}`); // Debug the rest
+    return matchesSearch && matchesGrade && isEligible; // The && isEligible is redundant here but explicit
+  });
+}, [eligibleStudents, searchQuery, gradeFilter]); // Depend on pre-filtered + vars
   /* ------------------------------------------------------------------ */
   /*  Loading state (inside DashboardLayout)                             */
   /* ------------------------------------------------------------------ */

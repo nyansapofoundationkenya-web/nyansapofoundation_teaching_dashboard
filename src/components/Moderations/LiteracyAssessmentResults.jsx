@@ -10,14 +10,27 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
   const [error, setError] = useState(null);
   const router = useRouter();
 
-  const handleResultsClick = (result, type, filteredIndex) => {
-    // Calculate the original index in reading_results
-    const readingResults = results?.literacy_results?.reading_results || [];
-    const originalIndex = readingResults.findIndex((r) => r === result);
+  // Get user data directly from Redux store
+const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
+const userRole = currentUser?.role;
+
+const handleResultsClick = (result, type, filteredIndex) => {
+  // Calculate the original index in reading_results
+  const readingResults = results?.literacy_results?.reading_results || [];
+  const originalIndex = readingResults.findIndex((r) => r === result);
+  
+  // Role-based check: Only allow admin or super_admin to proceed
+  if (userRole === 'super_admin' || userRole === 'super_admin') {
     router.push(
-      // `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?round=${originalIndex}`
+      `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?round=${originalIndex}`
     );
-  };
+  } else {
+    // Show user-friendly message instead of console.log
+    alert('You do not have permission to access audio moderation. Please contact an administrator if you believe this is an error.');
+    // Alternative: If you have a toast library (e.g., react-hot-toast), use: toast.error('Access denied: Insufficient permissions.');
+    // Or set a state like setError('Access denied...') and display it in your component's JSX.
+  }
+};
 
   const fetchStudentResults = async () => {
     try {

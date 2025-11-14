@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useRef, useState, useEffect } from "react"
 
-export default function AssessmentGraph({ organizationId, assessmentData, loading, assessmentType}) {
+export default function AssessmentGraph({ organizationId, assessmentData, loading }) {
   const router = useRouter()
   const containerRef = useRef(null)
   const [containerWidth, setContainerWidth] = useState(0)
@@ -14,43 +14,23 @@ export default function AssessmentGraph({ organizationId, assessmentData, loadin
         setContainerWidth(containerRef.current.clientWidth)
       }
     }
-
     updateWidth()
     window.addEventListener("resize", updateWidth)
     return () => window.removeEventListener("resize", updateWidth)
   }, [])
 
-  // Assume assessmentData is sorted newest first; slice for mobile to avoid scrolling
-  const visibleData = containerWidth > 0 
-    ? assessmentData.slice(0, Math.max(1, Math.floor((containerWidth - 80) / 60))) // ~60px per group (bars + gaps + margin); adjust as needed
-    : assessmentData
-
-  // Find max completed count for scaling bar height (using visible data)
-  const maxCount = Math.max(
-    ...visibleData.flatMap(dateGroup => 
-      dateGroup.assessments.map(assessment => assessment.completedCount)
-    ),
-    1
-  )
-
-  const handleViewDetails = (assessmentId) => {
-    router.push(`/dashboard/${organizationId}/moderations/${assessmentId}`)
-  }
-
   if (loading) {
     return (
-      <div ref={containerRef} className="bg-background-light border border-gray-600 rounded-2xl p-4 md:p-6 max-w-4xl">
+      <div ref={containerRef} className="bg-background-light border border-gray-600 rounded-2xl p-4 md:p-6 w-full">
         <h3 className="text-sm md:text-base font-medium text-foreground mb-4">Assessments By Date</h3>
-        <div className="h-40 flex items-center justify-center text-gray-400 text-sm">
-          Loading graph...
-        </div>
+        <div className="h-40 flex items-center justify-center text-gray-400 text-sm">Loading graph...</div>
       </div>
     )
   }
 
   if (assessmentData.length === 0) {
     return (
-      <div ref={containerRef} className="bg-background-light border border-gray-600 rounded-2xl p-4 md:p-6 max-w-4xl">
+      <div ref={containerRef} className="bg-background-light border border-gray-600 rounded-2xl p-4 md:p-6 w-full">
         <h3 className="text-sm md:text-base font-medium text-foreground mb-4">Assessments Completed</h3>
         <div className="h-40 flex items-center justify-center text-gray-400 text-sm">
           No completed assessments available
@@ -59,157 +39,128 @@ export default function AssessmentGraph({ organizationId, assessmentData, loadin
     )
   }
 
-  // Calculate total bars and dynamic width - now based on visible data, fits container
-  const totalBarCount = visibleData.reduce(
-    (acc, dateGroup) => acc + dateGroup.assessments.length,
-    0
+  const maxCount = Math.max(
+    ...assessmentData.flatMap((d) => d.assessments.map((a) => a.completedCount)),
+    1
   )
-  
-  // Responsive width calculation - always fits, no min forcing scroll
-  const getGraphWidth = () => {
-    const baseWidthPerBar = containerWidth < 640 ? 20 : 40 // Squeeze on mobile
-    const calculatedWidth = totalBarCount * baseWidthPerBar
-    return Math.min(calculatedWidth, Math.max(containerWidth - 80, 300)) // Cap at container, min 300 but won't scroll
-  }
 
-  const graphWidth = getGraphWidth()
+  const barWidth =
+    containerWidth < 480 ? 6 :
+    containerWidth < 768 ? 8 :
+    containerWidth < 1024 ? 10 :
+    12
 
-  // Bar color palette using only your specified colors
+  const gapBetweenBars =
+    containerWidth < 480 ? 2 :
+    containerWidth < 768 ? 3 :
+    4
+
+  const chartHeight = 200 // px total chart height
+
   const getBarColor = (index) => {
-    const colors = [
-      'bg-[var(--primary-2)]', // #5aa2ce
-      'bg-[var(--secondary-2)]', // #4caf50
-    ]
+    const colors = ["bg-[var(--primary-2)]", "bg-[var(--secondary-2)]"]
     return colors[index % colors.length]
   }
 
-  // Hover colors for each bar type
   const getHoverColor = (index) => {
-    const hoverColors = [
-      'hover:bg-[var(--primary-2)]/80', // #5aa2ce with opacity
-      'hover:bg-[var(--secondary-2)]/80', // #4caf50 with opacity
-    ]
+    const hoverColors = ["hover:bg-[var(--primary-2)]/80", "hover:bg-[var(--secondary-2)]/80"]
     return hoverColors[index % hoverColors.length]
   }
 
+  const handleViewDetails = (assessmentId) => {
+    router.push(`/dashboard/${organizationId}/moderations/${assessmentId}`)
+  }
+
   return (
-    <div ref={containerRef} className="bg-background-light border border-gray-600 rounded-2xl p-4 md:p-6 max-w-4xl">
+    <div
+      ref={containerRef}
+      className="bg-background-light border border-gray-600 rounded-2xl p-4 md:p-6 w-full"
+    >
       <h3 className="text-sm md:text-base font-medium text-foreground mb-6">
         Assessments Done
-        {visibleData.length < assessmentData.length && (
-          <span className="text-xs text-gray-400 ml-2">(showing recent)</span>
-        )}
       </h3>
-      
-      {/* Graph container - conditional scroll only if needed, but with slicing, rarely */}
-      <div className={`relative ${graphWidth > containerWidth ? 'overflow-x-auto scrollbar-hide' : ''}`}>
-        <div
-          className="relative min-h-[200px] mx-auto"
-          style={{ width: `${graphWidth}px` }}
-        >
-          {/* Y-axis labels */}
+
+      {/* Make overflow only horizontal to allow tooltips */}
+      <div className="overflow-x-auto overflow-y-visible rounded-2xl relative">
+        <div className="relative w-max px-8 md:px-12 pb-10">
+          {/* Y-axis */}
           <div className="absolute left-0 top-0 bottom-8 w-8 md:w-10 flex flex-col justify-between text-xs md:text-sm text-gray-400 font-medium">
             <span>{maxCount}</span>
             <span>{Math.floor(maxCount * 0.5)}</span>
             <span>0</span>
           </div>
 
-          {/* Bars container */}
-          <div className="absolute left-8 md:left-12 right-0 top-0 bottom-8 flex items-end gap-1 md:gap-2 lg:gap-3">
-            {visibleData.map((dateGroup) => {
-              // Responsive bar widths - smaller on mobile
-              const baseWidth = containerWidth < 640 
-                ? (dateGroup.assessments.length === 1 ? 14 : 10) 
-                : (dateGroup.assessments.length === 1 ? 28 : 20)
-              const gapBetweenBars = containerWidth < 640 ? 1 : 4
-              const totalWidth =
-                baseWidth * dateGroup.assessments.length +
-                (dateGroup.assessments.length - 1) * gapBetweenBars
-
-              return (
+          {/* Bars */}
+          <div className="ml-10 flex items-end space-x-6 md:space-x-8 h-[220px] relative">
+            {assessmentData.map((dateGroup) => (
+              <div
+                key={dateGroup.date}
+                className="flex flex-col items-center justify-end h-full relative"
+              >
                 <div
-                  key={dateGroup.date}
-                  className="flex flex-col items-center justify-end h-full relative flex-shrink-0"
-                  style={{
-                    minWidth: `${Math.max(totalWidth, containerWidth < 640 ? 20 : 28)}px`
-                  }}
+                  className="flex items-end justify-center"
+                  style={{ gap: `${gapBetweenBars}px`, height: `${chartHeight}px` }}
                 >
-                  {/* Bars for each date */}
-                  <div className={`flex items-end justify-center ${containerWidth < 640 ? 'gap-0.5' : 'gap-1'} w-full h-full pb-6`}>
-                    {dateGroup.assessments.map((assessment, index) => {
-                      const heightPercent = maxCount > 0 
-                        ? Math.max((assessment.completedCount / maxCount) * 100, 10)
-                        : 10
-                      const barColor = getBarColor(index)
-                      const hoverColor = getHoverColor(index)
+                  {dateGroup.assessments.map((assessment, index) => {
+                    const barHeight = Math.max(
+                      (assessment.completedCount / maxCount) * chartHeight,
+                      10
+                    )
 
-                      return (
-                        <div 
-                          key={assessment.id}
-                          className="flex flex-col items-center group relative h-full"
-                        >
-                          <div className="relative flex flex-col justify-end h-full w-full">
-                            {/* Bar */}
-                            <button
-                              onClick={() => handleViewDetails(assessment.id)}
-                              className={`rounded-t-lg transition-all duration-300 cursor-pointer shadow-lg ${barColor} ${hoverColor} mx-auto transform group-hover:scale-105 group-hover:shadow-2xl group-hover:translate-y-[-2px]`}
-                              style={{
-                                width: `${baseWidth}px`,
-                                height: `${heightPercent}%`,
-                                minHeight: '20px'
-                              }}
-                              title={`${assessment.name}: ${assessment.completedCount} student${assessment.completedCount !== 1 ? 's' : ''}`}
-                            />
-                          </div>
+                    const barColor = getBarColor(index)
+                    const hoverColor = getHoverColor(index)
 
-                          {/* Enhanced Tooltip */}
-                          <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap z-20 border border-gray-600 shadow-2xl backdrop-blur-sm max-w-[150px] md:max-w-[200px]">
-                            <div className="font-semibold mb-1 truncate text-[var(--primary-2)]">
-                              {assessment.name}
-                            </div>
+                    return (
+                      <div key={assessment.id} className="flex flex-col items-center group relative h-full">
+                        <div className="relative flex flex-col justify-end h-full">
+                          {/* Tooltip - Moved to be a sibling of the button */}
+                          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 hidden group-hover:flex flex-col items-center z-50 bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap border border-gray-600 shadow-2xl backdrop-blur-sm transition-opacity duration-200 opacity-0 group-hover:opacity-100 pointer-events-none">
+                            <div className="font-semibold mb-1 truncate text-[var(--primary-2)]">{assessment.name}</div>
                             <div className="text-[var(--secondary-2)] font-medium">
-                              {assessment.completedCount} student{assessment.completedCount !== 1 ? 's' : ''}
+                              Count: {assessment.completedCount}
                             </div>
-                            <div className="text-gray-400 text-xs mt-1">
-                              Click to view details
-                            </div>
-                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px">
+                            <div className="text-gray-400 text-xs mt-1">Click to view details</div>
+                            <div className="absolute top-full left-1/2 transform -translate-x-1/2">
                               <div className="border-[5px] border-transparent border-t-gray-900"></div>
                             </div>
                           </div>
+
+                          <button
+                            onClick={() => handleViewDetails(assessment.id)}
+                            className={`rounded-t-lg transition-all duration-300 cursor-pointer shadow-lg ${barColor} ${hoverColor} transform group-hover:scale-105 group-hover:shadow-2xl`}
+                            style={{
+                              width: `${barWidth}px`,
+                              height: `${barHeight}px`,
+                            }}
+                            title={`${assessment.name}: ${assessment.completedCount} students`}
+                          />
                         </div>
-                      )
-                    })}
-                  </div>
+                      </div>
+                    )
+                  })}
+                </div>
 
-                  {/* Date label */}
-                  <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-center whitespace-nowrap w-full px-1">
-                    <div className={`text-xs text-gray-300 font-semibold ${containerWidth < 640 ? 'truncate max-w-[40px]' : ''}`}>
-                      {(() => {
-                        const day = dateGroup.displayDate.getDate()
-                        const month = dateGroup.displayDate.toLocaleDateString('en-US', { month: 'short' })
-                        const year = dateGroup.displayDate.getFullYear()
-                        const currentYear = new Date().getFullYear()
-
-                        if (year === currentYear) {
-                          return `${day} ${month}`
-                        } else {
-                          return `${day} ${month} '${year.toString().slice(-2)}`
-                        }
-                      })()}
-                    </div>
+                {/* Date label */}
+                <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-center whitespace-nowrap w-full px-1">
+                  <div
+                    className={`text-xs text-gray-300 font-semibold ${
+                      containerWidth < 640 ? "truncate max-w-[40px]" : ""
+                    }`}
+                  >
+                    {(() => {
+                      const d = dateGroup.displayDate
+                      const day = d.getDate()
+                      const month = d.toLocaleDateString("en-US", { month: "short" })
+                      const year = d.getFullYear()
+                      const currentYear = new Date().getFullYear()
+                      return year === currentYear
+                        ? `${day} ${month}`
+                        : `${day} ${month} '${year.toString().slice(-2)}`
+                    })()}
                   </div>
                 </div>
-              )
-            })}
-          </div>
-
-          {/* Grid lines */}
-          <div className="absolute left-8 md:left-12 right-0 top-0 bottom-8 pointer-events-none">
-            <div className="absolute top-0 left-0 right-0 h-px bg-gray-600/30"></div>
-            <div className="absolute top-1/3 left-0 right-0 h-px bg-gray-600/30"></div>
-            <div className="absolute top-2/3 left-0 right-0 h-px bg-gray-600/30"></div>
-            <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-600/30"></div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

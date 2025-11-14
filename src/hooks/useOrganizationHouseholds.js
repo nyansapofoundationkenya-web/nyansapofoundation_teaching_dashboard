@@ -42,13 +42,22 @@ export const useOrganizationHouseholds = (orgId) => {
             const householdsSnap = await getDocs(householdsRef)
 
             for (const hhDoc of householdsSnap.docs) {
+              // Get location data from school instead of household
               allHouseholds.push({
                 id: hhDoc.id,
                 projectId,
                 projectName: projectData?.name || projectId,
                 schoolId,
                 schoolName: schoolData?.name || schoolId,
-                ...hhDoc.data()
+                // Use school data for location information
+                village: schoolData?.name || 'N/A', // Village comes from school name
+                county: schoolData?.location || 'N/A', // County comes from school location
+                subcounty: schoolData?.subcounty || 'N/A', // Subcounty from school subcounty field
+                ...hhDoc.data(),
+                // Override any existing location fields from household with school data
+                county: schoolData?.location || hhDoc.data().county || 'N/A',
+                subCounty: schoolData?.subcounty || hhDoc.data().subCounty || 'N/A',
+                village: schoolData?.name || hhDoc.data().village || 'N/A'
               })
             }
           }
@@ -103,7 +112,15 @@ export const useOrganizationHouseholds = (orgId) => {
             projectName: projectData?.name || projectId,
             schoolId,
             schoolName: schoolData?.name || schoolId,
-            ...hhDoc.data()
+            // Use school data for location information
+            village: schoolData?.name || 'N/A', // Village comes from school name
+            county: schoolData?.location || 'N/A', // County comes from school location
+            subcounty: schoolData?.subcounty || 'N/A', // Subcounty from school subcounty field
+            ...hhDoc.data(),
+            // Override any existing location fields from household with school data
+            county: schoolData?.location || hhDoc.data().county || 'N/A',
+            subCounty: schoolData?.subcounty || hhDoc.data().subCounty || 'N/A',
+            village: schoolData?.name || hhDoc.data().village || 'N/A'
           })
         }
       }
@@ -129,10 +146,10 @@ export const useOrganizationHouseholds = (orgId) => {
       'Respondent Age': household.respondentAge,
       'Household Members Count': household.householdMembersCount,
       
-      // Location
+      // Location (now from school data)
       'County': household.county,
       'Sub-County': household.subCounty,
-      'Ward': household.ward,
+      // 'Ward': household.ward,
       'Village': household.village,
       
       // Demographics

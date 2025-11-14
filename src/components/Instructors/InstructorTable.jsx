@@ -303,6 +303,7 @@ function InstructorTableRow({
 
 // Action Menu Component
 function ActionMenu({ instructor, onEdit, onDelete, canUpdateRoles, onRoleUpdateClick }) {
+  console.log(instructor)
   return (
     <div className="absolute right-0 mt-1 w-48 bg-background-light rounded-xl shadow-lg z-50 border border-primary-3/30">
       <button

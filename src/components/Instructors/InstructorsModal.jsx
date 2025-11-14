@@ -190,6 +190,7 @@ export default function InstructorModal({
       );
       
       if (result.success) {
+        
         onSubmit(result.instructorId);
         onClose();
       }
