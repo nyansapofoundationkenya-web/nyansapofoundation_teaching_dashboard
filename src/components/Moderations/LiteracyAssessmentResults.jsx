@@ -1,8 +1,9 @@
 "use client";
-import { useState, useEffect,useSelector } from "react";
+import { useState, useEffect} from "react";
 import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
 
 export default function StudentAssessmentResults({ assessmentId, studentId, organizationId }) {
   const [results, setResults] = useState(null);

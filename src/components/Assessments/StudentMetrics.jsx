@@ -4,18 +4,22 @@ import { Users, CheckCircle, PlayCircle, Clock } from "lucide-react"
 
 export default function StudentMetrics({ students, loading = false }) {
   // Calculate metrics
-  const totalStudents = students?.length || 0
-  
-  const completedCount = students?.filter(student => 
-    student.completed_assessment === true
-  ).length || 0
+ const totalStudents = students?.length || 0
 
-  const startedNotCompletedCount = students?.filter(student => 
-    student.assessment_status === "started_not_completed" && 
-    student.completed_assessment !== true
-  ).length || 0
+    // ✔ Completed: if has_done or linked is true
+    const completedCount = students?.filter(student =>
+      student.has_done === true || student.linked === true
+    ).length || 0
 
-  const notStartedCount = totalStudents - completedCount - startedNotCompletedCount
+    // ✔ Started but not completed: assessment_status = "started_not_completed"
+    //   AND not considered completed
+    const startedNotCompletedCount = students?.filter(student =>
+      student.assessment_status === "started_not_completed" &&
+      !(student.has_done === true || student.linked === true)
+    ).length || 0
+
+    // ✔ Not started = everyone else
+    const notStartedCount = totalStudents - completedCount - startedNotCompletedCount
 
   if (loading) {
     return <StudentMetricsSkeleton />

@@ -49,13 +49,13 @@ export default function Filter({ organizationId, onFilterChange }) {
           }
           
           // Count completed students based on baseline data
-          let completedCount = 0
-          if (data.assigned_students && Array.isArray(data.assigned_students)) {
-            completedCount = data.assigned_students.filter(student => 
-              student.baseline && student.baseline !== ""
-            ).length
-          }
-          
+        let completedCount = 0; 
+
+          if (Array.isArray(data.assigned_students)) {
+            completedCount = data.assigned_students.filter(student =>
+              student.has_done === true && student.linked === true
+            ).length;
+          }          
           // Only include assessments with completed students
           if (completedCount > 0) {
             if (!assessmentsByDate[dateStr]) {
