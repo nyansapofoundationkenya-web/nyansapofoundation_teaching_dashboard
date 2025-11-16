@@ -41,7 +41,7 @@ export default function StudentDetailsPage() {
       try {
         setLoading(true);
 
-        // 1. Fetch assessment to get project_id & school_id
+        // 1. Fetch assessment to get assigned_students array
         const assessmentRef = doc(db, "assessments", assessmentId);
         const assessmentSnap = await getDoc(assessmentRef);
 
@@ -49,25 +49,22 @@ export default function StudentDetailsPage() {
         const assessmentData = assessmentSnap.data();
         setAssessment(assessmentData);
 
-        // 2. Fetch student using nested path
-        const studentRef = doc(
-          db,
-          "organization",
-          organizationId,
-          "projects",
-          assessmentData.project_id,
-          "schools",
-          assessmentData.school_id,
-          "students",
-          studentId
-        );
+        // 2. Find the specific student in the assigned_students array
+        const assignedStudents = assessmentData.assigned_students || [];
+        const foundStudent = assignedStudents.find(student => student.id === studentId);
 
-        const studentSnap = await getDoc(studentRef);
-        if (!studentSnap.exists()) throw new Error("Student not found");
+        if (!foundStudent) throw new Error("Student not found in assessment");
 
         setStudent({
-          id: studentSnap.id,
-          ...studentSnap.data(),
+          id: foundStudent.id,
+          first_name: foundStudent.first_name,
+          last_name: foundStudent.last_name,
+          grade: foundStudent.grade,
+          sex: foundStudent.sex,
+          baseline: foundStudent.baseline,
+          has_done: foundStudent.has_done,
+          group: foundStudent.group,
+          // Add any other fields you need from the assigned_students array
         });
       } catch (err) {
         setError(err.message);
@@ -81,8 +78,7 @@ export default function StudentDetailsPage() {
     }
   }, [organizationId, assessmentId, studentId]);
 
-
-  console.log(student)
+  console.log(student);
 
   /* ------------------------------------------------------------------ */
   /*  Loading State                                                     */
@@ -128,8 +124,7 @@ export default function StudentDetailsPage() {
   /* ------------------------------------------------------------------ */
   const pageTitle = `${student.first_name} ${student.last_name}`;
   const assessmentType = assessment.type?.toLowerCase() || 'literacy';
-  const baseline = student?.[assessmentType]?.baseline || "";
-  // console.log(assessmentType)
+  const baseline = student?.baseline || "";
 
   return (
     <DashboardLayout title={pageTitle} organizationId={organizationId}>
@@ -146,6 +141,12 @@ export default function StudentDetailsPage() {
               <span className="inline-block bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
                 {assessmentType.charAt(0).toUpperCase() + assessmentType.slice(1)} Assessment
               </span>
+              {/* <span className="inline-block ml-2 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                Grade {student.grade}
+              </span>
+              <span className="inline-block ml-2 bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                {student.sex}
+              </span> */}
             </div>
           </div>
 

@@ -133,75 +133,93 @@ export const useOrganizationHouseholds = (orgId) => {
   }
 
   // Flatten household data for export
-  const flattenHouseholdData = (household) => {
-    const flattened = {
-      // Basic Info
-      // 'Project Name': household.projectName,
-      // 'School Name': household.schoolName,
-      'Interview Date': household.interviewDate ? new Date(household.interviewDate).toLocaleDateString() : 'N/A',
-      'Household Head Name': household.householdHeadName,
-      'Household Head Phone': household.householdHeadPhone,
-      'Is Household Head': household.householdHead ? 'Yes' : 'No',
-      'Respondent Name': household.respondentName,
-      'Respondent Age': household.respondentAge,
-      'Household Members Count': household.householdMembersCount,
-      
-      // Location (now from school data)
-      'County': household.county,
-      'Sub-County': household.subCounty,
-      // 'Ward': household.ward,
-      'Village': household.village,
-      
-      // Demographics
-      'Main Language': household.mainLanguage,
-      'Marital Status': household.maritalStatus || 'N/A',
-      'Relationship to Head': household.relationshipToHead,
-      
-      // Economic
-      'Income Source': household.incomeSource,
-      'Has Electricity': household.hasElectricity ? 'Yes' : 'No',
-      'Household Assets': household.householdAssets?.join(', ') || 'None',
-      
-      // Interview Info
-      'Interviewer Name': household.interviewerName,
-      'Consent Given': household.consentGiven ? 'Yes' : 'No',
-    }
-
-    // Children Information
-    if (household.children && household.children.length > 0) {
-      flattened['Number of Children'] = household.children.length
-      
-      household.children.forEach((child, index) => {
-        const childNum = index + 1
-        const fullName = `${child.firstName || ''} ${child.lastName || ''}`.trim()
-        flattened[`Child ${childNum} - Name`] = fullName || 'N/A'
-        flattened[`Child ${childNum} - Age`] = child.age
-        flattened[`Child ${childNum} - Gender`] = child.gender
-        flattened[`Child ${childNum} - Lives With`] = child.livesWith
-      })
-    } else {
-      flattened['Number of Children'] = 0
-    }
-
-    // Learning Environment
-    if (household.childLearningEnvironment) {
-      flattened['Has Books/Materials'] = household.childLearningEnvironment.hasBooksOrMaterials ? 'Yes' : 'No'
-      flattened['Has Quiet Study Place'] = household.childLearningEnvironment.hasQuietPlaceToStudy ? 'Yes' : 'No'
-      flattened['Missed School Last Month'] = household.childLearningEnvironment.missedSchoolLastMonth ? 'Yes' : 'No'
-      flattened['Reason for Missing School'] = household.childLearningEnvironment.reasonForMissingSchool || 'N/A'
-    }
-
-    // Parental Engagement
-    if (household.parentalEngagement) {
-      flattened['Has School Age Child'] = household.parentalEngagement.hasSchoolAgeChild ? 'Yes' : 'No'
-      flattened['Attends School Meetings'] = household.parentalEngagement.attendsSchoolMeetings ? 'Yes' : 'No'
-      flattened['Monitors Attendance'] = household.parentalEngagement.monitorsAttendance ? 'Yes' : 'No'
-      flattened['Homework Helper'] = household.parentalEngagement.homeworkHelper || 'N/A'
-      flattened['Teacher Discussion Frequency'] = household.parentalEngagement.teacherDiscussionFrequency || 'N/A'
-    }
-
-    return flattened
+const flattenHouseholdData = (household) => {
+  const flattened = {
+    // Basic Info
+    // 'Project Name': household.projectName,
+    // 'School Name': household.schoolName,
+    'Interview Date': household.interviewDate ? new Date(household.interviewDate).toLocaleDateString() : 'N/A',
+    'Household Head Name': household.householdHeadName,
+    'Household Head Phone': household.householdHeadPhone,
+    'Is Household Head': household.householdHead ? 'Yes' : 'No',
+    'Respondent Name': household.respondentName,
+    'Respondent Age': household.respondentAge,
+    'Household Members Count': household.householdMembersCount,
+    
+    // Location (now from school data)
+    'County': household.county,
+    'Sub-County': household.subCounty,
+    // 'Ward': household.ward,
+    'Village': household.village,
+    
+    // Demographics
+    'Main Language': household.mainLanguage,
+    'Marital Status': household.maritalStatus || 'N/A',
+    'Relationship to Head': household.relationshipToHead,
+    
+    // Economic
+    'Income Source': household.incomeSource,
+    'Has Electricity': household.hasElectricity ? 'Yes' : 'No',
+    'Household Assets': household.householdAssets?.join(', ') || 'None',
+    
+    // Interview Info
+    'Interviewer Name': household.interviewerName,
+    'Consent Given': household.consentGiven ? 'Yes' : 'No',
   }
+
+  // Parents Information
+  if (household.parents && household.parents.length > 0) {
+    flattened['Number of Parents'] = household.parents.length
+    
+    household.parents.forEach((parent, index) => {
+      const parentNum = index + 1
+      flattened[`Parent ${parentNum} - Name`] = parent.name || 'N/A'
+      flattened[`Parent ${parentNum} - Type`] = parent.type || 'N/A'
+      flattened[`Parent ${parentNum} - Age`] = parent.age
+      flattened[`Parent ${parentNum} - Has Attended School`] = parent.hasAttendedSchool ? 'Yes' : 'No'
+      flattened[`Parent ${parentNum} - Highest Education Level`] = parent.highestEducationLevel || 'N/A'
+    })
+  } else {
+    flattened['Number of Parents'] = 0
+  }
+
+  // Children Information
+  if (household.children && household.children.length > 0) {
+    flattened['Number of Children'] = household.children.length
+    
+    household.children.forEach((child, index) => {
+      const childNum = index + 1
+      const fullName = `${child.firstName || ''} ${child.lastName || ''}`.trim()
+      flattened[`Child ${childNum} - Name`] = fullName || 'N/A'
+      flattened[`Child ${childNum} - Age`] = child.age
+      flattened[`Child ${childNum} - Gender`] = child.gender
+      flattened[`Child ${childNum} - Lives With`] = child.livesWith
+      flattened[`Child ${childNum} - Was Assessed In 2024`] = child.wasAssessedIn2024 || false
+      flattened[`Child ${childNum} - Was Above Story Level In 2024`] = child.wasAboveStoryLevelIn2024 || false
+    })
+  } else {
+    flattened['Number of Children'] = 0
+  }
+
+  // Learning Environment
+  if (household.childLearningEnvironment) {
+    flattened['Has Books/Materials'] = household.childLearningEnvironment.hasBooksOrMaterials ? 'Yes' : 'No'
+    flattened['Has Quiet Study Place'] = household.childLearningEnvironment.hasQuietPlaceToStudy ? 'Yes' : 'No'
+    flattened['Missed School Last Month'] = household.childLearningEnvironment.missedSchoolLastMonth ? 'Yes' : 'No'
+    flattened['Reason for Missing School'] = household.childLearningEnvironment.reasonForMissingSchool || 'N/A'
+  }
+
+  // Parental Engagement
+  if (household.parentalEngagement) {
+    // flattened['Has School Age Child'] = household.parentalEngagement.hasSchoolAgeChild ? 'Yes' : 'No'
+    flattened['Attends School Meetings'] = household.parentalEngagement.attendsSchoolMeetings ? 'Yes' : 'No'
+    flattened['Monitors Attendance'] = household.parentalEngagement.monitorsAttendance ? 'Yes' : 'No'
+    flattened['Who helps the  child with homework'] = household.parentalEngagement.homeworkHelper || 'N/A'
+    flattened['Teacher Discussion Frequency'] = household.parentalEngagement.teacherDiscussionFrequency || 'N/A'
+  }
+
+  return flattened
+}
 
   // Convert to CSV
   const convertToCSV = (data) => {
