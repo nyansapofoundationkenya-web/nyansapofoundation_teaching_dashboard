@@ -18,72 +18,95 @@ export default function AssessmentResults({
 }) {
   const router = useRouter();
   
-  const getColoredWords = (content, transcript) => {
-    if (!content) return { coloredWords: null, stats: { totalWords: 0, mistakes: 0, isCompleteMismatch: false } };
+function normalizeText(text) {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ') // remove punctuation
+    .split(/\s+/)
+    .filter(Boolean);
+}
 
-    // Clean and split expected content into words (for matching only)
-    const expectedClean = content.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(word => word.length > 0);
-    
-    // Clean and split transcript into words (consistent cleaning)
-    const transcriptWords = (transcript || "").toLowerCase()
-      .replace(/[^\w\s]/g, ' ')
-      .split(/\s+/)
-      .filter(word => word.length > 0);
+function levenshteinAlignment(expectedWords, spokenWords) {
+  const m = expectedWords.length;
+  const n = spokenWords.length;
+  const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
 
-    const totalWords = expectedClean.length;
-    let mistakes = 0;
-    let transcriptIndex = 0;
-    let matchedIndices = new Set(); // Track which expected words were matched (by clean index)
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
 
-    // Sequential matching like countMistakes
-    for (let i = 0; i < expectedClean.length; i++) {
-      const expectedWord = expectedClean[i];
-      let found = false;
-      for (let j = transcriptIndex; j < transcriptWords.length; j++) {
-        if (transcriptWords[j] === expectedWord) {
-          transcriptIndex = j + 1;
-          found = true;
-          matchedIndices.add(i);
-          break;
-        }
-      }
-      if (!found) {
-        mistakes++;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (expectedWords[i - 1] === spokenWords[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
       }
     }
+  }
 
-    const isCompleteMismatch = mistakes === totalWords;
+  // Backtrack to find matched and mismatched words
+  const matchedIndices = new Set();
+  let i = m, j = n;
+  while (i > 0 && j > 0) {
+    if (expectedWords[i - 1] === spokenWords[j - 1]) {
+      matchedIndices.add(i - 1);
+      i--;
+      j--;
+    } else if (dp[i - 1][j - 1] <= dp[i - 1][j] && dp[i - 1][j - 1] <= dp[i][j - 1]) {
+      i--;
+      j--;
+    } else if (dp[i - 1][j] < dp[i][j - 1]) {
+      i--;
+    } else {
+      j--;
+    }
+  }
 
-    // Now generate colored JSX using original content words
-    // Split original content to preserve punctuation/spacing
-    const contentWords = content.trim().split(/\s+/);
-    const coloredWords = contentWords.map((word, index) => {
-      // Map original word index to clean index (approximate, assuming 1:1 after cleaning)
-      // This is a simplification; for exact mapping, you'd need to align cleaned vs original positions
-      // But since cleaning mostly removes punctuation (not adding/removing words), index ≈ clean index
-      const cleanIndex = index; // Fallback assumption
-      const cleanWord = word.replace(/[^\w\s]/g, '').toLowerCase();
-      
-      // Check if this clean word was matched (using the set)
-      const matched = matchedIndices.has(cleanIndex) || (expectedClean[cleanIndex] === cleanWord && matchedIndices.has(cleanIndex));
-      
-      return (
-        <span
-          key={index}
-          className={`mr-1 font-semibold ${
-            matched ? "text-secondary-2" : "text-red-400"
-          }`}
-        >
-          {word}
-        </span>
-      );
-    });
-
-    return { 
-      coloredWords, 
-      stats: { totalWords, mistakes, isCompleteMismatch } 
+  const mistakes = dp[m][n];
+  return { mistakes, matchedIndices };
+}
+const getColoredWords = (content, transcript) => {
+  if (!content) {
+    return {
+      coloredWords: null,
+      stats: { totalWords: 0, mistakes: 0, accuracy: 0 },
     };
+  }
+
+  // Normalize both
+  const expectedWords = normalizeText(content);
+  const spokenWords = normalizeText(transcript || "");
+
+  // Align using Levenshtein
+  const { mistakes, matchedIndices } = levenshteinAlignment(expectedWords, spokenWords);
+
+  const totalWords = expectedWords.length;
+  const accuracy = totalWords ? Math.max(0, ((totalWords - mistakes) / totalWords) * 100) : 0;
+
+  // Split original content (preserve punctuation for display)
+  const contentWords = content.trim().split(/\s+/);
+
+  const coloredWords = contentWords.map((word, index) => {
+    const cleanWord = word.replace(/[^\w\s]/g, "").toLowerCase();
+    const matched = matchedIndices.has(index);
+
+    return (
+      <span
+        key={index}
+        className={`mr-1 font-semibold ${
+          matched ? "text-secondary-2" : "text-red-400"
+        }`}
+      >
+        {word}
+      </span>
+    );
+  });
+
+  return {
+    coloredWords,
+    stats: { totalWords, mistakes, accuracy: accuracy.toFixed(1) },
   };
+};
 
   if (hasNoResults) {
     return (

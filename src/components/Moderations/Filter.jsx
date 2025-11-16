@@ -53,7 +53,7 @@ export default function Filter({ organizationId, onFilterChange }) {
 
           if (Array.isArray(data.assigned_students)) {
             completedCount = data.assigned_students.filter(student =>
-              student.has_done === true && student.linked === true
+              student.has_done === true || student.linked === true
             ).length;
           }          
           // Only include assessments with completed students

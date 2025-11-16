@@ -68,6 +68,7 @@ export default function OrganizationPage({
 
   const filteredOrganizations = getFilteredOrganizations();
   const userRole = currentUser?.role;
+  console.log(currentUser?.id)
   const isAdmin = userRole === "super_admin";
 
   // Handle add organization
