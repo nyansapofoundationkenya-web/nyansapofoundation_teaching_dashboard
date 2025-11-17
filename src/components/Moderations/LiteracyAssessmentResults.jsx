@@ -21,7 +21,7 @@ const handleResultsClick = (result, type, filteredIndex) => {
   const originalIndex = readingResults.findIndex((r) => r === result);
   
   // Role-based check: Only allow admin or super_admin to proceed
-  if (userRole === 'super_admin' || userRole === 'super_admin') {
+  if (userRole === 'admin' || userRole === 'super_admin') {
     router.push(
       `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?round=${originalIndex}`
     );
