@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect ,useMemo} from "react";
-import { useParams } from "next/navigation";
+import { useParams,useRouter } from "next/navigation";
 import Search from "@/components/Assessments/Search";
 import GradeFilter from "@/components/Assessments/GradeFIlter";
 import StudentsList from "@/components/Assessments/StudentsList";
@@ -9,15 +9,18 @@ import StudentMetrics from "@/components/Assessments/StudentMetrics";
 import DashboardLayout from "@/app/dashboard/[organizationId]/DashboardLayout";
 import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
+import { ArrowLeft } from "lucide-react";
 
 export default function AssessmentDetailsPage() {
   const { organizationId, assessmentId } = useParams();
+  const router = useRouter();
 
   const [assessment, setAssessment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [gradeFilter, setGradeFilter] = useState("All Grades");
+  const backUrl = `/dashboard/${organizationId}/moderations`;
 
   /* ------------------------------------------------------------------ */
   /*  Fetch the assessment from Firestore                               */
@@ -130,8 +133,20 @@ const filteredStudents = useMemo(() => {
         {/* Header row – title, grade filter & search */}
         <div className="bg-background-light border-b border-gray-600 px-6 py-4 rounded-2xl shadow-lg">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <h1 className="text-xl font-semibold text-foreground">{assessment.name}</h1>
+            {/* Left Section (Back + Title stacked vertically) */}
+            <div className="flex flex-col">
+              <div
+                onClick={() => router.push(backUrl)}
+                className="flex items-center text-gray-300 hover:text-white cursor-pointer w-fit mb-2"
+              >
+                <ArrowLeft size={18} className="mr-1" />
+                <span className="text-sm font-medium">Back</span>
+              </div>
 
+              <h1 className="text-xl font-semibold text-foreground">{assessment.name}</h1>
+            </div>
+
+            {/* Right Section (Filters + Search) */}
             <div className="flex items-center gap-4">
               <GradeFilter
                 selectedGrade={gradeFilter}

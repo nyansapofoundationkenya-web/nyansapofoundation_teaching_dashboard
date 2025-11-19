@@ -21,7 +21,7 @@ export default function Filter({
   const [selectedOrg, setSelectedOrg] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedSchool, setSelectedSchool] = useState(null);
-  const [loading, setLoading] = useState({
+  const [loading, setLoading] = useState({Filter,
     orgs: false,
     projects: false,
     schools: false

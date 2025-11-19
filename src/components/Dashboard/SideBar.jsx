@@ -12,7 +12,8 @@ import {
   FiUsers,
   FiLogOut,
   FiClipboard,
-  FiFileText
+  FiFileText,
+  FiCheckSquare 
 } from "react-icons/fi";
 import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/icons/logo";
@@ -112,6 +113,11 @@ const Sidebar = ({ initialTitle, organizationId }) => {
       icon: <FiMapPin size={20} />, 
       path: `/dashboard/${organizationId}/schools` 
     },
+    {
+      name: "Attendance",
+      icon: <FiCheckSquare size={20} />,
+      path: `/dashboard/${organizationId}/attendance`
+    }
   ];
 
   // Survey menu item - will be conditionally added based on permissions
@@ -234,7 +240,9 @@ const Sidebar = ({ initialTitle, organizationId }) => {
     <div className="w-64 h-[calc(100vh-2rem)] bg-background-light text-foreground flex flex-col p-4 m-2 rounded-3xl shadow-xl">
       {/* Top: Logo and Organization Info - Fixed */}
       <div className="flex-shrink-0">
-        <div className="flex flex-col items-center mb-8 p-4 rounded-2xl bg-background-lighter">
+        <div 
+        onClick={() => router.push("/organization")}
+        className="flex flex-col items-center mb-8 p-4 rounded-2xl bg-background-lighter">
           <Logo />
           <p className="mt-2 text-lg font-semibold text-foreground">
             {organization?.name}

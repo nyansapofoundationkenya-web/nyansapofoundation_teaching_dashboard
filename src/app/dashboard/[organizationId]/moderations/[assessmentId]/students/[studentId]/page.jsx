@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import StudentChart from "@/components/Students/StudentChart";
 import StudentAssessmentResults from "@/components/Moderations/StudentAssessmentResults";
 import DashboardLayout from "@/app/dashboard/[organizationId]/DashboardLayout";
 import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
+import { ArrowLeft } from "lucide-react";
 
 // Define competence levels for both types
 const COMPETENCE_LEVELS = {
@@ -35,6 +36,8 @@ export default function StudentDetailsPage() {
   const [assessment, setAssessment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const router = useRouter();
+  
 
   useEffect(() => {
     const fetchData = async () => {
@@ -125,6 +128,7 @@ export default function StudentDetailsPage() {
   const pageTitle = `${student.first_name} ${student.last_name}`;
   const assessmentType = assessment.type?.toLowerCase() || 'literacy';
   const baseline = student?.baseline || "";
+  const backUrl = `/dashboard/${organizationId}/moderations/${assessmentId}`;
 
   return (
     <DashboardLayout title={pageTitle} organizationId={organizationId}>
@@ -133,6 +137,14 @@ export default function StudentDetailsPage() {
         <div className="p-6 space-y-6">
           {/* Student Header */}
           <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
+            {/*Back Button */}
+            <div
+              onClick={() => router.push(backUrl)}
+              className="flex items-center text-gray-300 hover:text-white cursor-pointer w-fit mb-4"
+            >
+              <ArrowLeft size={18} className="mr-1" />
+              <span className="text-sm font-medium">Back</span>
+            </div>
             <h1 className="text-2xl font-bold text-foreground">
               {student.first_name} {student.last_name}
             </h1>

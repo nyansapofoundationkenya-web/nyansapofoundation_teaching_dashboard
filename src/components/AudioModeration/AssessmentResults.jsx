@@ -166,29 +166,31 @@ const getColoredWords = (content, transcript) => {
           )}
         </div>
         
-        <div className="bg-background-lighter border border-gray-600 rounded-xl p-3 mb-4 max-w-md mx-auto">
-          <h3 className="font-medium text-foreground mb-2">Model Prediction</h3>
-          {editMode ? (
-            <>
-              <input
-                type="text"
-                value={editedTranscript}
-                onChange={(e) => setEditedTranscript(e.target.value)}
-                className="w-full p-2 border border-gray-500 rounded text-gray-300 bg-background"
-                placeholder="Enter transcript"
-              />
-              {error && <p className="text-red-400 text-sm mt-2 max-w-full break-words">{error}</p>}
-            </>
-          ) : (
-            <p className="text-gray-300 max-h-20 overflow-y-auto max-w-full break-words">
-              {currentResult?.metadata?.transcript 
-                ? currentResult?.metadata?.transcript
-                : "No transcript available"
-              }
-            </p>
-          )}
+        <div className="bg-background-lighter border border-gray-600 rounded-xl p-4 mb-6 mx-auto w-full max-w-2xl">
+  <h3 className="font-medium text-foreground mb-3">Model Prediction</h3>
+      {editMode ? (
+        <div className="space-y-3">
+          <textarea
+            value={editedTranscript}
+            onChange={(e) => setEditedTranscript(e.target.value)}
+            className="w-full p-3 border border-gray-500 rounded-lg text-gray-300 bg-background resize-y min-h-48 text-base leading-relaxed"
+            placeholder="Enter transcript"
+            rows={8}
+          />
+          {error && <p className="text-red-400 text-sm max-w-full break-words">{error}</p>}
         </div>
-
+      ) : (
+        <div 
+          className="w-full p-3 rounded-lg bg-background border border-transparent text-gray-300 break-words whitespace-pre-wrap max-h-96 overflow-y-auto text-base leading-relaxed cursor-text"
+          onClick={() => setEditMode(true)} // Optional: make entire area clickable to edit
+        >
+          {currentResult?.metadata?.transcript 
+            ? currentResult?.metadata?.transcript
+            : "No transcript available"
+          }
+        </div>
+      )}
+    </div>
         {children}
       </div>
     </>
