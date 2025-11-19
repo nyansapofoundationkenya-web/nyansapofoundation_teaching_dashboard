@@ -45,6 +45,7 @@ export default function AudioPlayer({ currentResult }) {
   };
 
   const formatTime = (time) => {
+    if (!time || isNaN(time)) return "0:00";
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
@@ -63,7 +64,10 @@ export default function AudioPlayer({ currentResult }) {
   return (
     <div className="bg-primary-3 rounded-xl p-3 mb-4 max-w-md mx-auto">
       <div className="flex items-center gap-3">
-        <button onClick={togglePlayPause} className="flex-shrink-0">
+        <button 
+          onClick={togglePlayPause} 
+          className="flex-shrink-0 hover:opacity-80 transition-opacity"
+        >
           {isPlaying ? (
             <Pause className="w-6 h-6 text-primary-1" />
           ) : (
@@ -72,16 +76,16 @@ export default function AudioPlayer({ currentResult }) {
         </button>
         <div className="flex-1 max-w-full">
           <div className="text-sm font-medium text-primary-1 mb-1">
-            {formatTime(currentTime)}/{formatTime(duration)}
+            {formatTime(currentTime)} / {formatTime(duration)}
           </div>
           <div
-            className="w-full h-2 bg-primary-1 bg-opacity-20 rounded-full cursor-pointer"
+            className="w-full h-2 bg-secondary-3 rounded-full cursor-pointer hover:h-3 transition-all"
             onClick={handleSeek}
           >
             <div
-              className="h-full bg-primary-1 rounded-full"
+              className="h-full bg-secondary-2 rounded-full transition-all duration-100"
               style={{
-                width: duration ? `${(currentTime / duration) * 100}%` : "0%",
+                width: duration && duration > 0 ? `${(currentTime / duration) * 100}%` : "0%",
               }}
             />
           </div>
