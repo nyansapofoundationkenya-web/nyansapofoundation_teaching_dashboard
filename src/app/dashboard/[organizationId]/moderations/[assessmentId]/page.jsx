@@ -30,7 +30,7 @@ export default function AssessmentDetailsPage() {
       try {
         const assessmentRef = doc(db, "assessments", assessmentId);
         const snap = await getDoc(assessmentRef);
-
+undefined
         if (!snap.exists()) throw new Error("Assessment not found");
 
         setAssessment({ id: snap.id, ...snap.data() });

@@ -7,13 +7,13 @@ export default function StudentHeader({ studentName, hasNoResults, stats, assess
   const router = useRouter();
   const params = useParams();
 
-  const { orgId, assessmentId, studentId } = params;
+  const { organizationId, assessmentId, studentId } = params;
 
   const isVerified = assessmentData?.verified === true;
   const displayStatus = isVerified ? "Verified" : "Unverified";
 
   // Build the back URL (one level up — student details page)
-  const backUrl = `/dashboard/${orgId}/moderations/${assessmentId}/students/${studentId}`;
+  const backUrl = `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}`;
 
   return (
     <div className="bg-background-light border-b border-gray-600 px-4 py-3 mb-4">
