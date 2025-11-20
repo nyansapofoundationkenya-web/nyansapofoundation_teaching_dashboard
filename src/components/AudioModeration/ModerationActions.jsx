@@ -12,6 +12,7 @@ export default function ModerationActions({
   const handleBadAudio = () => {
     setValidationStatus("bad_audio");
     updateAssessmentResult({
+      passed:false,
       badaudio: true,
       modeltranscriptionverified: true,
     });
