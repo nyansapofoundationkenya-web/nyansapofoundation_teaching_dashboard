@@ -1,18 +1,19 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react";
-import AddOrganization from "@/components/Button/AddOrganizationButton"
-import { ArrowLeft, Copy, Check, Clock } from "lucide-react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { Suspense, useState, useEffect } from "react";
+import AddOrganization from "@/components/Button/AddOrganizationButton";
+import { ArrowLeft, Copy, Check, Clock } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function NoOrganizationPage({ onAddOrganization }) {
+// Inner component that actually uses useSearchParams
+function NoOrganizationPageContent({ onAddOrganization }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   // Get OTP and phone from URL parameters
-  const otpFromParams = searchParams.get('otp');
-  const phoneFromParams = searchParams.get('phone');
-  
+  const otpFromParams = searchParams.get("otp");
+  const phoneFromParams = searchParams.get("phone");
+
   const [otp] = useState(otpFromParams);
   const [phone] = useState(phoneFromParams);
   const [copied, setCopied] = useState(false);
@@ -27,7 +28,7 @@ export default function NoOrganizationPage({ onAddOrganization }) {
     }
 
     const timer = setInterval(() => {
-      setTimeLeft(prevTime => prevTime - 1);
+      setTimeLeft((prevTime) => prevTime - 1);
     }, 1000);
 
     return () => clearInterval(timer);
@@ -39,33 +40,33 @@ export default function NoOrganizationPage({ onAddOrganization }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy:', err);
+      console.error("Failed to copy:", err);
     }
   };
 
   const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
   const handleGoToLogin = () => {
-    router.push('/');
+    router.push("/");
   };
 
-  // If no OTP or phone in URL, show basic no organization page
+  // If no OTP or phone in URL, show basic "no organization" page
   if (!otp || !phone) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#27487F] to-[#52B6DF] flex flex-col">
         <header className="p-4 flex justify-between items-center">
-          <button 
-            onClick={() => router.push("/signup")} 
+          <button
+            onClick={() => router.push("/signup")}
             className="text-white hover:bg-blue-600/30 p-2 rounded-full transition-colors"
           >
             <ArrowLeft className="h-6 w-6" />
           </button>
-          <button 
-            onClick={() => router.push("/signup")} 
+          <button
+            onClick={() => router.push("/signup")}
             className="text-white hover:underline"
           >
             Log out
@@ -73,27 +74,33 @@ export default function NoOrganizationPage({ onAddOrganization }) {
         </header>
 
         <main className="flex-1 flex flex-col items-center justify-center px-4 text-center">
-          <h1 className="text-white text-2xl font-bold mb-2">No organization at this time</h1>
-          <p className="text-white/80 mb-8 max-w-md">Reach out to your organization or get in touch to create your organization</p>
-          <AddOrganization onClick={onAddOrganization} />
+          <h1 className="text-white text-2xl font-bold mb-2">
+            No organization at this time
+          </h1>
+          <p className="text-white/80 mb-8 max-w-md">
+            Reach out to your organization or get in touch to create your
+            organization
+          </p>
+          {/* <AddOrganization onClick={onAddOrganization} /> */}
         </main>
       </div>
     );
   }
 
+  // If OTP and phone exist, show the OTP details page
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#27487F] to-[#52B6DF] flex flex-col">
       {/* Header */}
       <header className="p-4 flex justify-between items-center">
-        <button 
-          onClick={() => router.push("/signup")} 
+        <button
+          onClick={() => router.push("/signup")}
           className="text-white hover:bg-blue-600/30 p-2 rounded-full transition-colors"
         >
           <ArrowLeft className="h-6 w-6" />
         </button>
 
-        <button 
-          onClick={() => router.push("/signup")} 
+        <button
+          onClick={() => router.push("/signup")}
           className="text-white hover:underline"
         >
           Log out
@@ -109,15 +116,20 @@ export default function NoOrganizationPage({ onAddOrganization }) {
               <Clock className="h-6 w-6 text-yellow-400" />
             </div>
           </div>
-          
-          <h2 className="text-white text-xl font-bold mb-2">Account Created Successfully!</h2>
+
+          <h2 className="text-white text-xl font-bold mb-2">
+            Account Created Successfully!
+          </h2>
           <p className="text-white/80 text-sm mb-4">
-            Use this one-time password for your first login to activate your account
+            Use this one-time password for your first login to activate your
+            account
           </p>
 
           {/* OTP Display */}
           <div className="bg-white/5 rounded-xl p-4 mb-4 border border-white/10">
-            <p className="text-white/70 text-sm mb-3">Your One-Time Password:</p>
+            <p className="text-white/70 text-sm mb-3">
+              Your One-Time Password:
+            </p>
             <div className="flex items-center justify-center space-x-3 mb-2">
               <code className="text-3xl font-mono font-bold text-white tracking-wider">
                 {otp}
@@ -129,12 +141,21 @@ export default function NoOrganizationPage({ onAddOrganization }) {
                 {copied ? <Check size={20} /> : <Copy size={20} />}
               </button>
             </div>
-            
+
             {/* Countdown Timer */}
             <div className="flex items-center justify-center space-x-2 text-sm">
-              <Clock size={16} className={`${isExpired ? 'text-red-400' : 'text-yellow-400'}`} />
-              <span className={isExpired ? 'text-red-400 font-semibold' : 'text-white/80'}>
-                {isExpired ? 'Expired' : `Expires in ${formatTime(timeLeft)}`}
+              <Clock
+                size={16}
+                className={`${isExpired ? "text-red-400" : "text-yellow-400"}`}
+              />
+              <span
+                className={
+                  isExpired
+                    ? "text-red-400 font-semibold"
+                    : "text-white/80"
+                }
+              >
+                {isExpired ? "Expired" : `Expires in ${formatTime(timeLeft)}`}
               </span>
             </div>
           </div>
@@ -147,7 +168,9 @@ export default function NoOrganizationPage({ onAddOrganization }) {
 
           {/* Instructions */}
           <div className="text-white/70 text-xs space-y-1 mb-4">
-            <p><strong>Next Steps:</strong></p>
+            <p>
+              <strong>Next Steps:</strong>
+            </p>
             <p>• Go to Login page</p>
             <p>• Enter your phone number above</p>
             <p>• Enter the one-time password above</p>
@@ -164,8 +187,6 @@ export default function NoOrganizationPage({ onAddOrganization }) {
             Go to Login
           </button>
 
-          {/* <AddOrganization onClick={onAddOrganization} /> */}
-
           {isExpired && (
             <div className="p-3 bg-red-500/20 text-red-400 rounded-xl border border-red-500/30 text-sm">
               OTP has expired. Please contact support for assistance.
@@ -174,5 +195,14 @@ export default function NoOrganizationPage({ onAddOrganization }) {
         </div>
       </main>
     </div>
+  );
+}
+
+// Wrap the component in a Suspense boundary
+export default function NoOrganizationPage() {
+  return (
+    <Suspense fallback={<div className="text-center text-white p-8">Loading...</div>}>
+      <NoOrganizationPageContent />
+    </Suspense>
   );
 }
