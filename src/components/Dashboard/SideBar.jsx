@@ -15,7 +15,7 @@ import {
   FiFileText,
   FiCheckSquare 
 } from "react-icons/fi";
-import { useAuth } from "@/hooks/useAuth";
+import { useLogin } from "@/hooks/Auth/useLogin";
 import Logo from "@/icons/logo";
 import { FileAudio } from "lucide-react";
 import { useOrganizations } from "@/hooks/useOrganization";
@@ -70,7 +70,7 @@ const Sidebar = ({ initialTitle, organizationId }) => {
   const pathname = usePathname();
   const [title, setTitle] = useState(initialTitle || "");
   const [hoveredItem, setHoveredItem] = useState(null);
-  const { handleLogout } = useAuth();
+  const { handleLogout } = useLogin();
   const { handleFetchOrganizationById } = useOrganizations();
   const [organization, setOrganization] = useState(null);
   

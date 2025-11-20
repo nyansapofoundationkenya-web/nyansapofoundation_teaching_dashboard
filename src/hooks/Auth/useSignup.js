@@ -1,196 +1,79 @@
-import { useState, useEffect, useRef } from "react";
-import {
-  createUserWithEmailAndPassword,
-  signInWithPhoneNumber,
-  PhoneAuthProvider,
-  linkWithCredential,
-  deleteUser,
-  RecaptchaVerifier,
-} from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
-import Cookies from "js-cookie";
-import { parsePhoneNumber } from "libphonenumber-js";
-import { auth, db } from "@/firebase/config";
+import { useState } from "react";
+import { collection, doc, setDoc, query, where, getDocs } from "firebase/firestore";
+import { db } from "@/firebase/config";
+import { generateOTP } from "@/utils/otpUtils";
 
 export function useSignup() {
   const [error, setError] = useState(null);
-  const [confirmationResult, setConfirmationResult] = useState(null);
-  const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
-  const [recaptchaReady, setRecaptchaReady] = useState(false);
-  const verifierRef = useRef(null);
-  const containerRef = useRef(null);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    // Wait for container to exist
-    const initRecaptcha = () => {
-      const container = document.getElementById("recaptcha-container");
-      if (!container) {
-        console.error("reCAPTCHA container not found");
-        return;
-      }
-
-      // Clear any existing verifier
-      if (verifierRef.current) {
-        try {
-          verifierRef.current.clear();
-        } catch (err) {
-          console.log("Error clearing old verifier:", err);
-        }
-      }
-
-      try {
-        const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-          size: "invisible",
-          callback: (response) => {
-            console.log("reCAPTCHA solved:", response);
-            setRecaptchaReady(true);
-          },
-          "expired-callback": () => {
-            console.warn("reCAPTCHA expired. Please try again.");
-            setRecaptchaReady(false);
-          },
-        });
-
-        verifierRef.current = verifier;
-        containerRef.current = container;
-        
-        verifier.render().then(() => {
-          setRecaptchaVerifier(verifier);
-          setRecaptchaReady(true);
-          console.log("reCAPTCHA initialized successfully");
-        }).catch((err) => {
-          console.error("reCAPTCHA render error:", err);
-          setError("Failed to initialize reCAPTCHA. Please refresh the page.");
-        });
-      } catch (err) {
-        console.error("reCAPTCHA initialization error:", err);
-        setError("Failed to initialize security verification. Please refresh the page.");
-      }
-    };
-
-    // Delay initialization to ensure DOM is ready
-    const timer = setTimeout(initRecaptcha, 100);
-
-    return () => {
-      clearTimeout(timer);
-      if (verifierRef.current) {
-        try {
-          verifierRef.current.clear();
-        } catch (err) {
-          console.log("Error cleaning up verifier:", err);
-        }
-      }
-      verifierRef.current = null;
-      containerRef.current = null;
-    };
-  }, []);
-
-  const handleSignup = async ({ email, password, name, phone }) => {
+  const handleSignup = async ({ name, email, phone }) => {
     setError(null);
-    let user = null;
+    setLoading(true);
 
     try {
-      // Validate phone number
-      const phoneNumber = parsePhoneNumber(phone || "");
-      if (!phoneNumber || !phoneNumber.isValid()) {
-        throw new Error("Invalid phone number format. Please include country code.");
-      }
-      const formattedPhone = phoneNumber.format("E.164");
-
-      // Ensure reCAPTCHA is ready
-      if (!recaptchaVerifier || !recaptchaReady) {
-        throw new Error("Security verification not ready. Please wait a moment and try again.");
+      if (!name || !email || !phone) {
+        throw new Error("All fields are required");
       }
 
-      // Verify container still exists
-      const container = document.getElementById("recaptcha-container");
-      if (!container) {
-        throw new Error("Security verification container missing. Please refresh the page.");
-      }
+      // 🔹 Check if user already exists
+      const usersRef = collection(db, "user");
+      const q = query(usersRef, where("phone", "==", phone));
+      const existingUsers = await getDocs(q);
 
-      // Create user with email/password
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      user = userCredential.user;
-
-      // Send phone verification
-      const confirmation = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
-      setConfirmationResult(confirmation);
-
-      return { user, confirmation, email, name, phone: formattedPhone };
-    } catch (err) {
-      console.error("Signup error:", err);
-      
-      // Rollback user creation if phone verification fails
-      if (user) {
-        try {
-          await deleteUser(user);
-        } catch (delErr) {
-          console.error("Failed to delete partial user:", delErr);
+      if (!existingUsers.empty) {
+        const userData = existingUsers.docs[0].data();
+        if (userData.status === "active") {
+          throw new Error("User already exists and is active");
+        } else if (userData.status === "pending_activation") {
+          throw new Error(
+            "Account pending activation. Please use your one-time password to login and complete setup."
+          );
         }
       }
-      
-      setError(err.message);
-      throw err;
-    }
-  };
 
-  const verifyPhoneCode = async (code, user, email, name, phone) => {
-    setError(null);
-    try {
-      if (!confirmationResult) {
-        throw new Error("No phone verification in progress.");
-      }
+      // 🔹 Generate OTP
+      const { otp, expiresAt } = generateOTP();
 
-      // Create phone credential and link to user
-      const phoneCredential = PhoneAuthProvider.credential(
-        confirmationResult.verificationId,
-        code
-      );
-      await linkWithCredential(user, phoneCredential);
+      // 🔹 Create a new document reference (this gives us the generated ID before writing)
+      const newUserRef = doc(usersRef);
+      const uid = newUserRef.id; // Firestore auto-generated UID
 
-      // Save user data to Firestore
-      const userRef = doc(db, "user", user.uid);
-      await setDoc(userRef, {
-        uid: user.uid,
+      // 🔹 Write document including the UID
+      await setDoc(newUserRef, {
+        uid, // store Firestore doc ID as a field
+        name,
         email,
         phone,
-        name,
+        oneTimePassword: otp,
+        otpCreatedAt: new Date().toISOString(),
+        otpExpiresAt: expiresAt,
+        otpAttempts: 0,
+        status: "pending_activation",
         role: "teacher",
         createdAt: new Date().toISOString(),
+        securityQuestions: [],
+        permanentPassword: null,
       });
 
-      // Set authentication cookie
-      const token = await user.getIdToken();
-      Cookies.set("auth_token", token, { expires: 7 });
-
-      // Clear confirmation
-      setConfirmationResult(null);
-
-      return user;
+      return {
+        success: true,
+        otp,
+        phone,
+        id: uid, // same as newUserRef.id
+      };
     } catch (err) {
-      console.error("Verification error:", err);
-      
-      // Rollback user if verification fails
-      if (user) {
-        try {
-          await deleteUser(user);
-        } catch (delErr) {
-          console.error("Failed to delete partial user:", delErr);
-        }
-      }
-      
+      console.error("Signup error:", err);
       setError(err.message);
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
   return {
     handleSignup,
-    verifyPhoneCode,
     error,
-    recaptchaVerifier,
-    recaptchaReady,
+    loading,
   };
 }

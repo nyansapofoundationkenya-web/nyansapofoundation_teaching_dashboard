@@ -1,7 +1,7 @@
 // components/Dashboard/Header.jsx
 "use client"
 import { useState } from "react"
-import { useAuth } from "@/hooks/useAuth"
+// import { useAuth } from "@/hooks/useAuth"
 import { useSelector } from "react-redux"
 import { Bell, User, LogOut } from "lucide-react"
 import UserProfileModal from "@/components/Dashboard/UserProfileModal"

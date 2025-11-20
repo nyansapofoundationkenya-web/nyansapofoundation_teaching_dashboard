@@ -5,7 +5,7 @@ import AddOrganizationButton from "@/components/Button/AddOrganizationButton";
 import DemoOrganizationButton from "@/components/Button/DemoOrganizationButton";
 import OrganizationButton from "@/components/Button/OrganizationButton";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
+import { useLogin } from "@/hooks/Auth/useLogin";
 import { useOrganizations } from "@/hooks/useOrganization";
 import { useSelector } from "react-redux";
 
@@ -15,12 +15,13 @@ export default function OrganizationPage({
   onLogout = () => {},
 }) {
   const router = useRouter();
-  const { handleLogout } = useAuth();
+  const { handleLogout } = useLogin();
   const { organizations, loading, error, handleFetchOrganizations, handleAddOrganization } =
     useOrganizations();
   
   // Get user data directly from Redux store
   const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
+  // console.log(currentUser)
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [newOrgName, setNewOrgName] = useState("");

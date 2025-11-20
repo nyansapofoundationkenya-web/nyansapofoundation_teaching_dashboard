@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { doc, getDoc } from "firebase/firestore"
 import { db } from "@/firebase/config"
 import { X, Edit, Save, Mail, Phone, Shield, Calendar, User, Building, Folder, School, ChevronDown, ChevronRight } from "lucide-react"
-import {useAuth} from "@/hooks/useAuth";
+import { useLogin } from "@/hooks/Auth/useLogin"
 
 const UserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false)
@@ -14,7 +14,7 @@ const UserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
   const [organizationNames, setOrganizationNames] = useState({})
   const [projectNames, setProjectNames] = useState({})
   const [loadingNames, setLoadingNames] = useState(false)
-  const {updateUserProfile} =useAuth();
+  const {updateUserProfile} =useLogin();
   
   // Fetch organization and project names when modal opens
   useEffect(() => {

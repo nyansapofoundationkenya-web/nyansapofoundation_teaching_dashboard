@@ -27,6 +27,8 @@ export default function AttendancePage() {
     setCurrentFilter(filter);
   };
 
+  // console.log(students)
+
   // Skeleton Loader for when no filter is selected
   const FilterSkeleton = () => (
     <div className="bg-background-light rounded-2xl shadow-lg border border-gray-600 p-6">
