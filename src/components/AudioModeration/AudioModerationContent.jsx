@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { db } from "@/firebase/config";
-import { doc, getDoc, updateDoc, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, getDocs, deleteField } from "firebase/firestore";
 import StudentHeader from "./StudentHeader";
 import AssessmentResults from "./AssessmentResults";
 import AudioPlayer from "./AudioPlayer";
@@ -18,6 +18,7 @@ export default function AudioModerationContent({ router, searchParams, organizat
   const [currentStudentIndex, setCurrentStudentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Data fetching effects
   useEffect(() => {
@@ -124,6 +125,58 @@ export default function AudioModerationContent({ router, searchParams, organizat
     }
   };
 
+  // Delete round function
+  const deleteCurrentRound = async () => {
+    try {
+      if (!assessmentData || !assessmentData.literacy_results?.reading_results) {
+        setError("No assessment data found");
+        return;
+      }
+
+      const updatedResults = [...assessmentData.literacy_results.reading_results];
+      
+      // Remove the current round
+      updatedResults.splice(currentIndex, 1);
+
+      const updatedData = {
+        ...assessmentData,
+        literacy_results: {
+          ...assessmentData.literacy_results,
+          reading_results: updatedResults
+        }
+      };
+
+      // Update verified status
+      const allVerified = areAllResultsModerated(updatedResults);
+      updatedData.verified = allVerified;
+
+      // Update local state
+      setAssessmentData(updatedData);
+
+      // Update Firebase
+      const docRef = doc(db, `assessments/${assessmentId}/assessments-results`, `${assessmentId}_${studentId}`);
+      await updateDoc(docRef, {
+        "literacy_results.reading_results": updatedResults,
+        "verified": allVerified
+      });
+
+      // Adjust current index if needed
+      if (updatedResults.length === 0) {
+        setCurrentIndex(0);
+      } else if (currentIndex >= updatedResults.length) {
+        setCurrentIndex(updatedResults.length - 1);
+      }
+
+      // Close confirmation dialog
+      setShowDeleteConfirm(false);
+      setError(null);
+
+    } catch (error) {
+      console.error("Error deleting round:", error);
+      setError("Failed to delete round");
+    }
+  };
+
   // Helper functions
   const isResultModerated = (result) => {
     return result.metadata?.modeltranscriptionverified === true;
@@ -208,7 +261,34 @@ export default function AudioModerationContent({ router, searchParams, organizat
                   setEditMode(false);
                   setError(null);
                 }}
+                onDeleteRound={() => setShowDeleteConfirm(true)}
               />
+
+              {/* Delete Confirmation Modal */}
+              {showDeleteConfirm && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                  <div className="bg-background-light rounded-lg p-6 max-w-md w-full mx-4">
+                    <h3 className="text-lg font-semibold mb-4">Delete Round?</h3>
+                    <p className="text-gray-300 mb-6">
+                      Are you sure you want to delete this round? This action cannot be undone.
+                    </p>
+                    <div className="flex justify-end space-x-3">
+                      <button
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="px-4 py-2 text-sm border border-gray-600 rounded hover:bg-gray-700 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={deleteCurrentRound}
+                        className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                      >
+                        Delete Round
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <NavigationControls
                 currentIndex={currentIndex}

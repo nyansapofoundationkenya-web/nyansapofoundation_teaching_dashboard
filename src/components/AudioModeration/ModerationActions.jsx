@@ -1,4 +1,4 @@
-import { AlertCircle, Edit, ThumbsUp } from "lucide-react";
+import { AlertCircle, Edit, ThumbsUp, Trash2 } from "lucide-react";
 
 export default function ModerationActions({
   editMode,
@@ -7,7 +7,8 @@ export default function ModerationActions({
   setError,
   updateAssessmentResult,
   setValidationStatus,
-  handleSaveEdit
+  handleSaveEdit,
+  onDeleteRound
 }) {
   const handleBadAudio = () => {
     setValidationStatus("bad_audio");
@@ -62,6 +63,14 @@ export default function ModerationActions({
       >
         <ThumbsUp className="w-4 h-4" />
         Ok
+      </button>
+      <button
+        onClick={onDeleteRound}
+        disabled={editMode}
+        className="flex items-center gap-2 px-3 py-1.5 border-2 border-red-400 text-red-300 rounded-xl hover:bg-red-500/20 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Trash2 className="w-4 h-4" />
+        Delete Round
       </button>
     </div>
   );
