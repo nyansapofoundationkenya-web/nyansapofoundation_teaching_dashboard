@@ -1,6 +1,7 @@
+// hooks/useOrganizationHouseholds.js
 import { useState, useEffect } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
-import { db } from '@/firebase/config' 
+import { db } from '@/firebase/config'
 
 export const useOrganizationHouseholds = (orgId) => {
   const [households, setHouseholds] = useState([])
@@ -21,7 +22,6 @@ export const useOrganizationHouseholds = (orgId) => {
         setError(null)
         const allHouseholds = []
 
-        // Fetch all projects under the organization
         const projectsRef = collection(db, `organization/${orgId}/projects`)
         const projectsSnap = await getDocs(projectsRef)
 
@@ -29,7 +29,6 @@ export const useOrganizationHouseholds = (orgId) => {
           const projectId = projectDoc.id
           const projectData = projectDoc.data()
 
-          // Fetch all schools under the project
           const schoolsRef = collection(db, `organization/${orgId}/projects/${projectId}/schools`)
           const schoolsSnap = await getDocs(schoolsRef)
 
@@ -37,24 +36,23 @@ export const useOrganizationHouseholds = (orgId) => {
             const schoolId = schoolDoc.id
             const schoolData = schoolDoc.data()
 
-            // Fetch all households under the school
-            const householdsRef = collection(db, `organization/${orgId}/projects/${projectId}/schools/${schoolId}/households`)
+            const householdsRef = collection(
+              db,
+              `organization/${orgId}/projects/${projectId}/schools/${schoolId}/households`
+            )
             const householdsSnap = await getDocs(householdsRef)
 
             for (const hhDoc of householdsSnap.docs) {
-              // Get location data from school instead of household
               allHouseholds.push({
                 id: hhDoc.id,
                 projectId,
                 projectName: projectData?.name || projectId,
                 schoolId,
                 schoolName: schoolData?.name || schoolId,
-                // Use school data for location information
-                village: schoolData?.name || 'N/A', // Village comes from school name
-                county: schoolData?.location || 'N/A', // County comes from school location
-                subcounty: schoolData?.subcounty || 'N/A', // Subcounty from school subcounty field
+                village: schoolData?.name || 'N/A',
+                county: schoolData?.location || 'N/A',
+                subcounty: schoolData?.subcounty || 'N/A',
                 ...hhDoc.data(),
-                // Override any existing location fields from household with school data
                 county: schoolData?.location || hhDoc.data().county || 'N/A',
                 subCounty: schoolData?.subcounty || hhDoc.data().subCounty || 'N/A',
                 village: schoolData?.name || hhDoc.data().village || 'N/A'
@@ -83,17 +81,13 @@ export const useOrganizationHouseholds = (orgId) => {
 
     try {
       const projectHouseholds = []
-      const projectRef = collection(db, `organization/${orgId}/projects`)
-      const projectDoc = await getDocs(projectRef)
-      
       let projectData = null
-      projectDoc.forEach(doc => {
-        if (doc.id === projectId) {
-          projectData = doc.data()
-        }
+      const projectRef = collection(db, `organization/${orgId}/projects`)
+      const projectSnap = await getDocs(projectRef)
+      projectSnap.forEach(doc => {
+        if (doc.id === projectId) projectData = doc.data()
       })
 
-      // Fetch all schools under the project
       const schoolsRef = collection(db, `organization/${orgId}/projects/${projectId}/schools`)
       const schoolsSnap = await getDocs(schoolsRef)
 
@@ -101,8 +95,10 @@ export const useOrganizationHouseholds = (orgId) => {
         const schoolId = schoolDoc.id
         const schoolData = schoolDoc.data()
 
-        // Fetch all households under the school
-        const householdsRef = collection(db, `organization/${orgId}/projects/${projectId}/schools/${schoolId}/households`)
+        const householdsRef = collection(
+          db,
+          `organization/${orgId}/projects/${projectId}/schools/${schoolId}/households`
+        )
         const householdsSnap = await getDocs(householdsRef)
 
         for (const hhDoc of householdsSnap.docs) {
@@ -112,12 +108,10 @@ export const useOrganizationHouseholds = (orgId) => {
             projectName: projectData?.name || projectId,
             schoolId,
             schoolName: schoolData?.name || schoolId,
-            // Use school data for location information
-            village: schoolData?.name || 'N/A', // Village comes from school name
-            county: schoolData?.location || 'N/A', // County comes from school location
-            subcounty: schoolData?.subcounty || 'N/A', // Subcounty from school subcounty field
+            village: schoolData?.name || 'N/A',
+            county: schoolData?.location || 'N/A',
+            subcounty: schoolData?.subcounty || 'N/A',
             ...hhDoc.data(),
-            // Override any existing location fields from household with school data
             county: schoolData?.location || hhDoc.data().county || 'N/A',
             subCounty: schoolData?.subcounty || hhDoc.data().subCounty || 'N/A',
             village: schoolData?.name || hhDoc.data().village || 'N/A'
@@ -132,116 +126,76 @@ export const useOrganizationHouseholds = (orgId) => {
     }
   }
 
-  // Flatten household data for export
-const flattenHouseholdData = (household) => {
-  const flattened = {
-    // Basic Info
-    // 'Project Name': household.projectName,
-    // 'School Name': household.schoolName,
-    'Interview Date': household.interviewDate ? new Date(household.interviewDate).toLocaleDateString() : 'N/A',
-    'Household Head Name': household.householdHeadName,
-    'Household Head Phone': household.householdHeadPhone,
-    'Is Household Head': household.householdHead ? 'Yes' : 'No',
-    'Respondent Name': household.respondentName,
-    'Respondent Age': household.respondentAge,
-    'Household Members Count': household.householdMembersCount,
-    
-    // Location (now from school data)
-    'County': household.county,
-    'Sub-County': household.subCounty,
-    // 'Ward': household.ward,
-    'Village': household.village,
-    
-    // Demographics
-    'Main Language': household.mainLanguage,
-    'Marital Status': household.maritalStatus || 'N/A',
-    'Relationship to Head': household.relationshipToHead,
-    
-    // Economic
-    'Income Source': household.incomeSource,
-    'Has Electricity': household.hasElectricity ? 'Yes' : 'No',
-    'Household Assets': household.householdAssets?.join(', ') || 'None',
-    
-    // Interview Info
-    'Interviewer Name': household.interviewerName,
-    'Consent Given': household.consentGiven ? 'Yes' : 'No',
+  // Updated flatten function — matches your Python script exactly
+  const flattenHouseholdData = (household) => {
+    const pe = household.parentalEngagement || {}
+
+    const parents = (household.parents || [])
+      .map(p => {
+        const name = p.name || ''
+        const type = p.type || ''
+        const age = p.age || ''
+        const edu = p.highestEducationLevel || ''
+        return name ? `${name} (${type}, ${age} yrs, ${edu})` : ''
+      })
+      .filter(Boolean)
+      .join('; ') || 'None'
+
+    const children = (household.children || [])
+      .map(c => {
+        const fullName = `${c.firstName || ''} ${c.lastName || ''}`.trim()
+        const gender = c.gender || ''
+        const age = c.age || ''
+        const grade = c.grade || ''
+        const assessed = c.wasAssessedIn2024 ? 'Yes' : 'No'
+        const aboveStory = c.wasAboveStoryLevelIn2024 ? 'Yes' : 'No'
+        const id = c.linkedLearnerId || ''
+        return fullName
+          ? `${fullName} (${gender}, ${age} yrs, G${grade}, Assessed=${assessed}, AboveStory=${aboveStory}, ID=${id})`
+          : ''
+      })
+      .filter(Boolean)
+      .join('; ') || 'None'
+
+    return {
+      'Interview Date': household.interviewDate
+        ? new Date(household.interviewDate).toLocaleDateString('en-GB')
+        : 'N/A',
+      'County': household.county,
+      'Sub-County': household.subCounty,
+      'Village': household.village,
+      'Household Head': household.householdHeadName || 'N/A',
+      'Household Head Phone': household.householdHeadPhone || 'N/A',
+      'Household Members Count': household.householdMembersCount || '',
+      'Income Source': household.incomeSource || 'N/A',
+      'Main Language': household.mainLanguage || 'N/A',
+      'Marital Status': household.maritalStatus || 'N/A',
+      'Has Books/Materials': household.childLearningEnvironment?.hasBooksOrMaterials ? 'Yes' : 'No',
+      'Has Quiet Place to Study': household.childLearningEnvironment?.hasQuietPlaceToStudy ? 'Yes' : 'No',
+      'Consent Given': household.consentGiven ? 'Yes' : 'No',
+      'Attends School Meetings': pe.attendsSchoolMeetings ? 'Yes' : 'No',
+      'Monitors Attendance': pe.monitorsAttendance ? 'Yes' : 'No',
+      'Who Helps with Homework': pe.homeworkHelper || 'N/A',
+      'Teacher Discussion Frequency': pe.teacherDiscussionFrequency || 'N/A',
+      'Parents': parents,
+      'Children': children,
+    }
   }
 
-  // Parents Information
-  if (household.parents && household.parents.length > 0) {
-    flattened['Number of Parents'] = household.parents.length
-    
-    household.parents.forEach((parent, index) => {
-      const parentNum = index + 1
-      flattened[`Parent ${parentNum} - Name`] = parent.name || 'N/A'
-      flattened[`Parent ${parentNum} - Type`] = parent.type || 'N/A'
-      flattened[`Parent ${parentNum} - Age`] = parent.age
-      flattened[`Parent ${parentNum} - Has Attended School`] = parent.hasAttendedSchool ? 'Yes' : 'No'
-      flattened[`Parent ${parentNum} - Highest Education Level`] = parent.highestEducationLevel || 'N/A'
-    })
-  } else {
-    flattened['Number of Parents'] = 0
-  }
-
-  // Children Information
-  if (household.children && household.children.length > 0) {
-    flattened['Number of Children'] = household.children.length
-    
-    household.children.forEach((child, index) => {
-      const childNum = index + 1
-      const fullName = `${child.firstName || ''} ${child.lastName || ''}`.trim()
-      flattened[`Child ${childNum} - Name`] = fullName || 'N/A'
-      flattened[`Child ${childNum} - Age`] = child.age
-      flattened[`Child ${childNum} - Gender`] = child.gender
-      flattened[`Child ${childNum} - Lives With`] = child.livesWith
-      flattened[`Child ${childNum} - Was Assessed In 2024`] = child.wasAssessedIn2024 || false
-      flattened[`Child ${childNum} - Was Above Story Level In 2024`] = child.wasAboveStoryLevelIn2024 || false
-    })
-  } else {
-    flattened['Number of Children'] = 0
-  }
-
-  // Learning Environment
-  if (household.childLearningEnvironment) {
-    flattened['Has Books/Materials'] = household.childLearningEnvironment.hasBooksOrMaterials ? 'Yes' : 'No'
-    flattened['Has Quiet Study Place'] = household.childLearningEnvironment.hasQuietPlaceToStudy ? 'Yes' : 'No'
-    flattened['Missed School Last Month'] = household.childLearningEnvironment.missedSchoolLastMonth ? 'Yes' : 'No'
-    flattened['Reason for Missing School'] = household.childLearningEnvironment.reasonForMissingSchool || 'N/A'
-  }
-
-  // Parental Engagement
-  if (household.parentalEngagement) {
-    // flattened['Has School Age Child'] = household.parentalEngagement.hasSchoolAgeChild ? 'Yes' : 'No'
-    flattened['Attends School Meetings'] = household.parentalEngagement.attendsSchoolMeetings ? 'Yes' : 'No'
-    flattened['Monitors Attendance'] = household.parentalEngagement.monitorsAttendance ? 'Yes' : 'No'
-    flattened['Who helps the  child with homework'] = household.parentalEngagement.homeworkHelper || 'N/A'
-    flattened['Teacher Discussion Frequency'] = household.parentalEngagement.teacherDiscussionFrequency || 'N/A'
-  }
-
-  return flattened
-}
-
-  // Convert to CSV
+  // CSV export — unchanged
   const convertToCSV = (data) => {
     if (!data || data.length === 0) return ''
-
-    const headers = Array.from(
-      new Set(data.flatMap(row => Object.keys(row)))
-    )
-
+    const headers = Array.from(new Set(data.flatMap(row => Object.keys(row))))
     const csvHeaders = headers.map(h => `"${h}"`).join(',')
-
-    const csvRows = data.map(row => 
+    const csvRows = data.map(row =>
       headers.map(header => {
         const value = row[header] !== undefined ? row[header] : ''
         return `"${String(value).replace(/"/g, '""')}"`
       }).join(',')
     )
-
     return [csvHeaders, ...csvRows].join('\n')
   }
 
-  // Download file
   const downloadFile = (content, filename, mimeType) => {
     const blob = new Blob([content], { type: mimeType })
     const url = window.URL.createObjectURL(blob)
@@ -254,24 +208,13 @@ const flattenHouseholdData = (household) => {
     window.URL.revokeObjectURL(url)
   }
 
-  // Export to CSV - supports both organization and project level
   const exportToCSV = async (projectId = null) => {
     setIsExporting(true)
     setExportError(null)
 
     try {
-      let householdsToExport = []
-      let scope = ''
-
-      if (projectId) {
-        // Export specific project
-        householdsToExport = await fetchProjectHouseholds(projectId)
-        scope = `project_${projectId}`
-      } else {
-        // Export entire organization
-        householdsToExport = households
-        scope = 'organization'
-      }
+      let householdsToExport = projectId ? await fetchProjectHouseholds(projectId) : households
+      let scope = projectId ? `project_${projectId}` : 'organization'
 
       if (householdsToExport.length === 0) {
         setExportError('No households found to export')
@@ -281,12 +224,9 @@ const flattenHouseholdData = (household) => {
 
       const flattenedData = householdsToExport.map(flattenHouseholdData)
       const csv = convertToCSV(flattenedData)
-      
       const timestamp = new Date().toISOString().split('T')[0]
       const filename = `households_${scope}_${timestamp}.csv`
-      
       downloadFile(csv, filename, 'text/csv;charset=utf-8;')
-      
       setIsExporting(false)
       return householdsToExport.length
     } catch (err) {
@@ -297,24 +237,14 @@ const flattenHouseholdData = (household) => {
     }
   }
 
-  // Export to Excel - supports both organization and project level
+  // Excel export — now real .xlsx using xlsx library
   const exportToExcel = async (projectId = null) => {
     setIsExporting(true)
     setExportError(null)
 
     try {
-      let householdsToExport = []
-      let scope = ''
-
-      if (projectId) {
-        // Export specific project
-        householdsToExport = await fetchProjectHouseholds(projectId)
-        scope = `project_${projectId}`
-      } else {
-        // Export entire organization
-        householdsToExport = households
-        scope = 'organization'
-      }
+      let householdsToExport = projectId ? await fetchProjectHouseholds(projectId) : households
+      let scope = projectId ? `project_${projectId}` : 'organization'
 
       if (householdsToExport.length === 0) {
         setExportError('No households found to export')
@@ -323,35 +253,17 @@ const flattenHouseholdData = (household) => {
       }
 
       const flattenedData = householdsToExport.map(flattenHouseholdData)
-      
-      const headers = Array.from(
-        new Set(flattenedData.flatMap(row => Object.keys(row)))
-      )
 
-      let html = '<html><head><meta charset="utf-8"></head><body><table border="1">'
-      
-      html += '<tr>'
-      headers.forEach(header => {
-        html += `<th>${header}</th>`
-      })
-      html += '</tr>'
-      
-      flattenedData.forEach(row => {
-        html += '<tr>'
-        headers.forEach(header => {
-          const value = row[header] !== undefined ? row[header] : ''
-          html += `<td>${value}</td>`
-        })
-        html += '</tr>'
-      })
-      
-      html += '</table></body></html>'
-      
-      const timestamp = new Date().toISOString().split('T')[0]
-      const filename = `households_${scope}_${timestamp}.xls`
-      
-      downloadFile(html, filename, 'application/vnd.ms-excel')
-      
+      const XLSX = await import('xlsx')
+      const ws = XLSX.utils.json_to_sheet(flattenedData)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Households')
+
+      const timestamp = new Date().toISOString().slice(0, 10)
+      const filename = `households_${scope}_${timestamp}.xlsx`
+
+      XLSX.writeFile(wb, filename)
+
       setIsExporting(false)
       return householdsToExport.length
     } catch (err) {
@@ -362,37 +274,22 @@ const flattenHouseholdData = (household) => {
     }
   }
 
-  // Compute metrics based on household data
+  // Metrics — unchanged
   const totalHouseholds = households.length
+  const householdsWithBooksCount = households.filter(hh => hh.childLearningEnvironment?.hasBooksOrMaterials).length
+  const householdsWithBooks = totalHouseholds > 0 ? `${Math.round((householdsWithBooksCount / totalHouseholds) * 100)}%` : '0%'
 
-  const householdsWithBooksCount = households.filter(
-    (hh) => hh.childLearningEnvironment?.hasBooksOrMaterials
-  ).length
-  const householdsWithBooks = totalHouseholds > 0
-    ? `${Math.round((householdsWithBooksCount / totalHouseholds) * 100)}%`
-    : '0%'
-
-  let totalFemales = 0
-  let totalMales = 0
-  let totalFemaleChildren = 0
-
-  households.forEach((hh) => {
-    const femaleParents = (hh.parents || []).filter((p) => p.type === 'Mother').length
-    const maleParents = (hh.parents || []).filter((p) => p.type === 'Father').length
-    totalFemales += femaleParents
-    totalMales += maleParents
-
-    const femaleKids = (hh.children || []).filter((c) => c.gender === 'Female').length
-    const maleKids = (hh.children || []).filter((c) => c.gender === 'Male').length
-    totalFemaleChildren += femaleKids
-    totalFemales += femaleKids
-    totalMales += maleKids
+  let totalFemales = 0, totalMales = 0, totalFemaleChildren = 0
+  households.forEach(hh => {
+    totalFemales += (hh.parents || []).filter(p => p.type === 'Mother').length
+    totalMales += (hh.parents || []).filter(p => p.type === 'Father').length
+    totalFemaleChildren += (hh.children || []).filter(c => c.gender === 'Female').length
+    totalFemales += totalFemaleChildren
+    totalMales += (hh.children || []).filter(c => c.gender === 'Male').length
   })
 
   const totalMembers = totalFemales + totalMales
-  const malesPercentage = totalMembers > 0
-    ? `${Math.round((totalMales / totalMembers) * 100)}%`
-    : '0%'
+  const malesPercentage = totalMembers > 0 ? `${Math.round((totalMales / totalMembers) * 100)}%` : '0%'
 
   const metrics = {
     totalHouseholds,
