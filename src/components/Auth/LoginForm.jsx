@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { getFirebaseErrorMessage } from "@/utils/firebaseErrorHandler"; // Added import for error mapping
+import { getFirebaseErrorMessage } from "@/utils/firebaseErrorHandler";
 import * as Yup from "yup";
+import Link from "next/link";
 
 // Validation schemas
 const baseValidationSchema = Yup.object({
@@ -21,19 +22,19 @@ const baseValidationSchema = Yup.object({
     then: () => Yup.string().min(6).required("Required"),
     otherwise: () => Yup.string().notRequired(),
   }),
-   phone: Yup.string()
+  phone: Yup.string().when("loginMethod", {
+    is: "phone",
+    then: () => Yup.string()
       .required("Phone number is required")
       .test('phone-format', function(value) {
-        if (!value) return true; // Let required() handle empty values
+        if (!value) return true;
         
-        // Check if it starts with +
         if (!value.startsWith('+')) {
           return this.createError({
             message: "Please start your phone number with '+' (e.g., +254712345678)"
           });
         }
         
-        // Check if it matches the international format
         if (!/^\+?[1-9]\d{1,14}$/.test(value)) {
           return this.createError({
             message: "Please enter a valid phone number with country code (e.g., +254712345678)"
@@ -42,6 +43,8 @@ const baseValidationSchema = Yup.object({
         
         return true;
       }),
+    otherwise: () => Yup.string().notRequired(),
+  }),
 });
 
 const verificationValidationSchema = Yup.object({
@@ -62,8 +65,9 @@ export default function LoginForm() {
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
+  const [customError, setCustomError] = useState(null);
 
-  // Helper to extract Firebase error code from raw error string (e.g., "Firebase: Error (auth/invalid-verification-code).")
+  // Helper to extract Firebase error code from raw error string
   const extractErrorCode = (rawError) => {
     if (!rawError) return null;
     const match = rawError.match(/\(([^)]+)\)/);
@@ -71,9 +75,9 @@ export default function LoginForm() {
   };
 
   // Process raw error from hook using the Firebase error mapper
-  const displayError = error 
+  const displayError = customError || (error 
     ? getFirebaseErrorMessage({ code: extractErrorCode(error) })
-    : null;
+    : null);
 
   const formik = useFormik({
     initialValues: {
@@ -85,14 +89,22 @@ export default function LoginForm() {
     },
     validationSchema: step === 1 ? baseValidationSchema : verificationValidationSchema,
     onSubmit: async (values, { setSubmitting, resetForm }) => {
+      setCustomError(null);
+      clearError();
+      
       try {
+        console.log("Login attempt with:", { 
+          loginMethod: values.loginMethod, 
+          email: values.email 
+        });
+
         if (step === 1) {
           await handleLogin({
             loginMethod: values.loginMethod,
             email: values.email,
             password: values.password,
             phone: values.phone,
-          }, "Login failed—check your credentials and try again.");
+          });
 
           if (values.loginMethod === "phone") {
             setStep(2);
@@ -102,7 +114,7 @@ export default function LoginForm() {
             router.push("/organization");
           }
         } else {
-          await verifyPhoneLoginCode(values.verificationCode, "Code didn't match. Check your SMS and enter it again?");
+          await verifyPhoneLoginCode(values.verificationCode);
           setLoginSuccess(true);
           resetForm();
           setStep(1);
@@ -110,7 +122,14 @@ export default function LoginForm() {
         }
       } catch (e) {
         console.error("Login error:", e);
-        // No setErrors—hook handles error display
+        
+        // Check if user doesn't exist and show appropriate message
+        const errorCode = extractErrorCode(e.message);
+        if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password') {
+          setCustomError("No account found with these credentials. Please create an account first.");
+        } else if (errorCode === 'auth/invalid-credential') {
+          setCustomError("Invalid login credentials. Please check your email and password or create an account.");
+        }
       } finally {
         setSubmitting(false);
       }
@@ -121,14 +140,23 @@ export default function LoginForm() {
   const handleInputChange = (e) => {
     const target = e.target;
     formik.setFieldValue(target.name, target.value);
-    if (error) clearError(); // Clears stale errors as user types
+    if (error || customError) {
+      clearError();
+      setCustomError(null);
+    }
   };
 
   // For radio buttons
   const handleRadioChange = (e) => {
     formik.handleChange(e);
-    if (error) clearError();
+    if (error || customError) {
+      clearError();
+      setCustomError(null);
+    }
   };
+
+  // Check if inputs should be disabled (only for phone when recaptcha not ready)
+  const isInputDisabled = formik.values.loginMethod === "phone" && !recaptchaReady;
 
   return (
     <div className="w-full p-6 bg-background-light rounded-3xl shadow-lg border border-gray-600">
@@ -137,7 +165,7 @@ export default function LoginForm() {
       
       {loginSuccess && (
         <div className="mb-4 p-3 bg-green-500/20 text-green-400 rounded-xl border border-green-500/30">
-          Login successful!
+          Login successful! Redirecting...
         </div>
       )}
       
@@ -148,7 +176,7 @@ export default function LoginForm() {
         </div>
       )}
 
-      {authLoading && !recaptchaReady && (
+      {authLoading && !recaptchaReady && formik.values.loginMethod === "phone" && (
         <div className="mb-4 p-3 bg-primary-2/20 text-primary-2 rounded-xl border border-primary-2/30">
           Initializing security verification...
         </div>
@@ -204,7 +232,6 @@ export default function LoginForm() {
                     value={formik.values.email}
                     onChange={handleInputChange}
                     onBlur={formik.handleBlur}
-                    disabled={!recaptchaReady}
                   />
                   {formik.touched.email && formik.errors.email && (
                     <p className="text-red-400 text-sm mt-2">{formik.errors.email}</p>
@@ -225,7 +252,6 @@ export default function LoginForm() {
                       value={formik.values.password}
                       onChange={handleInputChange}
                       onBlur={formik.handleBlur}
-                      disabled={!recaptchaReady}
                     />
                     <button
                       type="button"
@@ -262,6 +288,11 @@ export default function LoginForm() {
                 {formik.touched.phone && formik.errors.phone && (
                   <p className="text-red-400 text-sm mt-2">{formik.errors.phone}</p>
                 )}
+                {!recaptchaReady && (
+                  <p className="text-yellow-400 text-sm mt-2">
+                    Initializing security verification...
+                  </p>
+                )}
               </div>
             )}
           </>
@@ -289,12 +320,12 @@ export default function LoginForm() {
 
         <button
           type="submit"
-          className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center transition-all ${
-            formik.isSubmitting || !recaptchaReady
+          className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center transition-all mb-4 ${
+            formik.isSubmitting || isInputDisabled
               ? "bg-gray-600 text-gray-400 cursor-not-allowed"
               : "bg-primary-3 text-primary-1 hover:bg-yellow-400 shadow-md hover:shadow-lg"
           }`}
-          disabled={formik.isSubmitting || (step === 1 && !recaptchaReady)}
+          disabled={formik.isSubmitting || isInputDisabled}
         >
           {formik.isSubmitting ? (
             <>
@@ -308,6 +339,32 @@ export default function LoginForm() {
           )}
         </button>
       </form>
+
+      {/* Create account prompt
+      <div className="text-center pt-4 border-t border-gray-600">
+        <p className="text-foreground mb-3">
+          Don't have an account yet?
+        </p>
+        <Link 
+          href="/signup" 
+          className="inline-flex items-center justify-center w-full py-3 px-4 rounded-xl font-semibold bg-primary-2 text-primary-1 hover:bg-blue-600 shadow-md hover:shadow-lg transition-all"
+        >
+          Create Account
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </Link>
+      </div> */}
+
+      {/* Forgot password link - only show for email login
+      {formik.values.loginMethod === "email" && (
+        <div className="text-center mt-4">
+          <Link 
+            href="/forgot-password" 
+            className="text-primary-3 hover:text-yellow-400 text-sm transition-colors"
+          >
+            Forgot your password?
+          </Link>
+        </div>
+      )} */}
     </div>
   );
 }

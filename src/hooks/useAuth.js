@@ -50,7 +50,7 @@ export function useAuth() {
           lastSignInTime: firebaseUser.metadata.lastSignInTime,
         },
         
-        // Firestore profile data (this is what you want)
+        // Firestore profile data
         ...userProfile
       };
       
@@ -138,10 +138,6 @@ export function useAuth() {
     setError(null);
     let user = null;
     try {
-      // if (!recaptchaReady) {
-      //   throw new Error("Security verification is not ready yet. Please try again.");
-      // }
-
       const phoneNumber = parsePhoneNumber(phone || "");
       if (!phoneNumber || !phoneNumber.isValid()) {
         throw new Error("Invalid phone number format. Please include country code.");
@@ -186,7 +182,7 @@ export function useAuth() {
         email,
         phone,
         name,
-        role: "teacher", // Add default role here
+        role: "teacher",
         createdAt: new Date().toISOString(),
       });
 
@@ -210,9 +206,19 @@ export function useAuth() {
   const handleLogin = async ({ loginMethod, email, password, phone }) => {
     setError(null);
     try {
+      console.log("Auth hook: Login attempt with", { loginMethod, email });
+
       if (loginMethod === "email") {
+        // Email login - no reCAPTCHA dependency
+        if (!email || !password) {
+          throw new Error("Email and password are required");
+        }
+
+        console.log("Attempting email/password login...");
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
+        console.log("Email login successful:", user.uid);
+        
         const token = await user.getIdToken();
         Cookies.set("auth_token", token, { expires: 7 });
         
@@ -220,8 +226,13 @@ export function useAuth() {
         await fetchAndStoreUserProfile(user);
         return user;
       } else {
+        // Phone login - requires reCAPTCHA
         if (!recaptchaReady) {
           throw new Error("Security verification is not ready yet. Please try again.");
+        }
+
+        if (!phone) {
+          throw new Error("Phone number is required");
         }
 
         const phoneNumber = parsePhoneNumber(phone || "");
@@ -230,16 +241,23 @@ export function useAuth() {
         }
         const formattedPhone = phoneNumber.format("E.164");
 
+        console.log("Attempting phone login with:", formattedPhone);
         const confirmation = await signInWithPhoneNumber(
           auth, 
           formattedPhone, 
           recaptchaVerifier
         );
         setConfirmationResult(confirmation);
+        console.log("Phone verification sent");
         return { confirmation };
       }
     } catch (err) {
-      console.error("Login error:", err.code, err.message);
+      console.error("Login error in auth hook:", {
+        code: err.code,
+        message: err.message,
+        loginMethod,
+        email
+      });
       setError(err.message);
       throw err;
     }
@@ -252,8 +270,11 @@ export function useAuth() {
         throw new Error("No verification in progress or session expired.");
       }
       
+      console.log("Verifying phone code...");
       const result = await confirmationResult.confirm(code);
       const user = result.user;
+      console.log("Phone login successful:", user.uid);
+      
       const token = await user.getIdToken();
       Cookies.set("auth_token", token, { expires: 7 });
       
@@ -306,7 +327,7 @@ export function useAuth() {
     }
   };
 
-  // Refresh user profile from Firestore (useful when you know data has changed)
+  // Refresh user profile from Firestore
   const refreshUserProfile = async () => {
     if (!currentUser) {
       throw new Error("No user is currently logged in");
@@ -336,8 +357,13 @@ export function useAuth() {
     }
   };
 
+  // Clear error manually
+  const clearError = () => {
+    setError(null);
+  };
+
   return {
-    currentUser, // Now contains complete user data from Firestore + Firebase auth
+    currentUser,
     loading: loading || reduxLoading,
     error,
     recaptchaReady,
@@ -349,6 +375,7 @@ export function useAuth() {
     confirmationResult,
     fetchUserById,
     updateUserProfile,
-    refreshUserProfile, // New method to refresh user data
+    refreshUserProfile,
+    clearError, // Added clearError function
   };
 }
