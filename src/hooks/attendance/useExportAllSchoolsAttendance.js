@@ -142,13 +142,13 @@ export const useExportAllSchoolsAttendance = () => {
         ...sortedDates.map(() => ({ wch: 16 })) // Date columns
       ];
 
-      const safeSheetName = "All Schools Attendance";
+      const safeSheetName = "All villages Attendance";
       XLSX.utils.book_append_sheet(workbook, ws, safeSheetName);
 
       // Export file
       const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
       const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
-      const fileName = `${projectName}_Attendance_All_Schools_${new Date()
+      const fileName = `${projectName}_Attendance_All_villages_${new Date()
         .toISOString()
         .slice(0, 10)}.xlsx`;
 
