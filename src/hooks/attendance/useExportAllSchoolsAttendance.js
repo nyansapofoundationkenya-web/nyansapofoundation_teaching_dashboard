@@ -29,12 +29,14 @@ export const useExportAllSchoolsAttendance = () => {
         return;
       }
 
-      const workbook = XLSX.utils.book_new();
+      // Collect all data across all schools
+      const allAttendanceData = [];
+      const allDates = new Set();
 
       for (const schoolDoc of schoolsSnapshot.docs) {
         const schoolId = schoolDoc.id;
         const schoolData = schoolDoc.data();
-        const schoolName = schoolData.name || "Unnamed School";
+        const villageName = schoolData.name || "Unnamed School";
 
         // Fetch all attendance documents (each doc ID = date)
         const attendanceRef = collection(
@@ -44,13 +46,12 @@ export const useExportAllSchoolsAttendance = () => {
         const attendanceSnapshot = await getDocs(attendanceRef);
 
         if (attendanceSnapshot.empty) {
-          console.log(`No attendance records for ${schoolName}`);
+          console.log(`No attendance records for ${villageName}`);
           continue;
         }
 
-        // Build student map and collect all dates
-        const studentMap = new Map(); // id → name
-        const allDates = new Set();
+        // Build student map and collect dates for this school
+        const studentMap = new Map(); // id → {name, villageName}
 
         attendanceSnapshot.docs.forEach((doc) => {
           const date = doc.id; // e.g., "2025-11-17"
@@ -59,98 +60,90 @@ export const useExportAllSchoolsAttendance = () => {
           const studentsArray = doc.data().students || [];
           studentsArray.forEach((s) => {
             if (s.id && s.name) {
-              studentMap.set(s.id, s.name);
+              studentMap.set(s.id, { 
+                name: s.name, 
+                villageName: villageName,
+                attendance: { ...studentMap.get(s.id)?.attendance, [date]: s.attendance }
+              });
             }
           });
         });
 
-        if (allDates.size === 0) continue;
-
-        const sortedDates = Array.from(allDates).sort((a, b) => new Date(a) - new Date(b));
-        const students = Array.from(studentMap.entries()).map(([id, name]) => ({ id, name }));
-
-        if (students.length === 0) continue;
-
-        // Build attendance matrix
-        const attendanceMatrix = new Map();
-        students.forEach((s) => {
-          const map = new Map();
-          sortedDates.forEach((d) => map.set(d, undefined));
-          attendanceMatrix.set(s.id, map);
-        });
-
-        // Fill in actual attendance
-        attendanceSnapshot.docs.forEach((doc) => {
-          const date = doc.id;
-          const studentsArray = doc.data().students || [];
-          studentsArray.forEach((s) => {
-            if (s.id && s.attendance !== undefined) {
-              attendanceMatrix.get(s.id).set(date, s.attendance);
-            }
+        // Add students to the main data array
+        studentMap.forEach((studentData, studentId) => {
+          allAttendanceData.push({
+            villageName: studentData.villageName,
+            studentName: studentData.name,
+            studentId: studentId,
+            attendance: studentData.attendance || {}
           });
         });
+      }
 
-        // Header
-        const headerRow = ["Student Name"];
+      if (allAttendanceData.length === 0) {
+        alert("No attendance records found across all schools.");
+        return;
+      }
+
+      const sortedDates = Array.from(allDates).sort((a, b) => new Date(a) - new Date(b));
+
+      // Create header row
+      const headerRow = ["Village Name", "Student Name", "Student ID"];
+      sortedDates.forEach((date) => {
+        const d = new Date(date);
+        headerRow.push(
+          d.toLocaleDateString("en-GB", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+          })
+        );
+      });
+
+      // Create data rows
+      const rows = allAttendanceData.map((student) => {
+        const row = [
+          student.villageName,
+          student.studentName,
+          student.studentId
+        ];
+        
         sortedDates.forEach((date) => {
-          const d = new Date(date);
-          headerRow.push(
-            d.toLocaleDateString("en-GB", {
-              weekday: "short",
-              day: "numeric",
-              month: "short",
-            })
+          const status = student.attendance[date];
+          row.push(
+            status === true ? "Present" :
+            status === false ? "Absent" : "-"
           );
         });
+        return row;
+      });
 
-        // Rows
-        const rows = students.map((student) => {
-          const row = [student.name];
-          sortedDates.forEach((date) => {
-            const status = attendanceMatrix.get(student.id)?.get(date);
-            row.push(
-              status === true ? "Present" :
-              status === false ? "Absent" : "-"
-            );
-          });
-          return row;
-        });
+      // Create workbook with single sheet
+      const workbook = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([headerRow, ...rows]);
 
-        // Summary row
-        const summaryRow = ["Present / Total"];
-        sortedDates.forEach((date) => {
-          let present = 0, total = 0;
-          students.forEach((s) => {
-            const status = attendanceMatrix.get(s.id)?.get(date);
-            if (status !== undefined) {
-              total++;
-              if (status === true) present++;
-            }
-          });
-          summaryRow.push(`${present}/${total}`);
-        });
-        rows.push(summaryRow);
-
-        // Create sheet
-        const ws = XLSX.utils.aoa_to_sheet([headerRow, ...rows]);
-
-        // Style header
-        const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
-        for (let c = 0; c <= range.e.c; c++) {
-          const addr = XLSX.utils.encode_cell({ r: 0, c });
-          if (!ws[addr]) ws[addr] = { v: "" };
-          ws[addr].s = {
-            font: { bold: true, color: { rgb: "FFFFFF" } },
-            fill: { fgColor: { rgb: "1d4ed8" } },
-            alignment: { horizontal: "center", vertical: "center" },
-          };
-        }
-
-        ws["!cols"] = headerRow.map(() => ({ wch: 16 }));
-
-        const safeSheetName = schoolName.replace(/[\\*[\]?\/:]/g, "_").slice(0, 31);
-        XLSX.utils.book_append_sheet(workbook, ws, safeSheetName);
+      // Style header
+      const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+      for (let c = 0; c <= range.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r: 0, c });
+        if (!ws[addr]) ws[addr] = { v: "" };
+        ws[addr].s = {
+          font: { bold: true, color: { rgb: "FFFFFF" } },
+          fill: { fgColor: { rgb: "1d4ed8" } },
+          alignment: { horizontal: "center", vertical: "center" },
+        };
       }
+
+      // Set column widths
+      ws["!cols"] = [
+        { wch: 20 }, // Village Name
+        { wch: 20 }, // Student Name
+        { wch: 15 }, // Student ID
+        ...sortedDates.map(() => ({ wch: 16 })) // Date columns
+      ];
+
+      const safeSheetName = "All Schools Attendance";
+      XLSX.utils.book_append_sheet(workbook, ws, safeSheetName);
 
       // Export file
       const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
