@@ -10,7 +10,9 @@ import {
   UserPlus, 
   ChevronLeft, 
   ChevronRight, 
-  Eye 
+  Eye,
+  Filter,
+  X
 } from "lucide-react";
 import StudentModal from "./StudentModal";
 
@@ -31,6 +33,10 @@ export default function StudentsTable({
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [actionMenuOpen, setActionMenuOpen] = useState(null);
   const [duplicates, setDuplicates] = useState(new Set());
+  
+  // New state for baseline and endline filters
+  const [baselineFilter, setBaselineFilter] = useState("");
+  const [endlineFilter, setEndlineFilter] = useState("");
 
   // Enhanced duplicate detection: first name + last name + grade + gender
   useEffect(() => {
@@ -64,7 +70,7 @@ export default function StudentsTable({
     return duplicates.has(student.id);
   };
 
-  // Apply search filter to students
+  // Apply search and level filters to students
   const filteredStudents = students.filter(student => {
     // Search filter
     if (searchTerm) {
@@ -76,6 +82,16 @@ export default function StudentsTable({
       if (!matchesSearch) return false;
     }
     
+    // Baseline filter
+    if (baselineFilter && student.baseline !== baselineFilter) {
+      return false;
+    }
+    
+    // Endline filter
+    if (endlineFilter && student.endline !== endlineFilter) {
+      return false;
+    }
+    
     return true;
   });
 
@@ -84,6 +100,17 @@ export default function StudentsTable({
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentStudents = filteredStudents.slice(startIndex, endIndex);
+
+  // Clear all filters
+  const clearFilters = () => {
+    setBaselineFilter("");
+    setEndlineFilter("");
+    setSearchTerm("");
+    setCurrentPage(1);
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = baselineFilter || endlineFilter || searchTerm;
 
   // Student actions
   const handleAddClick = () => {
@@ -198,37 +225,116 @@ export default function StudentsTable({
 
         {/* Search and Controls */}
         <div className="p-6 border-b border-gray-600">
-          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-            <div className="relative w-full sm:w-auto sm:max-w-md">
-              <input
-                type="text"
-                placeholder="Search students by name..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-500 rounded-xl 
-                          focus:outline-none focus:ring-2 focus:ring-primary-2 focus:border-primary-2
-                          bg-background-lighter text-foreground placeholder-gray-400 shadow-md"
-              />
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <div className="flex flex-col gap-4">
+            {/* Search and Items Per Page Row */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+              <div className="relative w-full sm:w-auto sm:max-w-md">
+                <input
+                  type="text"
+                  placeholder="Search students by name..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-500 rounded-xl 
+                            focus:outline-none focus:ring-2 focus:ring-primary-2 focus:border-primary-2
+                            bg-background-lighter text-foreground placeholder-gray-400 shadow-md"
+                />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-300">Show:</label>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="border border-gray-500 rounded-xl px-3 py-2 text-sm 
+                            focus:outline-none focus:ring-1 focus:ring-primary-2 focus:border-primary-2
+                            bg-background-lighter text-foreground cursor-pointer shadow-md"
+                >
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                </select>
+                <span className="text-sm text-gray-300">per page</span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-300">Show:</label>
-              <select
-                value={itemsPerPage}
-                onChange={(e) => {
-                  setItemsPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="border border-gray-500 rounded-xl px-3 py-2 text-sm 
-                          focus:outline-none focus:ring-1 focus:ring-primary-2 focus:border-primary-2
-                          bg-background-lighter text-foreground cursor-pointer shadow-md"
-              >
-                <option value="10">10</option>
-                <option value="20">20</option>
-                <option value="50">50</option>
-              </select>
-              <span className="text-sm text-gray-300">per page</span>
+            {/* Filter Controls Row */}
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <div className="flex flex-wrap gap-3 items-center">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm text-gray-300">Filter by:</span>
+                </div>
+                
+                {/* Baseline Dropdown */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-gray-400">Baseline</label>
+                  <select
+                    value={baselineFilter}
+                    onChange={(e) => {
+                      setBaselineFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="border border-gray-500 rounded-xl px-3 py-2 text-sm 
+                              focus:outline-none focus:ring-1 focus:ring-primary-2 focus:border-primary-2
+                              bg-background-lighter text-foreground cursor-pointer shadow-md min-w-[140px]"
+                  >
+                    <option value="">All Baseline</option>
+                    <option value="letter">Letter</option>
+                    <option value="word">Word</option>
+                    <option value="beginner">Beginner</option>
+                    <option value="paragraph">Paragraph</option>
+                    <option value="story">Story</option>
+                  </select>
+                </div>
+
+                {/* Endline Dropdown */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-gray-400">Endline</label>
+                  <select
+                    value={endlineFilter}
+                    onChange={(e) => {
+                      setEndlineFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="border border-gray-500 rounded-xl px-3 py-2 text-sm 
+                              focus:outline-none focus:ring-1 focus:ring-primary-2 focus:border-primary-2
+                              bg-background-lighter text-foreground cursor-pointer shadow-md min-w-[140px]"
+                  >
+                    <option value="">All Endline</option>
+                    <option value="letter">Letter</option>
+                    <option value="word">Word</option>
+                    <option value="beginner">Beginner</option>
+                    <option value="paragraph">Paragraph</option>
+                    <option value="story">Story</option>
+                  </select>
+                </div>
+
+                {/* Clear Filters Button */}
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="flex items-center gap-1 px-3 py-2 text-sm text-gray-300 hover:text-foreground 
+                              hover:bg-gray-700/30 rounded-xl transition-colors mt-6"
+                  >
+                    <X className="w-4 h-4" />
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+
+              {/* Active Filters Badge */}
+              {hasActiveFilters && (
+                <div className="text-xs text-primary-3 bg-primary-3/20 px-2 py-1 rounded-full border border-primary-3/30">
+                  Filters Active
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -241,6 +347,8 @@ export default function StudentsTable({
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Student Name</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Grade</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Gender</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Baseline</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Endline</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Status</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Actions</th>
               </tr>
@@ -266,6 +374,30 @@ export default function StudentsTable({
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-300">
                         {student.sex}
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          student.baseline === 'story' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                          student.baseline === 'paragraph' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                          student.baseline === 'beginner' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
+                          student.baseline === 'word' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                          student.baseline === 'letter' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                          'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                        }`}>
+                          {student.baseline || "Unknown"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          student.endline === 'story' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                          student.endline === 'paragraph' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                          student.endline === 'beginner' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
+                          student.endline === 'word' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                          student.endline === 'letter' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                          'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                        }`}>
+                          {student.endline || "Unknown"}
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-sm">
                         {isDuplicate ? (
@@ -321,10 +453,10 @@ export default function StudentsTable({
                 })
               ) : (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-400">
+                  <td colSpan={7} className="px-6 py-8 text-center text-sm text-gray-400">
                     {students.length === 0 
                       ? "No students found in the selected school." 
-                      : "No students match the current search."
+                      : "No students match the current filters."
                     }
                   </td>
                 </tr>

@@ -93,11 +93,11 @@ const Sidebar = ({ initialTitle, organizationId }) => {
       icon: <FiHome size={20} />, 
       path: `/dashboard/${organizationId}/welcome` 
     },
-    { 
-      name: "Overview", 
-      icon: <FiBarChart2 size={20} />, 
-      path: `/dashboard/${organizationId}/overview` 
-    },
+    // { 
+    //   name: "Overview", 
+    //   icon: <FiBarChart2 size={20} />, 
+    //   path: `/dashboard/${organizationId}/overview` 
+    // },
     { 
       name: "Projects", 
       icon: <FiFolder size={20} />, 
