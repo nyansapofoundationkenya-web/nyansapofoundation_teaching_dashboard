@@ -2,7 +2,7 @@
 import { saveAs } from "file-saver";
 import * as XLSX from "xlsx";
 import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/firebase/config"; // adjust path if needed
+import { db } from "@/firebase/config";
 
 export const useExportAllSchoolsAttendance = () => {
   const exportAllSchoolsAttendance = async ({
@@ -16,12 +16,10 @@ export const useExportAllSchoolsAttendance = () => {
     }
 
     try {
-      // Correct path: singular "organization"
       const schoolsRef = collection(
         db,
         `organization/${orgId}/projects/${projectId}/schools`
       );
-
       const schoolsSnapshot = await getDocs(schoolsRef);
 
       if (schoolsSnapshot.empty) {
@@ -29,16 +27,36 @@ export const useExportAllSchoolsAttendance = () => {
         return;
       }
 
-      // Collect all data across all schools
       const allAttendanceData = [];
       const allDates = new Set();
+
+      // We'll collect all student metadata (gender, grade) in this map: studentId → { gender, grade }
+      const studentMetadataMap = new Map();
 
       for (const schoolDoc of schoolsSnapshot.docs) {
         const schoolId = schoolDoc.id;
         const schoolData = schoolDoc.data();
         const villageName = schoolData.name || "Unnamed School";
+        const county = schoolData.location?.county || "Unknown County"; // Adjust path if nested differently
 
-        // Fetch all attendance documents (each doc ID = date)
+        // Fetch students subcollection to get gender and grade
+        const studentsRef = collection(
+          db,
+          `organization/${orgId}/projects/${projectId}/schools/${schoolId}/students`
+        );
+        const studentsSnapshot = await getDocs(studentsRef);
+
+        studentsSnapshot.docs.forEach((studentDoc) => {
+          const data = studentDoc.data();
+          if (studentDoc.id) {
+            studentMetadataMap.set(studentDoc.id, {
+              gender: data.gender || "Not Specified",
+              grade: data.grade || "Not Specified",
+            });
+          }
+        });
+
+        // Fetch attendance records
         const attendanceRef = collection(
           db,
           `organization/${orgId}/projects/${projectId}/schools/${schoolId}/attendance`
@@ -50,32 +68,41 @@ export const useExportAllSchoolsAttendance = () => {
           continue;
         }
 
-        // Build student map and collect dates for this school
-        const studentMap = new Map(); // id → {name, villageName}
+        const studentAttendanceMap = new Map(); // studentId → { name, villageName, county, attendance{} }
 
         attendanceSnapshot.docs.forEach((doc) => {
-          const date = doc.id; // e.g., "2025-11-17"
+          const date = doc.id;
           allDates.add(date);
 
           const studentsArray = doc.data().students || [];
           studentsArray.forEach((s) => {
             if (s.id && s.name) {
-              studentMap.set(s.id, { 
-                name: s.name, 
-                villageName: villageName,
-                attendance: { ...studentMap.get(s.id)?.attendance, [date]: s.attendance }
-              });
+              const existing = studentAttendanceMap.get(s.id) || {
+                name: s.name,
+                villageName,
+                county,
+                attendance: {},
+              };
+
+              existing.attendance[date] = s.attendance;
+
+              studentAttendanceMap.set(s.id, existing);
             }
           });
         });
 
-        // Add students to the main data array
-        studentMap.forEach((studentData, studentId) => {
+        // Combine with metadata and push to final array
+        studentAttendanceMap.forEach((data, studentId) => {
+          const metadata = studentMetadataMap.get(studentId) || { gender: "N/A", grade: "N/A" };
+
           allAttendanceData.push({
-            villageName: studentData.villageName,
-            studentName: studentData.name,
-            studentId: studentId,
-            attendance: studentData.attendance || {}
+            county: data.county,
+            villageName: data.villageName,
+            studentName: data.name,
+            studentId,
+            gender: metadata.gender,
+            grade: metadata.grade,
+            attendance: data.attendance,
           });
         });
       }
@@ -87,8 +114,15 @@ export const useExportAllSchoolsAttendance = () => {
 
       const sortedDates = Array.from(allDates).sort((a, b) => new Date(a) - new Date(b));
 
-      // Create header row
-      const headerRow = ["Village Name", "Student Name", "Student ID"];
+      // Updated header row
+      const headerRow = [
+        "County",
+        "Village Name",
+        "Student Name",
+        "Student ID",
+        "Gender",
+        "Grade",
+      ];
       sortedDates.forEach((date) => {
         const d = new Date(date);
         headerRow.push(
@@ -100,14 +134,17 @@ export const useExportAllSchoolsAttendance = () => {
         );
       });
 
-      // Create data rows
+      // Data rows
       const rows = allAttendanceData.map((student) => {
         const row = [
+          student.county,
           student.villageName,
           student.studentName,
-          student.studentId
+          student.studentId,
+          student.gender,
+          student.grade,
         ];
-        
+
         sortedDates.forEach((date) => {
           const status = student.attendance[date];
           row.push(
@@ -118,11 +155,11 @@ export const useExportAllSchoolsAttendance = () => {
         return row;
       });
 
-      // Create workbook with single sheet
+      // Create workbook
       const workbook = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet([headerRow, ...rows]);
 
-      // Style header
+      // Style header row
       const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
       for (let c = 0; c <= range.e.c; c++) {
         const addr = XLSX.utils.encode_cell({ r: 0, c });
@@ -134,21 +171,26 @@ export const useExportAllSchoolsAttendance = () => {
         };
       }
 
-      // Set column widths
+      // Column widths
       ws["!cols"] = [
-        { wch: 20 }, // Village Name
-        { wch: 20 }, // Student Name
+        { wch: 18 }, // County
+        { wch: 22 }, // Village Name
+        { wch: 22 }, // Student Name
         { wch: 15 }, // Student ID
-        ...sortedDates.map(() => ({ wch: 16 })) // Date columns
+        { wch: 10 }, // Gender
+        { wch: 10 }, // Grade
+        ...sortedDates.map(() => ({ wch: 16 })), // Dates
       ];
 
-      const safeSheetName = "All villages Attendance";
+      const safeSheetName = "All Villages Attendance";
       XLSX.utils.book_append_sheet(workbook, ws, safeSheetName);
 
-      // Export file
+      // Export
       const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-      const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
-      const fileName = `${projectName}_Attendance_All_villages_${new Date()
+      const blob = new Blob([excelBuffer], {
+        type: "application/octet-stream",
+      });
+      const fileName = `${projectName}_Attendance_All_Villages_${new Date()
         .toISOString()
         .slice(0, 10)}.xlsx`;
 
@@ -156,7 +198,7 @@ export const useExportAllSchoolsAttendance = () => {
       alert("Export completed successfully!");
     } catch (error) {
       console.error("Export failed:", error);
-      alert("Export failed. Check console.");
+      alert("Export failed. See console for details.");
     }
   };
 
