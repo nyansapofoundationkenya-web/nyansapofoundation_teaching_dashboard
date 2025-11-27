@@ -32,12 +32,15 @@ export const useExportAllSchoolsAttendance = () => {
 
       // We'll collect all student metadata (gender, grade) in this map: studentId → { gender, grade }
       const studentMetadataMap = new Map();
+      // Map to store interviewer names: studentId → interviewerName
+      const studentInterviewerMap = new Map();
 
       for (const schoolDoc of schoolsSnapshot.docs) {
         const schoolId = schoolDoc.id;
         const schoolData = schoolDoc.data();
         const villageName = schoolData.name || "Unnamed School";
-        const county = schoolData.location?.county || "Unknown County"; // Adjust path if nested differently
+        const county = schoolData.location || "Unknown County";
+        const subcounty = schoolData.subcounty || "N/A";
 
         // Fetch students subcollection to get gender and grade
         const studentsRef = collection(
@@ -54,6 +57,27 @@ export const useExportAllSchoolsAttendance = () => {
               grade: data.grade || "Not Specified",
             });
           }
+        });
+
+        // Fetch households to get interviewer names
+        const householdsRef = collection(
+          db,
+          `organization/${orgId}/projects/${projectId}/schools/${schoolId}/households`
+        );
+        const householdsSnapshot = await getDocs(householdsRef);
+
+        householdsSnapshot.docs.forEach((householdDoc) => {
+          const householdData = householdDoc.data();
+          const children = householdData.children || [];
+          
+          children.forEach((child) => {
+            if (child.linkedLearnerId) {
+              studentInterviewerMap.set(
+                child.linkedLearnerId, 
+                householdData.interviewerName || "Not Available"
+              );
+            }
+          });
         });
 
         // Fetch attendance records
@@ -94,6 +118,7 @@ export const useExportAllSchoolsAttendance = () => {
         // Combine with metadata and push to final array
         studentAttendanceMap.forEach((data, studentId) => {
           const metadata = studentMetadataMap.get(studentId) || { gender: "N/A", grade: "N/A" };
+          const interviewerName = studentInterviewerMap.get(studentId) || "Not Available";
 
           allAttendanceData.push({
             county: data.county,
@@ -102,6 +127,7 @@ export const useExportAllSchoolsAttendance = () => {
             studentId,
             gender: metadata.gender,
             grade: metadata.grade,
+            interviewerName: interviewerName,
             attendance: data.attendance,
           });
         });
@@ -114,7 +140,7 @@ export const useExportAllSchoolsAttendance = () => {
 
       const sortedDates = Array.from(allDates).sort((a, b) => new Date(a) - new Date(b));
 
-      // Updated header row
+      // Updated header row to include Interviewer Name
       const headerRow = [
         "County",
         "Village Name",
@@ -122,6 +148,7 @@ export const useExportAllSchoolsAttendance = () => {
         "Student ID",
         "Gender",
         "Grade",
+        "Interviewer Name",
       ];
       sortedDates.forEach((date) => {
         const d = new Date(date);
@@ -143,6 +170,7 @@ export const useExportAllSchoolsAttendance = () => {
           student.studentId,
           student.gender,
           student.grade,
+          student.interviewerName,
         ];
 
         sortedDates.forEach((date) => {
@@ -171,7 +199,7 @@ export const useExportAllSchoolsAttendance = () => {
         };
       }
 
-      // Column widths
+      // Column widths - added width for Interviewer Name
       ws["!cols"] = [
         { wch: 18 }, // County
         { wch: 22 }, // Village Name
@@ -179,6 +207,7 @@ export const useExportAllSchoolsAttendance = () => {
         { wch: 15 }, // Student ID
         { wch: 10 }, // Gender
         { wch: 10 }, // Grade
+        { wch: 20 }, // Interviewer Name (new column)
         ...sortedDates.map(() => ({ wch: 16 })), // Dates
       ];
 

@@ -164,6 +164,7 @@ export const useOrganizationHouseholds = (orgId) => {
       'County': household.county,
       'Sub-County': household.subCounty,
       'Village': household.village,
+      'Interviewer Name':household.interviewerName || 'N/A',
       'Household Head': household.householdHeadName || 'N/A',
       'Household Head Phone': household.householdHeadPhone || 'N/A',
       'Household Members Count': household.householdMembersCount || '',
