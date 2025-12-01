@@ -127,62 +127,93 @@ export const useOrganizationHouseholds = (orgId) => {
   }
 
   // Updated flatten function — matches your Python script exactly
-  const flattenHouseholdData = (household) => {
-    const pe = household.parentalEngagement || {}
+const flattenHouseholdData = (household) => {
+  const pe = household.parentalEngagement || {}
+  const childLearningEnv = household.childLearningEnvironment || {}
+  
+  // Get parents data
+  const parents = household.parents || []
+  const mother = parents.find(p => p.type === 'Mother') || {}
+  const father = parents.find(p => p.type === 'Father') || {}
+  const guardian = parents.find(p => p.type === 'Guardian') || parents.find(p => !['Mother', 'Father'].includes(p.type)) || {}
 
-    const parents = (household.parents || [])
-      .map(p => {
-        const name = p.name || ''
-        const type = p.type || ''
-        const age = p.age || ''
-        const edu = p.highestEducationLevel || ''
-        return name ? `${name} (${type}, ${age} yrs, ${edu})` : ''
-      })
-      .filter(Boolean)
-      .join('; ') || 'None'
+  // Get children data
+  const children = household.children || []
 
-    const children = (household.children || [])
-      .map(c => {
-        const fullName = `${c.firstName || ''} ${c.lastName || ''}`.trim()
-        const gender = c.gender || ''
-        const age = c.age || ''
-        const grade = c.grade || ''
-        const assessed = c.wasAssessedIn2024 ? 'Yes' : 'No'
-        const aboveStory = c.wasAboveStoryLevelIn2024 ? 'Yes' : 'No'
-        const id = c.linkedLearnerId || ''
-        return fullName
-          ? `${fullName} (${gender}, ${age} yrs, G${grade}, Assessed=${assessed}, AboveStory=${aboveStory}, ID=${id})`
-          : ''
-      })
-      .filter(Boolean)
-      .join('; ') || 'None'
-
-    return {
-      'Interview Date': household.interviewDate
-        ? new Date(household.interviewDate).toLocaleDateString('en-GB')
-        : 'N/A',
-      'County': household.county,
-      'Sub-County': household.subCounty,
-      'Village': household.village,
-      'Interviewer Name':household.interviewerName || 'N/A',
-      'Household Head': household.householdHeadName || 'N/A',
-      'Household Head Phone': household.householdHeadPhone || 'N/A',
-      'Household Members Count': household.householdMembersCount || '',
-      'Income Source': household.incomeSource || 'N/A',
-      'Main Language': household.mainLanguage || 'N/A',
-      'Marital Status': household.maritalStatus || 'N/A',
-      'Has Books/Materials': household.childLearningEnvironment?.hasBooksOrMaterials ? 'Yes' : 'No',
-      'Has Quiet Place to Study': household.childLearningEnvironment?.hasQuietPlaceToStudy ? 'Yes' : 'No',
-      'Consent Given': household.consentGiven ? 'Yes' : 'No',
-      'Attends School Meetings': pe.attendsSchoolMeetings ? 'Yes' : 'No',
-      'Monitors Attendance': pe.monitorsAttendance ? 'Yes' : 'No',
-      'Who Helps with Homework': pe.homeworkHelper || 'N/A',
-      'Teacher Discussion Frequency': pe.teacherDiscussionFrequency || 'N/A',
-      'Parents': parents,
-      'Children': children,
-    }
+  // Base data with first child
+  const baseData = {
+    // Interview information
+    'Name of interviewer': household.interviewerName || 'N/A',
+    'Date of interview': household.interviewDate
+      ? new Date(household.interviewDate).toLocaleDateString('en-GB')
+      : 'N/A',
+    "Interviewer Name": household.interviewerName,
+    'County': household.county || 'N/A',
+    'Sub-county': household.subCounty || 'N/A',
+    'Village': household.village || 'N/A',
+    
+    // Consent and respondent information
+    'Has the respondent given consent to participate?': household.consentGiven ? 'Yes' : 'No',
+    'Name of the respondent': household.respondentName || household.householdHeadName || 'N/A',
+    'Is the respondent the household head': household.isRespondentHouseholdHead ? 'Yes' : (household.respondentName === household.householdHeadName ? 'Yes' : 'No') || 'N/A',
+    'NAME OF HOUSEHOLD HEAD': household.householdHeadName || 'N/A',
+    'How are you related with the household head': household.relationshipToHead|| 'N/A',
+    'Telephone/Mobile number of the household head': household.householdHeadPhone || 'N/A',
+    'Respondent age': household.respondentAge || household.householdHeadAge || 'N/A',
+    
+    // Language
+    'Which is the main language often spoken at home in this household?': household.mainLanguage || 'N/A',
+    
+    // Parent information
+    'Mother`s name': mother.name || 'N/A',
+    'Mother`s age': mother.age || 'N/A',
+    'Has the mother ever attended school?': mother.everAttendedSchool ? 'Yes' : (mother.highestEducationLevel ? 'Yes' : 'No') || 'N/A',
+    'Highest Education level of the mother': mother.highestEducationLevel || 'N/A',
+    
+    'Father`s name': father.name || 'N/A',
+    'Father`s age': father.age || 'N/A',
+    'Has the Father ever attended school?': father.everAttendedSchool ? 'Yes' : (father.highestEducationLevel ? 'Yes' : 'No') || 'N/A',
+    'Highest Education level of the Father': father.highestEducationLevel || 'N/A',
+    
+    'Guardian`s name': guardian.name || 'N/A',
+    'What is the gender of the guardian?': guardian.gender || 'N/A',
+    'Guardian`s age': guardian.age || 'N/A',
+    'Has the Guardian ever attended school?': guardian.everAttendedSchool ? 'Yes' : (guardian.highestEducationLevel ? 'Yes' : 'No') || 'N/A',
+    'Highest Education level of the Guardian': guardian.highestEducationLevel || 'N/A',
+    
+    // Household information
+    'What is the marital status of the household head?': household.maritalStatus || 'N/A',
+    'Number of members regularly living in the household including yourself': household.householdMembersCount || 'N/A',
+    'Main source of income for the household head:': household.incomeSource || 'N/A',
+    'Does the household have electricity?': household.hasElectricity ? 'Yes' : 'No',
+    'Household assets': Array.isArray(household.householdAssets) ? household.householdAssets.join(', ') : (household.householdAssets || 'N/A'),
+    
+    // Parental engagement
+    'Who helps the child with homework?': pe.homeworkHelper || 'N/A',
+    'How often do you discuss your child\'s learning with teachers?': pe.teacherDiscussionFrequency || 'N/A',
+    'Do you attend school meetings or parent–teacher forums?': pe.attendsSchoolMeetings ? 'Yes' : 'No',
+    'Do you monitor your child\'s school attendance?': pe.monitorsAttendance ? 'Yes' : 'No',
+    
+    // Learning environment
+    'Does the child have a quiet place to study?': childLearningEnv.hasQuietPlaceToStudy ? 'Yes' : 'No',
+    'Does the household have books or learning materials?': childLearningEnv.hasBooksOrMaterials ? 'Yes' : 'No',
   }
 
+  // Add children data (up to 5 children - adjust as needed)
+  const maxChildren = 5
+  for (let i = 0; i < maxChildren; i++) {
+    const child = children[i] || {}
+    const childNum = i + 1
+    
+    baseData[`Child ${childNum} Name`] = `${child.firstName || ''} ${child.lastName || ''}`.trim() || ''
+    baseData[`Child ${childNum} Gender`] = child.gender || ''
+    baseData[`Child ${childNum} Age`] = child.age || ''
+    baseData[`Child ${childNum} Grade`] = child.grade || ''
+    baseData[`Child ${childNum} Lives With`] = child.livesWith || ''
+  }
+
+  return baseData
+}
   // CSV export — unchanged
   const convertToCSV = (data) => {
     if (!data || data.length === 0) return ''
