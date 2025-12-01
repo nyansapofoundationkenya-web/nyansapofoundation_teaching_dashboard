@@ -2,13 +2,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { doc, setDoc, getDoc, collection, getDocs, query, orderBy } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, getDocs } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid";
 import { useAssessment } from "@/hooks/useAssessment";
 import { db } from "@/firebase/config";
 
 export default function AssessmentModal({ organizationId, onClose }) {
-  const { projects, schools, fetchSchools } = useAssessment(organizationId);
+  const { 
+    projects, 
+    schools, 
+    students, 
+    loading, 
+    fetchSchools, 
+    fetchStudentsForSchools,
+    clearStudents
+  } = useAssessment(organizationId);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -18,7 +26,6 @@ export default function AssessmentModal({ organizationId, onClose }) {
     level: "Baseline",
     assessmentNumber: 1,
   });
-  const [schoolStudents, setSchoolStudents] = useState({});
   const [selectAllSchools, setSelectAllSchools] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -26,37 +33,14 @@ export default function AssessmentModal({ organizationId, onClose }) {
   const [loadingAssessment, setLoadingAssessment] = useState(false);
   const [maxAssessmentNumber, setMaxAssessmentNumber] = useState(1);
 
-  // Fetch students for selected schools
+  // Fetch students when project, schools, or level changes
   useEffect(() => {
-    if (!formData.projectId || formData.schoolIds.length === 0) {
-      setSchoolStudents({});
-      return;
+    if (formData.projectId && formData.schoolIds.length > 0) {
+      fetchStudentsForSchools(formData.projectId, formData.schoolIds, formData.level);
+    } else {
+      clearStudents();
     }
-
-    const fetchStudentsForSchools = async () => {
-      const newSchoolStudents = {};
-      for (const schoolId of formData.schoolIds) {
-        try {
-          const studentsQuery = query(
-            collection(db, `organization/${organizationId}/projects/${formData.projectId}/schools/${schoolId}/students`),
-            orderBy("last_name")
-          );
-          const querySnapshot = await getDocs(studentsQuery);
-          const schoolStuds = [];
-          querySnapshot.forEach((docSnap) => {
-            schoolStuds.push({ id: docSnap.id, ...docSnap.data() });
-          });
-          newSchoolStudents[schoolId] = schoolStuds;
-        } catch (err) {
-          console.error(`Error fetching students for school ${schoolId}:`, err);
-          newSchoolStudents[schoolId] = [];
-        }
-      }
-      setSchoolStudents(newSchoolStudents);
-    };
-
-    fetchStudentsForSchools();
-  }, [formData.projectId, formData.schoolIds, organizationId]);
+  }, [formData.projectId, formData.schoolIds, formData.level, fetchStudentsForSchools, clearStudents]);
 
   // Handle select all schools
   useEffect(() => {
@@ -134,10 +118,10 @@ export default function AssessmentModal({ organizationId, onClose }) {
       fetchSchools(formData.projectId);
     } else {
       setFormData(prev => ({ ...prev, schoolIds: [] }));
-      setSchoolStudents({});
+      clearStudents();
       setSelectAllSchools(false);
     }
-  }, [formData.projectId, fetchSchools]);
+  }, [formData.projectId, fetchSchools, clearStudents]);
 
   // Handle individual school toggle
   const toggleSchool = (schoolId) => {
@@ -164,6 +148,17 @@ export default function AssessmentModal({ organizationId, onClose }) {
     }
   };
 
+  // Handle level change
+  const handleLevelChange = (level) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      level,
+      schoolIds: [] // Reset school selections
+    }));
+    setSelectAllSchools(false);
+    clearStudents();
+  };
+
   // Navigation for assessment preview
   const nextAssessment = () => {
     if (formData.assessmentNumber < maxAssessmentNumber) {
@@ -177,7 +172,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
     }
   };
 
-const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.projectId || formData.schoolIds.length === 0) {
       setError("Please fill in all required fields and select at least one school.");
@@ -192,7 +187,7 @@ const handleSubmit = async (e) => {
         const school = schools.find(s => s.id === schoolId);
         if (!school) return;
 
-        const schoolStuds = schoolStudents[schoolId] || [];
+        const schoolStuds = students[schoolId] || [];
         if (schoolStuds.length === 0) {
           console.warn(`No students for school ${schoolId}`);
           return;
@@ -205,7 +200,7 @@ const handleSubmit = async (e) => {
           first_name: student.first_name || "",
           grade: Number(student.grade) || 0,
           group: student.group || "",
-          has_done: false,
+          has_done: true,
           id: student.id,
           last_name: student.last_name || "",
           name: "",
@@ -242,6 +237,7 @@ const handleSubmit = async (e) => {
               student_name: "",
               student_grade: Number(student.grade) || 0,
               competence_level: 0,
+              assessment_level: formData.level,
             }
           );
         });
@@ -260,6 +256,7 @@ const handleSubmit = async (e) => {
     }
   };
 
+  // Render assessment preview
   const renderAssessmentPreview = () => {
     if (loadingAssessment) {
       return (
@@ -517,6 +514,49 @@ const handleSubmit = async (e) => {
     }
   };
 
+  // Render level selection
+  const renderLevelSelection = () => (
+    <div className="mb-6">
+      <label className="block text-sm font-medium text-foreground mb-3">Assessment Level *</label>
+      <div className="grid grid-cols-2 gap-4">
+        <label className={`flex items-center p-4 rounded-xl cursor-pointer transition-all border-2 ${
+          formData.level === "Baseline" 
+            ? 'bg-primary-2/10 border-primary-2/50 shadow-md' 
+            : 'bg-background-lighter border-gray-600 hover:bg-background-light'
+        }`}>
+          <input
+            type="radio"
+            value="Baseline"
+            checked={formData.level === "Baseline"}
+            onChange={(e) => handleLevelChange(e.target.value)}
+            className="w-4 h-4 text-primary-2 bg-background-lighter border-gray-500 focus:ring-primary-2 focus:ring-2"
+          />
+          <div className="ml-3">
+            <span className="text-sm font-medium text-foreground block">Baseline</span>
+            <span className="text-xs text-gray-400 mt-1">Uses current student list</span>
+          </div>
+        </label>
+        <label className={`flex items-center p-4 rounded-xl cursor-pointer transition-all border-2 ${
+          formData.level === "Endline" 
+            ? 'bg-primary-2/10 border-primary-2/50 shadow-md' 
+            : 'bg-background-lighter border-gray-600 hover:bg-background-light'
+        }`}>
+          <input
+            type="radio"
+            value="Endline"
+            checked={formData.level === "Endline"}
+            onChange={(e) => handleLevelChange(e.target.value)}
+            className="w-4 h-4 text-primary-2 bg-background-lighter border-gray-500 focus:ring-primary-2 focus:ring-2"
+          />
+          <div className="ml-3">
+            <span className="text-sm font-medium text-foreground block">Endline</span>
+            <span className="text-xs text-gray-400 mt-1">Uses register list</span>
+          </div>
+        </label>
+      </div>
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black bg-opacity-50">
       <div className="bg-background-light rounded-2xl shadow-xl w-full max-w-4xl flex flex-col h-[calc(100%-2rem)] sm:h-[95vh] max-h-screen border border-gray-600 mx-4 sm:mx-0">
@@ -556,9 +596,17 @@ const handleSubmit = async (e) => {
               </select>
             </div>
 
-            {/* Select Schools - Improved Design */}
+            {/* Level Selection */}
+            {renderLevelSelection()}
+
+            {/* Select Schools */}
             <div className="mb-6">
-              <label className="block text-sm font-medium text-foreground mb-3">Select Schools *</label>
+              <label className="block text-sm font-medium text-foreground mb-3">
+                Select Schools * 
+                <span className="ml-2 text-xs text-gray-400">
+                  ({formData.level === "Endline" ? "Using register list" : "Using student list"})
+                </span>
+              </label>
               
               {!formData.projectId ? (
                 <div className="text-center py-8 bg-background-lighter rounded-xl border border-gray-600">
@@ -634,7 +682,7 @@ const handleSubmit = async (e) => {
                                 {school.name}
                               </span>
                               <span className="text-xs text-gray-400 mt-1">
-                                {schoolStudents[school.id]?.length || 0} students
+                                {students[school.id]?.length || 0} students
                               </span>
                             </div>
                           </div>
@@ -739,20 +787,6 @@ const handleSubmit = async (e) => {
               <div className="max-h-96 overflow-y-auto scrollbar-hide">
                 {renderAssessmentPreview()}
               </div>
-            </div>
-
-            {/* Level Selection */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-foreground mb-3">Assessment Level *</label>
-              <select
-                value={formData.level}
-                onChange={(e) => setFormData(prev => ({ ...prev, level: e.target.value }))}
-                className="w-full px-4 py-3 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-2 text-foreground bg-background-lighter transition-colors"
-                required
-              >
-                <option value="Baseline" className="text-foreground">Baseline</option>
-                <option value="Endline" className="text-foreground">Endline</option>
-              </select>
             </div>
           </form>
         </div>

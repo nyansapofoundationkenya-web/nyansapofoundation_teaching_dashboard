@@ -1,137 +1,108 @@
 "use client"
-
 import { useState, useEffect } from "react"
 import { collection, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/firebase/config"
-import { Users, UserCheck, Eye } from "lucide-react"
+import { Users, UserCheck, AlertCircle, Eye } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 export default function AssessmentList({ organizationId, filters, searchQuery }) {
   const [assessments, setAssessments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const router = useRouter();
+  const router = useRouter()
 
   useEffect(() => {
     fetchAssessments()
-  }, [organizationId, filters.projectId, filters.schoolId]) // Remove filters.date from dependency to avoid refetching
+  }, [organizationId, filters.projectId, filters.schoolId, filters.type, filters.level])
 
   const fetchAssessments = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      let assessmentsQuery = query(collection(db, "assessments"), where("organization_id", "==", organizationId))
+      let q = query(
+        collection(db, "assessments"),
+        where("organization_id", "==", organizationId)
+      )
 
-      // Add project filter if selected
-      if (filters.projectId) {
-        assessmentsQuery = query(assessmentsQuery, where("project_id", "==", filters.projectId))
-      }
+      if (filters.projectId) q = query(q, where("project_id", "==", filters.projectId))
+      if (filters.schoolId) q = query(q, where("school_id", "==", filters.schoolId))
 
-      // Add school filter if selected
-      if (filters.schoolId) {
-        assessmentsQuery = query(assessmentsQuery, where("school_id", "==", filters.schoolId))
-      }
+      const snapshot = await getDocs(q)
+      
+      const raw = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }))
 
-      const assessmentsSnapshot = await getDocs(assessmentsQuery)
-      const assessmentsData = assessmentsSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }))
+      const VALID_LEVELS = ["beginner", "letter", "word", "paragraph", "story"]
 
-      setAssessments(assessmentsData)
-    } catch (error) {
-      console.error("Error fetching assessments:", error)
+      // Only keep assessments with at least ONE truly completed student
+      const validAssessments = raw.filter(assessment => {
+        if (!Array.isArray(assessment.assigned_students)) return false
+
+        return assessment.assigned_students.some(student => {
+          const done = student.has_done === true
+          const level = student.baseline?.toString().toLowerCase().trim()
+          return done && level && VALID_LEVELS.includes(level)
+        })
+      })
+
+      setAssessments(validAssessments)
+    } catch (err) {
+      console.error(err)
       setError("Failed to load assessments")
     } finally {
       setLoading(false)
     }
   }
 
-  // Helper function to safely get count from data
-  const getCount = (data) => {
-    if (typeof data === "number") {
-      return data
-    }
-    if (Array.isArray(data)) {
-      return data.length
-    }
-    if (typeof data === "object" && data !== null) {
-      // If it's an object, try to get the length of its keys or values
-      return Object.keys(data).length
-    }
-    return 0
+  const countCompleted = (students) => {
+    if (!Array.isArray(students)) return 0
+    const valid = ["beginner", "letter", "word", "paragraph", "story"]
+    return students.filter(s => 
+      s.has_done === true && 
+      s.baseline && 
+      valid.includes(String(s.baseline).toLowerCase().trim())
+    ).length
   }
 
-  // Helper function to safely render text
-  const safeRenderText = (value) => {
-    if (typeof value === "string" || typeof value === "number") {
-      return value
-    }
-    if (Array.isArray(value)) {
-      return value.join(", ")
-    }
-    if (typeof value === "object" && value !== null) {
-      // For objects, you might want to display a specific property or a summary
-      return `${Object.keys(value).length} items`
-    }
-    return ""
-  }
+  const safe = (val) => val ? String(val) : ""
 
-  // Helper function to check if assessment matches date filter
-  const matchesDateFilter = (assessment) => {
+  const matchesDate = (a) => {
     if (!filters.date) return true
-    
     try {
-      const assessmentDate = new Date(assessment.created_at).toISOString().split('T')[0]
-      return assessmentDate === filters.date
-    } catch (error) {
-      console.error("Error parsing assessment date:", error)
-      return true // If there's an error parsing date, include the assessment
-    }
+      return new Date(a.created_at).toISOString().split("T")[0] === filters.date
+    } catch { return true }
   }
 
-  // Filter assessments based on search query and date
-  const filteredAssessments = assessments.filter((assessment) => {
-    // Apply date filter first
-    if (!matchesDateFilter(assessment)) {
-      return false
-    }
+  const filtered = assessments
+    .filter(matchesDate)
+    .filter(a => {
+      if (filters.type && filters.type !== "all" && a.type !== filters.type) return false
+      if (filters.level && filters.level !== "all" && a.level !== filters.level) return false
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase()
+        const text = `${a.name} ${a.type} ${a.level} ${a.description || ""}`.toLowerCase()
+        if (!text.includes(q)) return false
+      }
+      return true
+    })
 
-    // Then apply search filter
-    if (!searchQuery) return true
-
-    const searchLower = searchQuery.toLowerCase()
-    return (
-      safeRenderText(assessment.name)?.toString().toLowerCase().includes(searchLower) ||
-      safeRenderText(assessment.type)?.toString().toLowerCase().includes(searchLower) ||
-      safeRenderText(assessment.category)?.toString().toLowerCase().includes(searchLower) ||
-      safeRenderText(assessment.description)?.toString().toLowerCase().includes(searchLower)
-    )
-  })
-
-  const handleViewDetails = (assessmentId) => {
-    router.push(`/dashboard/${organizationId}/moderations/${assessmentId}`)
-  }
+  const goTo = (id) => router.push(`/dashboard/${organizationId}/moderations/${id}`)
 
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {[...Array(6)].map((_, index) => (
-          <div key={index} className="bg-background-light rounded-2xl shadow-lg border border-gray-600 overflow-hidden">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="bg-background-light rounded-2xl shadow-lg border border-gray-600 overflow-hidden animate-pulse">
             <div className="bg-gradient-to-br from-primary-1 to-primary-2 p-6">
-              <div className="animate-pulse">
-                <div className="h-6 bg-white/20 rounded mb-4"></div>
-                <div className="flex gap-2 mb-6">
-                  <div className="h-6 w-16 bg-white/20 rounded"></div>
-                  <div className="h-6 w-20 bg-white/20 rounded"></div>
-                </div>
-                <div className="space-y-3 mb-6">
-                  <div className="h-4 bg-white/20 rounded"></div>
-                  <div className="h-4 bg-white/20 rounded"></div>
-                </div>
-                <div className="h-10 bg-white/20 rounded"></div>
+              <div className="h-8 bg-white/20 rounded mb-4 w-3/4"></div>
+              <div className="space-y-3">
+                <div className="h-4 bg-white/20 rounded"></div>
+                <div className="h-4 bg-white/20 rounded w-4/5"></div>
               </div>
+              <div className="h-10 bg-white/20 rounded-xl mt-6"></div>
             </div>
           </div>
         ))}
@@ -139,30 +110,21 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
     )
   }
 
-  if (error) {
+  if (error || filtered.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="text-red-400 mb-2">{error}</div>
-        <button onClick={fetchAssessments} className="text-primary-2 hover:text-blue-400 text-sm">
-          Try again
-        </button>
-      </div>
-    )
-  }
-
-  if (filteredAssessments.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <div className="text-gray-400 mb-2">No assessments found</div>
-        <div className="text-sm text-gray-300">
-          {searchQuery || filters.projectId || filters.schoolId || filters.date
-            ? "Try adjusting your filters or search query"
-            : "No assessments available for this organization"}
+      <div className="text-center py-16">
+        <div className="text-gray-400 text-lg mb-3">
+          {error ? "Failed to load assessments" : "No assessments with progress"}
         </div>
-        {filters.date && (
-          <div className="text-xs text-gray-400 mt-2">
-            Showing assessments from: {new Date(filters.date).toLocaleDateString()}
-          </div>
+        <div className="text-sm text-gray-500 max-w-md mx-auto">
+          {error
+            ? "Please try again."
+            : "Assessments will appear here once students complete their baseline with a valid level (beginner, letter, word, paragraph, or story)."}
+        </div>
+        {error && (
+          <button onClick={fetchAssessments} className="mt-4 text-primary-2 hover:underline text-sm">
+            Try again
+          </button>
         )}
       </div>
     )
@@ -170,50 +132,78 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {filteredAssessments.map((assessment) => (
-        <div
-          key={assessment.id}
-          className="bg-background-light rounded-2xl shadow-lg border border-gray-600 overflow-hidden hover:shadow-xl transition-all"
-        >
-          <div className="bg-gradient-to-br from-primary-1 to-primary-2 text-white p-6">
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-xl font-semibold">{safeRenderText(assessment.name) || "Untitled Assessment"}</h3>
-            </div>
+      {filtered.map((assessment) => {
+        const total = assessment.assigned_students?.length || 0
+        const completed = countCompleted(assessment.assigned_students)
+        const remaining = total - completed
 
-            <div className="flex gap-2 mb-6">
-              {assessment.type && (
-                <span className="px-2 py-1 bg-white/20 text-white border border-white/30 rounded-lg text-sm">
-                  {safeRenderText(assessment.type)}
-                </span>
-              )}
-            </div>
+        return (
+          <div
+            key={assessment.id}
+            onClick={() => goTo(assessment.id)}
+            className="bg-background-light rounded-2xl shadow-lg border border-gray-600 overflow-hidden hover:shadow-xl transition-all cursor-pointer group"
+          >
+            <div className="bg-gradient-to-br from-primary-1 to-primary-2 text-white p-6">
+              <h3 className="text-xl font-semibold mb-3 line-clamp-2">
+                {safe(assessment.name) || "Untitled Assessment"}
+              </h3>
 
-            <div className="space-y-3 mb-6">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                <span className="text-sm">{getCount(assessment.assigned_students)} Assigned students</span>
+              <div className="flex flex-wrap gap-2 mb-5">
+                {assessment.type && (
+                  <span className="px-3 py-1 bg-white/20 rounded-lg text-sm border border-white/30">
+                    {assessment.type}
+                  </span>
+                )}
+                {assessment.level && (
+                  <span className="px-3 py-1 bg-white/20 rounded-lg text-sm border border-white/30">
+                    {assessment.level}
+                  </span>
+                )}
               </div>
-              <div className="flex items-center gap-2">
-                <UserCheck className="w-4 h-4" />
-                <span className="text-sm">6 Instructors</span>
-              </div>
-              {assessment.created_at && (
-                <div className="flex items-center gap-2 text-xs text-white/80">
-                  <span>Created: {new Date(assessment.created_at).toLocaleDateString()}</span>
+
+              <div className="space-y-3 text-sm mb-6">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  <span>{total} Assigned</span>
                 </div>
-              )}
-            </div>
 
-            <button
-              onClick={() => handleViewDetails(assessment.id)}
-              className="w-full bg-primary-3 hover:bg-yellow-400 text-primary-1 font-medium py-2 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
-            >
-              <Eye className="w-4 h-4" />
-              View Details
-            </button>
+                {/* Completed — always shown when ≥1 */}
+                {completed > 0 && (
+                  <div className="flex items-center gap-2 text-green-300 font-medium">
+                    <UserCheck className="w-4 h-4" />
+                    <span>{completed} Completed</span>
+                  </div>
+                )}
+
+                {/* Remaining — only shown when >0 */}
+                {remaining > 0 && (
+                  <div className="flex items-center gap-2 text-red-300 font-medium">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>{remaining} remaining</span>
+                  </div>
+                )}
+
+                {assessment.created_at && (
+                  <div className="text-xs opacity-80">
+                    {new Date(assessment.created_at).toLocaleDateString()}
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  goTo(assessment.id)
+                }}
+                className="w-full bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+              >
+                <Eye className="w-4 h-4" />
+                View Details
+              </button>
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
