@@ -1,25 +1,43 @@
 "use client"
 
-import { Users, CheckCircle, PlayCircle, Clock } from "lucide-react"
+import { Users, CheckCircle, Clock } from "lucide-react"
 
 export default function StudentMetrics({ students, loading = false }) {
   // Calculate metrics
- const totalStudents = students?.length || 0
+  const totalStudents = students?.length || 0
 
-    // ✔ Completed: if has_done or linked is true
-    const completedCount = students?.filter(student =>
-      student.has_done === true || student.linked === true
-    ).length || 0
+  // Calculate counts based on simplified logic
+  let completedCount = 0
+  let notStartedCount = 0
 
-    // ✔ Started but not completed: assessment_status = "started_not_completed"
-    //   AND not considered completed
-    const startedNotCompletedCount = students?.filter(student =>
-      student.assessment_status === "started_not_completed" &&
-      !(student.has_done === true || student.linked === true)
-    ).length || 0
+  if (students) {
+    students.forEach(student => {
+      const hasDone = student.has_done === true
+      const baselineExists = student.baseline && 
+                           student.baseline !== "" && 
+                           student.baseline !== null &&
+                           student.baseline !== undefined
+      
+      // Rule 1: Completed - has_done is true AND baseline has content
+      if (hasDone && baselineExists) {
+        completedCount++
+      }
+      // Rule 2: Not Started - Everything else
+      // This includes:
+      // 1. has_done is false AND baseline is empty/null/undefined (truly not started)
+      // 2. has_done is true but baseline is empty (marked done but no content)
+      // 3. has_done is false but baseline has content (progress but not marked done)
+      else {
+        notStartedCount++
+      }
+    })
+  }
 
-    // ✔ Not started = everyone else
-    const notStartedCount = totalStudents - completedCount - startedNotCompletedCount
+  // Verify counts (for debugging)
+  const calculatedTotal = completedCount + notStartedCount
+  if (students && calculatedTotal !== totalStudents) {
+    console.warn(`Count mismatch: Total=${totalStudents}, Calculated=${calculatedTotal}`)
+  }
 
   if (loading) {
     return <StudentMetricsSkeleton />
@@ -29,7 +47,7 @@ export default function StudentMetrics({ students, loading = false }) {
     <div className="bg-background-light rounded-2xl shadow-lg border border-gray-600 p-6 mb-6">
       <h3 className="text-lg font-semibold text-foreground mb-4">Student Progress Overview</h3>
       
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Total Students */}
         <div className="bg-primary-2/20 border border-primary-2/30 rounded-xl p-4">
           <div className="flex items-center justify-between">
@@ -59,23 +77,7 @@ export default function StudentMetrics({ students, loading = false }) {
           </div>
         </div>
 
-        {/* Started & Not Completed */}
-        <div className="bg-primary-3/20 border border-primary-3/30 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-primary-3">In Progress</p>
-              <p className="text-2xl font-bold text-primary-3">{startedNotCompletedCount}</p>
-              <p className="text-xs text-primary-3 mt-1">
-                {totalStudents > 0 ? Math.round((startedNotCompletedCount / totalStudents) * 100) : 0}%
-              </p>
-            </div>
-            <div className="bg-primary-3/20 p-2 rounded-full">
-              <PlayCircle className="w-6 h-6 text-primary-3" />
-            </div>
-          </div>
-        </div>
-
-        {/* Not Started */}
+        {/* Not Started (includes all non-completed) */}
         <div className="bg-gray-600/20 border border-gray-500/30 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -105,20 +107,23 @@ export default function StudentMetrics({ students, loading = false }) {
               style={{ width: `${(completedCount / totalStudents) * 100}%` }}
             />
           </div>
+          {/* <p className="text-xs text-gray-400 mt-2">
+            * "Not Started" includes all students who haven't completed the assessment (0% progress)
+          </p> */}
         </div>
       )}
     </div>
   )
 }
 
-// Skeleton component for loading state
+// Skeleton component for loading state (updated for 3 columns)
 function StudentMetricsSkeleton() {
   return (
     <div className="bg-background-light rounded-2xl shadow-lg border border-gray-600 p-6 mb-6 animate-pulse">
       <div className="h-6 bg-background-lighter rounded w-48 mb-4"></div>
       
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, index) => (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {[...Array(3)].map((_, index) => (
           <div key={index} className="border border-gray-600 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div className="space-y-2">
