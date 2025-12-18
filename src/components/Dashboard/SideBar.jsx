@@ -13,7 +13,8 @@ import {
   FiLogOut,
   FiClipboard,
   FiFileText,
-  FiCheckSquare 
+  FiCheckSquare ,
+  FiMessageSquare
 } from "react-icons/fi";
 import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/icons/logo";
@@ -117,7 +118,7 @@ const Sidebar = ({ initialTitle, organizationId }) => {
       name: "Attendance",
       icon: <FiCheckSquare size={20} />,
       path: `/dashboard/${organizationId}/attendance`
-    }
+    },
   ];
 
   // Survey menu item - will be conditionally added based on permissions
@@ -129,6 +130,11 @@ const Sidebar = ({ initialTitle, organizationId }) => {
 
   // Admin-only menu items
   const superAdminMenuItems = [
+    {
+      name : "Ai Assistant",
+      icon: <FiMessageSquare size={20} />,
+      path: `/dashboard/${organizationId}/ai-assistant`
+    },
     { 
       name: "Instructors", 
       icon: <FiUserCheck size={20} />, 
