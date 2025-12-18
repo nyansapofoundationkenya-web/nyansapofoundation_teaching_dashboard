@@ -210,6 +210,7 @@ const flattenHouseholdData = (household) => {
     baseData[`Child ${childNum} Age`] = child.age || ''
     baseData[`Child ${childNum} Grade`] = child.grade || ''
     baseData[`Child ${childNum} Lives With`] = child.livesWith || ''
+    baseData[`child ${childNum} id`] = child.linkedLearnerId || ''
   }
 
   return baseData
