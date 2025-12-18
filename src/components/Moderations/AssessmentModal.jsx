@@ -32,13 +32,19 @@ export default function AssessmentModal({ organizationId, onClose }) {
   const [currentAssessment, setCurrentAssessment] = useState(null);
   const [loadingAssessment, setLoadingAssessment] = useState(false);
   const [maxAssessmentNumber, setMaxAssessmentNumber] = useState(1);
+  const [studentsLoading, setStudentsLoading] = useState(false);
 
   // Fetch students when project, schools, or level changes
   useEffect(() => {
     if (formData.projectId && formData.schoolIds.length > 0) {
-      fetchStudentsForSchools(formData.projectId, formData.schoolIds, formData.level);
+      setStudentsLoading(true);
+      fetchStudentsForSchools(formData.projectId, formData.schoolIds, formData.level)
+        .finally(() => {
+          setStudentsLoading(false);
+        });
     } else {
       clearStudents();
+      setStudentsLoading(false);
     }
   }, [formData.projectId, formData.schoolIds, formData.level, fetchStudentsForSchools, clearStudents]);
 
@@ -46,8 +52,10 @@ export default function AssessmentModal({ organizationId, onClose }) {
   useEffect(() => {
     if (selectAllSchools && schools.length > 0) {
       setFormData(prev => ({ ...prev, schoolIds: schools.map(s => s.id) }));
+      setStudentsLoading(true);
     } else if (!selectAllSchools) {
       setFormData(prev => ({ ...prev, schoolIds: [] }));
+      setStudentsLoading(false);
     }
   }, [selectAllSchools, schools.length]);
 
@@ -116,12 +124,36 @@ export default function AssessmentModal({ organizationId, onClose }) {
   useEffect(() => {
     if (formData.projectId) {
       fetchSchools(formData.projectId);
+      setStudentsLoading(false);
     } else {
       setFormData(prev => ({ ...prev, schoolIds: [] }));
       clearStudents();
       setSelectAllSchools(false);
+      setStudentsLoading(false);
     }
   }, [formData.projectId, fetchSchools, clearStudents]);
+
+  // Function to check if we can create assessments
+  const canCreateAssessments = () => {
+    // Check if required fields are filled
+    if (!formData.projectId || formData.schoolIds.length === 0) {
+      return false;
+    }
+    
+    // Check if students are still loading
+    if (studentsLoading) {
+      return false;
+    }
+    
+    // Check if all selected schools have loaded students
+    for (const schoolId of formData.schoolIds) {
+      if (!students[schoolId] || students[schoolId].length === 0) {
+        return false;
+      }
+    }
+    
+    return true;
+  };
 
   // Handle individual school toggle
   const toggleSchool = (schoolId) => {
@@ -136,6 +168,11 @@ export default function AssessmentModal({ organizationId, onClose }) {
         ? prev.schoolIds.filter(id => id !== schoolId)
         : [...prev.schoolIds, schoolId],
     }));
+
+    // Reset students loading when schools change
+    if (!isCurrentlySelected && newSelectedLength > 0) {
+      setStudentsLoading(true);
+    }
 
     if (isCurrentlySelected) {
       if (formData.schoolIds.length === schools.length) {
@@ -157,6 +194,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
     }));
     setSelectAllSchools(false);
     clearStudents();
+    setStudentsLoading(false);
   };
 
   // Navigation for assessment preview
@@ -174,8 +212,25 @@ export default function AssessmentModal({ organizationId, onClose }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.projectId || formData.schoolIds.length === 0) {
-      setError("Please fill in all required fields and select at least one school.");
+    
+    // Check if we can create assessments
+    if (!canCreateAssessments()) {
+      if (studentsLoading) {
+        setError("Please wait while students are loading...");
+      } else if (formData.schoolIds.length > 0) {
+        const schoolsWithoutStudents = formData.schoolIds.filter(schoolId => 
+          !students[schoolId] || students[schoolId].length === 0
+        );
+        
+        if (schoolsWithoutStudents.length > 0) {
+          const schoolNames = schoolsWithoutStudents
+            .map(id => schools.find(s => s.id === id)?.name || id)
+            .join(", ");
+          setError(`No students found for the following schools: ${schoolNames}. Please select different schools or check your data.`);
+        }
+      } else {
+        setError("Please fill in all required fields and select at least one school.");
+      }
       return;
     }
 
@@ -682,7 +737,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
                                 {school.name}
                               </span>
                               <span className="text-xs text-gray-400 mt-1">
-                                {students[school.id]?.length || 0} students
+                                {studentsLoading ? "Loading..." : (students[school.id]?.length || 0) + " students"}
                               </span>
                             </div>
                           </div>
@@ -693,6 +748,23 @@ export default function AssessmentModal({ organizationId, onClose }) {
                           )}
                         </label>
                       ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Students Loading Indicator */}
+              {studentsLoading && formData.schoolIds.length > 0 && (
+                <div className="mt-4 p-4 bg-primary-2/10 border border-primary-2/30 rounded-xl">
+                  <div className="flex items-center space-x-3">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-2"></div>
+                    <div>
+                      <p className="text-sm font-medium text-primary-2">
+                        Loading students for selected schools...
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        This may take a few seconds depending on the number of students
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -804,8 +876,8 @@ export default function AssessmentModal({ organizationId, onClose }) {
           <button
             type="button"
             onClick={handleSubmit}
-            className="px-8 py-3 bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold rounded-xl disabled:opacity-50 transition-all shadow-md hover:shadow-lg transform hover:scale-105 disabled:hover:scale-100"
-            disabled={isSubmitting}
+            className="px-8 py-3 bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold rounded-xl disabled:opacity-50 transition-all shadow-md hover:shadow-lg transform hover:scale-105 disabled:hover:scale-100 disabled:cursor-not-allowed"
+            disabled={isSubmitting || !canCreateAssessments()}
           >
             {isSubmitting ? (
               <span className="flex items-center">
@@ -814,6 +886,14 @@ export default function AssessmentModal({ organizationId, onClose }) {
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
                 Creating...
+              </span>
+            ) : studentsLoading ? (
+              <span className="flex items-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-primary-1" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Loading Students...
               </span>
             ) : (
               "Create Assessments"
