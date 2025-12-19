@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { FiMessageSquare, FiDatabase, FiHelpCircle, FiSend } from "react-icons/fi";
 import DashboardChatBot from "@/components/ai-assistant/DashboardChatBot";
 import DashboardLayout from "../DashboardLayout"
 
-export default function AIAssistantPage({ params }) {
+export default function AIAssistantPage() {
   const router = useRouter();
-  const { organizationId } = params;
+  const { organizationId } = useParams();
   const [isLoading, setIsLoading] = useState(true);
   
   // Example data for the AI to reference
