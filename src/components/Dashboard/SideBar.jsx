@@ -145,6 +145,11 @@ const Sidebar = ({ initialTitle, organizationId }) => {
       icon: <FiUsers size={20} />, 
       path: `/dashboard/${organizationId}/admin/students` 
     },
+    { 
+      name: "Household", 
+      icon: <FiUsers size={20} />, 
+      path: `/dashboard/${organizationId}/survey` 
+    },
   ];
 
   const adminMenuItems = [
