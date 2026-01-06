@@ -14,32 +14,33 @@ export default function StudentModal({
     first_name: "",
     last_name: "",
     grade: "",
-    sex: "",
-    group: ""
+    sex: "", 
+    gender: "", 
+    age: ""
   });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (student) {
-      // For update - populate with existing student data
-      console.log("Editing student:", student); // Debug log
+      // console.log("Editing student:", student); 
       setFormData({
         first_name: student.first_name || student.name?.split(' ')[0] || "",
         last_name: student.last_name || student.name?.split(' ').slice(1).join(' ') || "",
         grade: student.grade || "",
-        sex: student.sex || "",
-        group: student.group || ""
+        sex: student.sex || student.gender || "", 
+        gender: student.gender || student.sex || "",
+        age: student.age || ""
       });
     } else {
-      // For add - reset form
-      console.log("Adding new student"); // Debug log
+      // console.log("Adding new student");
       setFormData({
         first_name: "",
         last_name: "",
         grade: "",
         sex: "",
-        group: ""
+        gender: "",
+        age: ""
       });
     }
     setErrors({});
@@ -48,10 +49,21 @@ export default function StudentModal({
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    
+    // If gender is being changed, also update sex with the same value
+    if (name === "gender") {
+      setFormData(prev => ({
+        ...prev,
+        gender: value,
+        sex: value // Auto-populate sex with same value
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+    
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -76,8 +88,12 @@ export default function StudentModal({
       newErrors.grade = "Grade must be between 1 and 12";
     }
     
-    if (!formData.sex) {
-      newErrors.sex = "Please select gender";
+    if (!formData.gender) {
+      newErrors.gender = "Please select gender";
+    }
+
+    if (!formData.age || formData.age < 3 || formData.age > 25) {
+      newErrors.age = "Age must be between 3 and 25";
     }
 
     setErrors(newErrors);
@@ -93,7 +109,14 @@ export default function StudentModal({
 
     setSubmitting(true);
     try {
-      await onSubmit(formData);
+      // Prepare data to submit - ensure both sex and gender have same value
+      const submitData = {
+        ...formData,
+        sex: formData.gender, // Ensure sex matches gender
+        gender: formData.gender
+      };
+      
+      await onSubmit(submitData);
       onClose();
     } catch (err) {
       console.error("Error submitting student:", err);
@@ -141,16 +164,16 @@ export default function StudentModal({
                 <span className="ml-1 text-foreground">{student.displayName}</span>
               </div>
               <div>
+                <span className="text-primary-2">Age:</span> 
+                <span className="ml-1 text-foreground">{student.age || "Not set"}</span>
+              </div>
+              <div>
                 <span className="text-primary-2">Grade:</span> 
                 <span className="ml-1 text-foreground">Grade {student.grade}</span>
               </div>
               <div>
                 <span className="text-primary-2">Gender:</span> 
-                <span className="ml-1 text-foreground">{student.sex}</span>
-              </div>
-              <div>
-                <span className="text-primary-2">Group:</span> 
-                <span className="ml-1 text-foreground">{student.group || "Not set"}</span>
+                <span className="ml-1 text-foreground">{student.gender || student.sex || "Not set"}</span>
               </div>
             </div>
           </div>
@@ -191,7 +214,7 @@ export default function StudentModal({
                 }`}
                 placeholder="Enter first name"
                 disabled={submitting}
-                style={{ fontSize: '14px' }} // Ensure text is visible
+                style={{ fontSize: '14px' }}
               />
               {errors.first_name && (
                 <p className="text-red-400 text-xs mt-1">{errors.first_name}</p>
@@ -213,7 +236,7 @@ export default function StudentModal({
                 }`}
                 placeholder="Enter last name"
                 disabled={submitting}
-                style={{ fontSize: '14px' }} // Ensure text is visible
+                style={{ fontSize: '14px' }}
               />
               {errors.last_name && (
                 <p className="text-red-400 text-xs mt-1">{errors.last_name}</p>
@@ -222,6 +245,30 @@ export default function StudentModal({
           </div>
 
           <div className="grid grid-cols-2 gap-4">
+            {/* Age */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-foreground">
+                Age *
+              </label>
+              <input
+                type="number"
+                name="age"
+                value={formData.age}
+                onChange={handleChange}
+                min="3"
+                max="18"
+                className={`w-full border rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-primary-2 transition-colors text-foreground placeholder-gray-400 bg-background-lighter ${
+                  errors.age ? 'border-red-400 bg-red-500/20' : 'border-gray-500'
+                }`}
+                placeholder="Enter age"
+                disabled={submitting}
+                style={{ fontSize: '14px' }}
+              />
+              {errors.age && (
+                <p className="text-red-400 text-xs mt-1">{errors.age}</p>
+              )}
+            </div>
+
             {/* Grade */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-foreground">
@@ -235,10 +282,10 @@ export default function StudentModal({
                   errors.grade ? 'border-red-400 bg-red-500/20' : 'border-gray-500'
                 }`}
                 disabled={submitting}
-                style={{ fontSize: '14px' }} // Ensure text is visible
+                style={{ fontSize: '14px' }}
               >
                 <option value="" className="text-gray-400">Select Grade</option>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map(grade => (
+                {Array.from({ length: 9 }, (_, i) => i + 1).map(grade => (
                   <option key={grade} value={grade} className="text-foreground">
                     Grade {grade}
                   </option>
@@ -248,49 +295,32 @@ export default function StudentModal({
                 <p className="text-red-400 text-xs mt-1">{errors.grade}</p>
               )}
             </div>
-
-            {/* Gender */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-foreground">
-                Gender *
-              </label>
-              <select
-                name="sex"
-                value={formData.sex}
-                onChange={handleChange}
-                className={`w-full border rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-primary-2 transition-colors text-foreground bg-background-lighter ${
-                  errors.sex ? 'border-red-400 bg-red-500/20' : 'border-gray-500'
-                }`}
-                disabled={submitting}
-                style={{ fontSize: '14px' }} // Ensure text is visible
-              >
-                <option value="" className="text-gray-400">Select Gender</option>
-                <option value="Male" className="text-foreground">Male</option>
-                <option value="Female" className="text-foreground">Female</option>
-              </select>
-              {errors.sex && (
-                <p className="text-red-400 text-xs mt-1">{errors.sex}</p>
-              )}
-            </div>
           </div>
 
-          {/* Group (Optional) */}
+          {/* Gender (Male/Female only) */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-foreground">
-              Group (Optional)
+              Gender *
             </label>
-            <input
-              type="text"
-              name="group"
-              value={formData.group}
+            <select
+              name="gender"
+              value={formData.gender}
               onChange={handleChange}
-              className="w-full border border-gray-500 rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-primary-2 transition-colors text-foreground placeholder-gray-400 bg-background-lighter"
-              placeholder="Enter group name (e.g., Group A, Red Team)"
+              className={`w-full border rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-primary-2 transition-colors text-foreground bg-background-lighter ${
+                errors.gender ? 'border-red-400 bg-red-500/20' : 'border-gray-500'
+              }`}
               disabled={submitting}
-              style={{ fontSize: '14px' }} // Ensure text is visible
-            />
+              style={{ fontSize: '14px' }}
+            >
+              <option value="" className="text-gray-400">Select Gender</option>
+              <option value="Male" className="text-foreground">Male</option>
+              <option value="Female" className="text-foreground">Female</option>
+            </select>
+            {errors.gender && (
+              <p className="text-red-400 text-xs mt-1">{errors.gender}</p>
+            )}
             <p className="text-xs text-gray-400">
-              Leave blank if not applicable
+              This will be saved as both sex and gender in the database
             </p>
           </div>
 
@@ -301,9 +331,9 @@ export default function StudentModal({
             </h4>
             <div className="text-sm text-gray-300 space-y-1">
               <div><strong>Name:</strong> {formData.first_name} {formData.last_name}</div>
+              <div><strong>Age:</strong> {formData.age || 'Not set'}</div>
               <div><strong>Grade:</strong> {formData.grade ? `Grade ${formData.grade}` : 'Not set'}</div>
-              <div><strong>Gender:</strong> {formData.sex || 'Not set'}</div>
-              <div><strong>Group:</strong> {formData.group || 'Not set'}</div>
+              <div><strong>Gender:</strong> {formData.gender || 'Not set'} (saved as both sex and gender)</div>
             </div>
           </div>
 
