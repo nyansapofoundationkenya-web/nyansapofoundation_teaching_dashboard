@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import {
   Search,
@@ -28,10 +27,11 @@ export default function AttendanceTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isExporting, setIsExporting] = useState(false);
+  const [currentMonthIndex, setCurrentMonthIndex] = useState(0);
 
   // Modal & update state
   const [modalOpen, setModalOpen] = useState(false);
-  const [pendingChange, setPendingChange] = useState(null); // { studentId, date, currentStatus, newStatus }
+  const [pendingChange, setPendingChange] = useState(null);
   const [updating, setUpdating] = useState(false);
 
   // Get user from Redux
@@ -42,6 +42,33 @@ export default function AttendanceTable({
 
   // Sort dates from oldest to newest
   const sortedDates = [...dates].sort((a, b) => new Date(a) - new Date(b));
+
+  // Group dates by month
+  const groupDatesByMonth = () => {
+    const monthsMap = new Map();
+    sortedDates.forEach((date) => {
+      const dateObj = new Date(date);
+      const monthYear = `${dateObj.getFullYear()}-${dateObj.getMonth()}`;
+      const monthName = dateObj.toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      });
+      if (!monthsMap.has(monthYear)) {
+        monthsMap.set(monthYear, {
+          monthName,
+          dates: [],
+          year: dateObj.getFullYear(),
+          month: dateObj.getMonth(),
+        });
+      }
+      monthsMap.get(monthYear).dates.push(date);
+    });
+    return Array.from(monthsMap.values());
+  };
+
+  const months = groupDatesByMonth();
+  const currentMonth = months[currentMonthIndex] || { dates: [], monthName: "No Data" };
+  const currentMonthDates = currentMonth.dates;
 
   // Filter students based on search
   const filteredStudents = students.filter((student) => {
@@ -68,7 +95,6 @@ export default function AttendanceTable({
   const getDateStats = (date) => {
     let presentCount = 0;
     let totalCount = 0;
-
     students.forEach((student) => {
       const attendance = getAttendanceStatus(student.id, date);
       if (attendance !== undefined) {
@@ -76,9 +102,24 @@ export default function AttendanceTable({
         if (attendance === true) presentCount++;
       }
     });
-
     return { present: presentCount, total: totalCount };
   };
+
+  // Month statistics
+  const getMonthStats = () => {
+    let totalPresent = 0;
+    let totalPossible = 0;
+    currentMonthDates.forEach((date) => {
+      const stats = getDateStats(date);
+      totalPresent += stats.present;
+      totalPossible += stats.total;
+    });
+    const percentage =
+      totalPossible > 0 ? Math.round((totalPresent / totalPossible) * 100) : 0;
+    return { totalPresent, totalPossible, percentage };
+  };
+
+  const monthStats = getMonthStats();
 
   const getAttendancePercentage = (present, total) =>
     total > 0 ? Math.round((present / total) * 100) : 0;
@@ -111,6 +152,15 @@ export default function AttendanceTable({
     }
   };
 
+  // Month navigation
+  const handlePrevMonth = () => {
+    if (currentMonthIndex > 0) setCurrentMonthIndex(currentMonthIndex - 1);
+  };
+
+  const handleNextMonth = () => {
+    if (currentMonthIndex < months.length - 1) setCurrentMonthIndex(currentMonthIndex + 1);
+  };
+
   // Reusable Attendance Cell
   const AttendanceCell = ({ studentId, date, currentStatus }) => {
     const handleClick = () => {
@@ -118,26 +168,17 @@ export default function AttendanceTable({
         alert("Only super admins can modify attendance records.");
         return;
       }
-
       const newStatus = currentStatus === undefined ? true : !currentStatus;
-
-      setPendingChange({
-        studentId,
-        date,
-        currentStatus,
-        newStatus,
-      });
+      setPendingChange({ studentId, date, currentStatus, newStatus });
       setModalOpen(true);
     };
 
     return (
       <div
         onClick={handleClick}
-        className={`flex items-center justify-center transition-all cursor-pointer group
-          ${isSuperAdmin 
-            ? "hover:bg-gray-700/40" 
-            : "cursor-not-allowed opacity-70"
-          }`}
+        className={`flex items-center justify-center transition-all cursor-pointer group ${
+          isSuperAdmin ? "hover:bg-gray-700/40" : "cursor-not-allowed opacity-70"
+        }`}
         title={isSuperAdmin ? "Click to edit" : "Only super admins can edit"}
       >
         {currentStatus === true ? (
@@ -151,30 +192,20 @@ export default function AttendanceTable({
     );
   };
 
-  // Firebase update function
+  // Firebase update
   const updateSingleAttendance = async () => {
     if (!pendingChange) return;
-
     const { studentId, date, newStatus } = pendingChange;
     const path = `organization/${currentFilter.organizationId}/projects/${currentFilter.projectId}/schools/${currentFilter.schoolId}/attendance`;
     const docRef = doc(db, path, date);
-
     try {
       const docSnap = await getDoc(docRef);
       if (!docSnap.exists()) throw new Error("Attendance record not found");
-
       const data = docSnap.data();
       const updatedStudents = data.students.map((s) =>
         s.id === studentId ? { ...s, attendance: newStatus } : s
       );
-
       await updateDoc(docRef, { students: updatedStudents });
-
-      // Optimistic UI update
-      const newMap = new Map(attendanceData);
-      if (!newMap.has(studentId)) newMap.set(studentId, new Map());
-      newMap.get(studentId).set(date, newStatus);
-      setAttendanceData(newMap);
     } catch (err) {
       console.error("Update failed:", err);
       alert("Failed to update attendance. Please try again.");
@@ -228,13 +259,11 @@ export default function AttendanceTable({
                 {filteredStudents.length} students, {sortedDates.length} attendance days
               </p>
             </div>
-
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 text-sm text-gray-300">
                 <Calendar className="w-4 h-4" />
                 <span>{sortedDates.length} days</span>
               </div>
-
               <button
                 onClick={handleExport}
                 disabled={isExporting}
@@ -260,95 +289,89 @@ export default function AttendanceTable({
           </div>
         </div>
 
-        {/* Search and Controls */}
+        {/* Month Navigation and Search */}
         <div className="p-6 border-b border-gray-600">
-          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+          <div className="flex flex-col sm:flex-row gap-6 justify-between items-start sm:items-center">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handlePrevMonth}
+                disabled={currentMonthIndex === 0}
+                className="p-2 rounded-xl border border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-3/20 hover:border-primary-3 transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5 text-foreground" />
+              </button>
+              <div className="text-center min-w-[200px]">
+                <h3 className="text-lg font-semibold text-foreground">{currentMonth.monthName}</h3>
+                {/* <div className="flex items-center justify-center gap-2 mt-1">
+                  <span className={`text-sm font-semibold ${getPercentageColor(monthStats.percentage)}`}>
+                    {monthStats.percentage}%
+                  </span>
+                  <span className="text-sm text-gray-300">
+                    ({monthStats.totalPresent}/{monthStats.totalPossible})
+                  </span>
+                  <span className="text-sm text-gray-400">• {currentMonthDates.length} days</span>
+                </div> */}
+              </div>
+              <button
+                onClick={handleNextMonth}
+                disabled={currentMonthIndex === months.length - 1}
+                className="p-2 rounded-xl border border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-3/20 hover:border-primary-3 transition-colors"
+              >
+                <ChevronRight className="w-5 h-5 text-foreground" />
+              </button>
+              {months.length > 0 && (
+                <div className="hidden sm:flex items-center gap-2 ml-4">
+                  <span className="text-sm text-gray-300">
+                    Month {currentMonthIndex + 1} of {months.length}
+                  </span>
+                </div>
+              )}
+            </div>
+
             <div className="relative w-full sm:w-auto sm:max-w-md">
               <input
                 type="text"
                 placeholder="Search students by name..."
                 value={searchTerm}
                 onChange={handleSearchChange}
-                className="w-full pl-10 pr-4 py-2 border border-gray-500 rounded-xl 
-                          focus:outline-none focus:ring-2 focus:ring-primary-2 focus:border-primary-2
-                          bg-background-lighter text-foreground placeholder-gray-400 shadow-md"
+                className="w-full pl-10 pr-4 py-2 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-2 focus:border-primary-2 bg-background-lighter text-foreground placeholder-gray-400 shadow-md"
               />
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            </div>
-
-            <div className="flex items-center gap-4">
-              {sortedDates.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      const container = document.getElementById("dates-container");
-                      if (container) container.scrollLeft -= 120;
-                    }}
-                    className="p-2 rounded-xl border border-gray-500 hover:bg-primary-3/20 hover:border-primary-3 transition-colors"
-                  >
-                    <ChevronLeft className="w-4 h-4 text-foreground" />
-                  </button>
-                  <span className="text-sm text-gray-300 hidden sm:block">Scroll Dates</span>
-                  <button
-                    onClick={() => {
-                      const container = document.getElementById("dates-container");
-                      if (container) container.scrollLeft += 120;
-                    }}
-                    className="p-2 rounded-xl border border-gray-500 hover:bg-primary-3/20 hover:border-primary-3 transition-colors"
-                  >
-                    <ChevronRight className="w-4 h-4 text-foreground" />
-                  </button>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-300">Show:</label>
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => {
-                    setItemsPerPage(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="border border-gray-500 rounded-xl px-3 py-2 text-sm 
-                            focus:outline-none focus:ring-1 focus:ring-primary-2 focus:border-primary-2
-                            bg-background-lighter text-foreground cursor-pointer shadow-md"
-                >
-                  <option value="10">10</option>
-                  <option value="20">20</option>
-                  <option value="50">50</option>
-                </select>
-                <span className="text-sm text-gray-300">students</span>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Desktop Table */}
-        <div className="overflow-hidden">
-          <div className="hidden lg:block">
-            <div className="flex">
-              <div className="w-64 flex-shrink-0 border-r border-gray-600 bg-background-lighter">
-                <div className="p-4 h-28 flex items-center border-b border-gray-600">
-                  <span className="text-sm font-medium text-foreground">Student Name</span>
-                </div>
-                {currentStudents.map((student) => (
-                  <div
-                    key={student.id}
-                    className="p-4 h-16 border-b border-gray-600 flex items-center hover:bg-background-lighter transition-colors"
-                  >
-                    <span className="text-sm font-medium text-foreground truncate">
-                      {student.name}
-                    </span>
-                  </div>
-                ))}
+        {/* Desktop Table - Fixed Names + Horizontally Scrollable Dates */}
+        <div className="hidden lg:block">
+          <div className="flex">
+            {/* Left Column: Student Names (Sticky cells) */}
+            <div className="w-64 flex-shrink-0 border-r border-gray-600">
+              {/* Header Cell - Sticky */}
+              <div className="p-4 h-28 flex items-center border-b border-gray-600 sticky left-0 z-20 bg-background-lighter">
+                <span className="text-sm font-medium text-foreground">Student Name</span>
               </div>
 
-              <div id="dates-container" className="flex-1 overflow-x-auto">
-                <div className="flex min-w-max border-b border-gray-600">
-                  {sortedDates.map((date) => {
+              {/* Student Name Rows - Each sticky */}
+              {currentStudents.map((student) => (
+                <div
+                  key={student.id}
+                  className="p-4 h-16 border-b border-gray-600 flex items-center hover:bg-background-lighter/50 transition-colors sticky left-0 z-20 bg-background-lighter"
+                >
+                  <span className="text-sm font-medium text-foreground truncate">
+                    {student.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Right Section: Scrollable Dates & Attendance */}
+            <div className="flex-1 overflow-x-auto overflow-y-hidden scroll-smooth" style={{ scrollbarWidth: "thin" }}>
+              <div className="min-w-max">
+                {/* Date Headers */}
+                <div className="flex border-b border-gray-600">
+                  {currentMonthDates.map((date) => {
                     const stats = getDateStats(date);
                     const percentage = getAttendancePercentage(stats.present, stats.total);
-
                     return (
                       <div key={date} className="w-28 flex-shrink-0 border-r border-gray-600 last:border-r-0">
                         <div className="p-3 h-28 flex flex-col items-center justify-center bg-background-lighter">
@@ -382,18 +405,15 @@ export default function AttendanceTable({
                   })}
                 </div>
 
+                {/* Attendance Data Rows */}
                 {currentStudents.map((student) => (
-                  <div key={student.id} className="flex min-w-max border-b border-gray-600 last:border-b-0">
-                    {sortedDates.map((date) => {
+                  <div key={student.id} className="flex border-b border-gray-600 last:border-b-0">
+                    {currentMonthDates.map((date) => {
                       const attended = getAttendanceStatus(student.id, date);
                       return (
                         <div key={date} className="w-28 flex-shrink-0 border-r border-gray-600 last:border-r-0">
                           <div className="p-2 h-16">
-                            <AttendanceCell
-                              studentId={student.id}
-                              date={date}
-                              currentStatus={attended}
-                            />
+                            <AttendanceCell studentId={student.id} date={date} currentStatus={attended} />
                           </div>
                         </div>
                       );
@@ -403,117 +423,127 @@ export default function AttendanceTable({
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Mobile Layout */}
-          <div className="lg:hidden">
-            {currentStudents.length > 0 ? (
-              <div className="divide-y divide-gray-600">
-                {currentStudents.map((student) => (
-                  <div key={student.id} className="p-4">
-                    <div className="mb-4 pb-3 border-b border-gray-600">
-                      <h4 className="text-base font-semibold text-foreground truncate">{student.name}</h4>
-                    </div>
-                    <div className="overflow-x-auto pb-3">
-                      <div className="flex gap-4 min-w-max">
-                        {sortedDates.map((date) => {
-                          const attended = getAttendanceStatus(student.id, student.date);
-                          const stats = getDateStats(date);
-
-                          return (
-                            <div
-                              key={date}
-                              className="flex flex-col items-center w-24 flex-shrink-0 bg-background-lighter rounded-lg p-4 border border-gray-600"
-                            >
-                              <div className="text-center mb-3">
-                                <div className="text-sm text-gray-400 mb-1">
-                                  {new Date(date).toLocaleDateString("en-US", { month: "short" })}
-                                </div>
-                                <div className="text-xl font-bold text-foreground">{new Date(date).getDate()}</div>
-                                <div className="text-xs text-gray-400 mt-1">
-                                  {new Date(date).toLocaleDateString("en-US", { weekday: "short" })}
-                                </div>
+        {/* Mobile Layout (unchanged) */}
+        <div className="lg:hidden">
+          {currentStudents.length > 0 ? (
+            <div className="divide-y divide-gray-600">
+              {currentStudents.map((student) => (
+                <div key={student.id} className="p-4">
+                  <div className="mb-4 pb-3 border-b border-gray-600">
+                    <h4 className="text-base font-semibold text-foreground truncate">{student.name}</h4>
+                  </div>
+                  <div className="overflow-x-auto pb-3">
+                    <div className="flex gap-4 min-w-max">
+                      {currentMonthDates.map((date) => {
+                        const attended = getAttendanceStatus(student.id, date);
+                        const stats = getDateStats(date);
+                        return (
+                          <div
+                            key={date}
+                            className="flex flex-col items-center w-24 flex-shrink-0 bg-background-lighter rounded-lg p-4 border border-gray-600"
+                          >
+                            <div className="text-center mb-3">
+                              <div className="text-sm text-gray-400 mb-1">
+                                {new Date(date).toLocaleDateString("en-US", { month: "short" })}
                               </div>
-                              <div className="mb-3">
-                                <AttendanceCell
-                                  studentId={student.id}
-                                  date={date}
-                                  currentStatus={attended}
-                                />
+                              <div className="text-xl font-bold text-foreground">{new Date(date).getDate()}</div>
+                              <div className="text-xs text-gray-400 mt-1">
+                                {new Date(date).toLocaleDateString("en-US", { weekday: "short" })}
                               </div>
-                              {stats.total > 0 && (
-                                <div className="text-center">
-                                  <div className="text-sm text-gray-300 bg-background-light rounded-full px-3 py-1 border border-gray-600">
-                                    {stats.present}/{stats.total}
-                                  </div>
-                                </div>
-                              )}
                             </div>
-                          );
-                        })}
-                      </div>
+                            <div className="mb-3">
+                              <AttendanceCell studentId={student.id} date={date} currentStatus={attended} />
+                            </div>
+                            {stats.total > 0 && (
+                              <div className="text-center">
+                                <div className="text-sm text-gray-300 bg-background-light rounded-full px-3 py-1 border border-gray-600">
+                                  {stats.present}/{stats.total}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-8 text-center text-sm text-gray-400">
-                {students.length === 0 ? "No students found in the selected school." : "No students match the current search."}
-              </div>
-            )}
-          </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center text-sm text-gray-400">
+              {students.length === 0 ? "No students found in the selected school." : "No students match the current search."}
+            </div>
+          )}
         </div>
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="p-6 border-t border-gray-600">
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div className="text-sm text-gray-300">
-                Showing {startIndex + 1} to {Math.min(endIndex, filteredStudents.length)} of {filteredStudents.length} students
-              </div>
+        <div className="p-6 border-t border-gray-600">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="text-sm text-gray-300">
+              Showing {startIndex + 1} to {Math.min(endIndex, filteredStudents.length)} of {filteredStudents.length} students
+            </div>
+            <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="p-2 rounded-xl border border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-3/20 hover:border-primary-3 transition-colors"
+                <label className="text-sm text-gray-300">Show:</label>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="border border-gray-500 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-2 focus:border-primary-2 bg-background-lighter text-foreground cursor-pointer shadow-md"
                 >
-                  <ChevronLeft className="w-4 h-4 text-foreground" />
-                </button>
-                <div className="flex gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-1 text-sm rounded-xl border ${
-                        currentPage === page
-                          ? "bg-primary-3 text-primary-1 border-primary-3 font-semibold shadow-md"
-                          : "border-gray-500 hover:bg-primary-3/20 hover:border-primary-3 text-foreground"
-                      } transition-colors`}
-                    >
-                      {page}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="p-2 rounded-xl border border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-3/20 hover:border-primary-3 transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4 text-foreground" />
-                </button>
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                </select>
+                <span className="text-sm text-gray-300">students</span>
               </div>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-xl border border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-3/20 hover:border-primary-3 transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4 text-foreground" />
+                  </button>
+                  <div className="flex gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-3 py-1 text-sm rounded-xl border ${
+                          currentPage === page
+                            ? "bg-primary-3 text-primary-1 border-primary-3 font-semibold shadow-md"
+                            : "border-gray-500 hover:bg-primary-3/20 hover:border-primary-3 text-foreground"
+                        } transition-colors`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-xl border border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-3/20 hover:border-primary-3 transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4 text-foreground" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Confirmation Modal */}
       {modalOpen && pendingChange && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-background-light border border-gray-600 rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-foreground mb-4">
-              Confirm Attendance Change
-            </h3>
-
+            <h3 className="text-xl font-bold text-foreground mb-4">Confirm Attendance Change</h3>
             <div className="space-y-4 text-gray-300 mb-6">
               <p>Change attendance for this student on:</p>
               <p className="font-semibold text-foreground">
@@ -524,7 +554,6 @@ export default function AttendanceTable({
                   day: "numeric",
                 })}
               </p>
-
               <div className="flex items-center justify-center gap-8 py-6">
                 <div className="text-center">
                   <p className="text-sm text-gray-500 mb-3">Current</p>
@@ -536,12 +565,14 @@ export default function AttendanceTable({
                     <span className="text-3xl text-gray-500">–</span>
                   )}
                   <p className="mt-2 font-medium">
-                    {pendingChange.currentStatus === true ? "Present" : pendingChange.currentStatus === false ? "Absent" : "No Record"}
+                    {pendingChange.currentStatus === true
+                      ? "Present"
+                      : pendingChange.currentStatus === false
+                      ? "Absent"
+                      : "No Record"}
                   </p>
                 </div>
-
                 <div className="text-3xl text-gray-500">→</div>
-
                 <div className="text-center">
                   <p className="text-sm text-gray-500 mb-3">New</p>
                   {pendingChange.newStatus ? (
@@ -549,13 +580,10 @@ export default function AttendanceTable({
                   ) : (
                     <XCircle className="w-12 h-12 text-red-500 mx-auto" />
                   )}
-                  <p className="mt-2 font-medium">
-                    {pendingChange.newStatus ? "Present" : "Absent"}
-                  </p>
+                  <p className="mt-2 font-medium">{pendingChange.newStatus ? "Present" : "Absent"}</p>
                 </div>
               </div>
             </div>
-
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
@@ -573,9 +601,8 @@ export default function AttendanceTable({
                   try {
                     await updateSingleAttendance();
                     setModalOpen(false);
-                  } catch (err) {
-                    // Error already handled inside function
-                  } finally {
+                  } catch (err) {}
+                  finally {
                     setUpdating(false);
                     setPendingChange(null);
                   }
