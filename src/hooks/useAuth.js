@@ -293,7 +293,7 @@ export function useAuth() {
       await signOut(auth);
       Cookies.remove("auth_token");
       // User will be automatically cleared from Redux via onAuthStateChanged
-      router.push("/"); 
+      router.replace("/");
     } catch (err) {
       console.error("Logout error:", err);
       setError(err.message);
