@@ -78,11 +78,17 @@ const Sidebar = ({ initialTitle, organizationId }) => {
   // Get user data directly from Redux store
   const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
 
+  useEffect(() => {
+    if (!userLoading && !currentUser) {
+      router.replace("/");
+    }
+  }, [userLoading, currentUser, router]);
+
+
 
    const handleLogoutClick = async () => {
     try {
       await handleLogout();
-      router.push("/")
     } catch (err) {
       console.error("Logout error:", err);
     }
