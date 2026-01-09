@@ -60,7 +60,7 @@ const DashboardChatBot = ({ organizationId }) => {
             const filtered = prev.filter((m) => m.id !== "welcome");
             return [
               {
-                text: `Hello! I'm your AI Education Analyst for **${name}**.\n\nI fetch real-time data only when needed to answer your questions accurately.\n\nWhat would you like to know?`,
+                text: `Hello! I'm your AI Education Analyst for **${name}**.\n\nWhat would you like to know?`,
                 sender: "bot",
                 timestamp: new Date(),
                 id: "welcome-personalized",
@@ -933,7 +933,7 @@ For STRUCTURE:
             </div>
             <div>
               <h3 className="text-xl font-semibold">AI Education Analyst</h3>
-              <p className="text-sm opacity-80">Gemini 2.5 Flash • Real-time Data</p>
+              {/* <p className="text-sm opacity-80">Gemini 2.5 Flash • Real-time Data</p> */}
             </div>
           </div>
           <div className="flex gap-3">
@@ -1054,7 +1054,7 @@ For STRUCTURE:
           </button>
         </div>
         <div className="mt-3 flex justify-between text-xs opacity-70">
-          <span>Gemini 2.5 Flash • On-demand Data</span>
+          {/* <span>Gemini 2.5 Flash • On-demand Data</span> */}
           <span className="flex items-center gap-2">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
             Connected
