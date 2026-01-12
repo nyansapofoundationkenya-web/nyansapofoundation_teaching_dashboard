@@ -275,10 +275,12 @@ export default function InstructorsPage() {
           roleUpdateOpen={roleUpdateOpen}
           setRoleUpdateOpen={setRoleUpdateOpen}
           newRole={newRole}
+          userRole={userRole}
           setNewRole={setNewRole}
           canUpdateRoles={canUpdateRoles}
           getRoleBadgeColor={getRoleBadgeColor}
           getAvailableRoles={getAvailableRoles}
+          currentOrganizationId={organizationId}
         />
 
         <InstructorModal
