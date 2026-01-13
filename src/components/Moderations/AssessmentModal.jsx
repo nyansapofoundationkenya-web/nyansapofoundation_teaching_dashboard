@@ -135,23 +135,40 @@ export default function AssessmentModal({ organizationId, onClose }) {
 
   // Function to check if we can create assessments
   const canCreateAssessments = () => {
+    console.log("Checking if can create assessments...");
+    
     // Check if required fields are filled
-    if (!formData.projectId || formData.schoolIds.length === 0) {
+    if (!formData.projectId) {
+      // console.log("❌ No project selected");
+      return false;
+    }
+    
+    if (formData.schoolIds.length === 0) {
+      // console.log("❌ No schools selected");
       return false;
     }
     
     // Check if students are still loading
     if (studentsLoading) {
+      // console.log("❌ Students are still loading");
       return false;
     }
     
     // Check if all selected schools have loaded students
+    let allSchoolsHaveStudents = true;
     for (const schoolId of formData.schoolIds) {
       if (!students[schoolId] || students[schoolId].length === 0) {
-        return false;
+        // console.log(`❌ School ${schoolId} has no students`);
+        allSchoolsHaveStudents = false;
+        break;
       }
     }
     
+    if (!allSchoolsHaveStudents) {
+      return false;
+    }
+    
+    // console.log("✅ All checks passed - can create assessments");
     return true;
   };
 
@@ -212,9 +229,11 @@ export default function AssessmentModal({ organizationId, onClose }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+  
     // Check if we can create assessments
     if (!canCreateAssessments()) {
+      // console.log("Cannot create assessments - validation failed");
+      
       if (studentsLoading) {
         setError("Please wait while students are loading...");
       } else if (formData.schoolIds.length > 0) {
@@ -227,6 +246,8 @@ export default function AssessmentModal({ organizationId, onClose }) {
             .map(id => schools.find(s => s.id === id)?.name || id)
             .join(", ");
           setError(`No students found for the following schools: ${schoolNames}. Please select different schools or check your data.`);
+        } else {
+          setError("All selected schools have students, but something else is preventing creation.");
         }
       } else {
         setError("Please fill in all required fields and select at least one school.");
@@ -234,18 +255,33 @@ export default function AssessmentModal({ organizationId, onClose }) {
       return;
     }
 
+    console.log("Starting assessment creation...");
     setIsSubmitting(true);
     setError("");
 
     try {
-      const promises = formData.schoolIds.map(async (schoolId) => {
+      // Format current date as YYYY-MM-DD
+      const currentDate = new Date().toISOString().split('T')[0];
+      // console.log("Current date for naming:", currentDate);
+      
+      // Create an array to track all promises
+      const creationPromises = [];
+
+      for (const schoolId of formData.schoolIds) {
+        // console.log(`Processing school: ${schoolId}`);
         const school = schools.find(s => s.id === schoolId);
-        if (!school) return;
+        
+        if (!school) {
+          console.warn(`School not found: ${schoolId}`);
+          continue;
+        }
 
         const schoolStuds = students[schoolId] || [];
+        // console.log(`School ${school.name} has ${schoolStuds.length} students`);
+        
         if (schoolStuds.length === 0) {
-          console.warn(`No students for school ${schoolId}`);
-          return;
+          console.warn(`No students for school ${school.name} (${schoolId})`);
+          continue;
         }
 
         const assignedStudents = schoolStuds.map(student => ({
@@ -258,17 +294,23 @@ export default function AssessmentModal({ organizationId, onClose }) {
           has_done: true,
           id: student.id,
           last_name: student.last_name || "",
-          name: "",
+          name: `${student.first_name || ""} ${student.last_name || ""}`.trim(),
           sex: student.sex || "",
         }));
 
         const assessmentId = uuidv4();
+        // console.log(`Creating assessment with ID: ${assessmentId}`);
         
-        // Create the main assessment document
-        await setDoc(doc(db, "assessments", assessmentId), {
+        // Create assessment name in the format: schoolName_level_date
+        const assessmentName = `${school.name}_${formData.level}_${currentDate}`;
+        // console.log(`Assessment name: ${assessmentName}`);
+
+        // Prepare the main assessment document data
+        const assessmentData = {
           created_at: new Date().toISOString(),
           id: assessmentId,
-          name: school.name,
+          name: assessmentName,
+          original_school_name: school.name,
           organization_id: organizationId,
           project_id: formData.projectId,
           school_id: schoolId,
@@ -276,37 +318,89 @@ export default function AssessmentModal({ organizationId, onClose }) {
           level: formData.level,
           assessmentNumber: formData.assessmentNumber,
           assigned_students: assignedStudents,
-        });
+          date_created: currentDate,
+          status: "created",
+          student_count: assignedStudents.length,
+        };
 
-        // Create assessment-results subcollection for each student
-        const resultsPromises = schoolStuds.map(async (student) => {
-          const resultId = `${assessmentId}_${student.id}`;
-          await setDoc(
-            doc(db, "assessments", assessmentId, "assessments-results", resultId),
-            {
-              assessmentId: assessmentId,
-              school_id: schoolId,
-              student_id: student.id,
-              student_first_name: student.first_name || "",
-              student_last_name: student.last_name || "",
-              student_name: "",
-              student_grade: Number(student.grade) || 0,
-              competence_level: 0,
-              assessment_level: formData.level,
-            }
-          );
-        });
+        // console.log(`Attempting to create assessment document for ${school.name}...`);
+        
+        // Create the main assessment document
+        const assessmentPromise = setDoc(doc(db, "assessments", assessmentId), assessmentData)
+          .then(() => {
+            // console.log(`✅ Main assessment document created for ${school.name}`);
+            
+            // Create assessment-results subcollection for each student
+            const resultsPromises = schoolStuds.map(async (student) => {
+              const resultId = `${assessmentId}_${student.id}`;
+              const resultData = {
+                assessmentId: assessmentId,
+                school_id: schoolId,
+                student_id: student.id,
+                student_first_name: student.first_name || "",
+                student_last_name: student.last_name || "",
+                student_name: `${student.first_name || ""} ${student.last_name || ""}`.trim(),
+                student_grade: Number(student.grade) || 0,
+                competence_level: 0,
+                assessment_level: formData.level,
+                created_at: new Date().toISOString(),
+                status: "pending",
+              };
+              
+              return setDoc(
+                doc(db, "assessments", assessmentId, "assessments-results", resultId),
+                resultData
+              );
+            });
 
-        await Promise.all(resultsPromises);
-      });
+            return Promise.all(resultsPromises)
+              .then(() => console.log(`Results subcollection created for ${school.name}`))
+              .catch(error => {
+                console.error(`Error creating results for ${school.name}:`, error);
+                throw error;
+              });
+          })
+          .catch(error => {
+            console.error(`Error creating main assessment for ${school.name}:`, error);
+            throw error;
+          });
 
-      await Promise.all(promises.filter(Boolean));
+        creationPromises.push(assessmentPromise);
+      }
 
+      // Wait for all assessments to be created
+      if (creationPromises.length === 0) {
+        throw new Error("No valid schools with students to create assessments for.");
+      }
+
+      console.log(`Waiting for ${creationPromises.length} assessments to be created...`);
+      await Promise.all(creationPromises);
+      
+      // console.log("✅ All assessments created successfully!");
       onClose();
+      
     } catch (err) {
       console.error("Error creating assessments:", err);
-      setError("Failed to create assessments. Please try again.");
+      console.error("Error details:", {
+        message: err.message,
+        stack: err.stack,
+        name: err.name,
+      });
+      
+      // Provide more specific error messages
+      let errorMessage = "Failed to create assessments. Please try again.";
+      
+      if (err.message.includes("permission")) {
+        errorMessage = "Permission denied. Please check your Firebase rules.";
+      } else if (err.message.includes("network")) {
+        errorMessage = "Network error. Please check your internet connection.";
+      } else if (err.message.includes("No valid schools")) {
+        errorMessage = "No valid schools with students found to create assessments.";
+      }
+      
+      setError(`${errorMessage} Details: ${err.message}`);
     } finally {
+      console.log("Assessment creation process finished");
       setIsSubmitting(false);
     }
   };
@@ -351,7 +445,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
               </h5>
               <div className="flex flex-wrap gap-2">
                 {currentAssessment.letters.map((letter, idx) => (
-                  <span key={idx} className="bg-primary-3/20 border border-primary-3/30 text-primary-3 font-bold px-3 py-2 rounded-xl text-lg shadow-sm">
+                  <span key={idx} className="bg-primary-2/20 border border-primary-2/30 text-primary-2 font-bold px-3 py-2 rounded-xl text-lg shadow-sm">
                     {letter}
                   </span>
                 ))}
