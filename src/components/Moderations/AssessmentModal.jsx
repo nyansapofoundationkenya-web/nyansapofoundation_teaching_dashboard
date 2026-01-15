@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { doc, setDoc, getDoc, collection, getDocs } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid";
 import { useAssessment } from "@/hooks/useAssessment";
 import { db } from "@/firebase/config";
@@ -25,6 +25,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
     type: "Numeracy",
     level: "Baseline",
     assessmentNumber: 1,
+    to_be_done: new Date().toISOString().split('T')[0], // Add to_be_done field
   });
   const [selectAllSchools, setSelectAllSchools] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -139,18 +140,20 @@ export default function AssessmentModal({ organizationId, onClose }) {
     
     // Check if required fields are filled
     if (!formData.projectId) {
-      // console.log("❌ No project selected");
       return false;
     }
     
     if (formData.schoolIds.length === 0) {
-      // console.log("❌ No schools selected");
+      return false;
+    }
+    
+    // Check if to_be_done date is set
+    if (!formData.to_be_done) {
       return false;
     }
     
     // Check if students are still loading
     if (studentsLoading) {
-      // console.log("❌ Students are still loading");
       return false;
     }
     
@@ -158,7 +161,6 @@ export default function AssessmentModal({ organizationId, onClose }) {
     let allSchoolsHaveStudents = true;
     for (const schoolId of formData.schoolIds) {
       if (!students[schoolId] || students[schoolId].length === 0) {
-        // console.log(`❌ School ${schoolId} has no students`);
         allSchoolsHaveStudents = false;
         break;
       }
@@ -168,7 +170,6 @@ export default function AssessmentModal({ organizationId, onClose }) {
       return false;
     }
     
-    // console.log("✅ All checks passed - can create assessments");
     return true;
   };
 
@@ -227,13 +228,50 @@ export default function AssessmentModal({ organizationId, onClose }) {
     }
   };
 
+  // Helper function to generate unique assessment name
+  const generateUniqueAssessmentName = async (schoolName, level, toBeDoneDate, schoolId) => {
+    // Base name format: Kitende_Baseline_2026-01-20
+    let baseName = `${schoolName}_${level}_${toBeDoneDate}`;
+    let assessmentName = baseName;
+    
+    try {
+      // Query existing assessments for this school and to_be_done date
+      const assessmentsRef = collection(db, "assessments");
+      const q = query(
+        assessmentsRef, 
+        where("school_id", "==", schoolId),
+        where("to_be_done", "==", toBeDoneDate)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const existingNames = [];
+      
+      querySnapshot.forEach((doc) => {
+        existingNames.push(doc.data().name);
+      });
+      
+      // If base name exists, add counter
+      let counter = 1;
+      while (existingNames.includes(assessmentName)) {
+        assessmentName = `${baseName}_${counter}`;
+        counter++;
+      }
+      
+    } catch (error) {
+      console.error("Error checking existing assessments:", error);
+      // Fallback: add timestamp to ensure uniqueness
+      const timestamp = Date.now().toString().slice(-6);
+      assessmentName = `${baseName}_${timestamp}`;
+    }
+    
+    return assessmentName;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
   
     // Check if we can create assessments
     if (!canCreateAssessments()) {
-      // console.log("Cannot create assessments - validation failed");
-      
       if (studentsLoading) {
         setError("Please wait while students are loading...");
       } else if (formData.schoolIds.length > 0) {
@@ -247,7 +285,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
             .join(", ");
           setError(`No students found for the following schools: ${schoolNames}. Please select different schools or check your data.`);
         } else {
-          setError("All selected schools have students, but something else is preventing creation.");
+          setError("Please fill in all required fields and ensure a completion date is selected.");
         }
       } else {
         setError("Please fill in all required fields and select at least one school.");
@@ -260,15 +298,13 @@ export default function AssessmentModal({ organizationId, onClose }) {
     setError("");
 
     try {
-      // Format current date as YYYY-MM-DD
+      // Format current date as YYYY-MM-DD for created_date
       const currentDate = new Date().toISOString().split('T')[0];
-      // console.log("Current date for naming:", currentDate);
       
       // Create an array to track all promises
       const creationPromises = [];
 
       for (const schoolId of formData.schoolIds) {
-        // console.log(`Processing school: ${schoolId}`);
         const school = schools.find(s => s.id === schoolId);
         
         if (!school) {
@@ -277,7 +313,6 @@ export default function AssessmentModal({ organizationId, onClose }) {
         }
 
         const schoolStuds = students[schoolId] || [];
-        // console.log(`School ${school.name} has ${schoolStuds.length} students`);
         
         if (schoolStuds.length === 0) {
           console.warn(`No students for school ${school.name} (${schoolId})`);
@@ -299,11 +334,16 @@ export default function AssessmentModal({ organizationId, onClose }) {
         }));
 
         const assessmentId = uuidv4();
-        // console.log(`Creating assessment with ID: ${assessmentId}`);
         
-        // Create assessment name in the format: schoolName_level_date
-        const assessmentName = `${school.name}_${formData.level}_${currentDate}`;
-        // console.log(`Assessment name: ${assessmentName}`);
+        // Generate unique assessment name
+        const assessmentName = await generateUniqueAssessmentName(
+          school.name,
+          formData.level,
+          formData.to_be_done,
+          schoolId
+        );
+
+        console.log(`Assessment name: ${assessmentName}`);
 
         // Prepare the main assessment document data
         const assessmentData = {
@@ -317,18 +357,19 @@ export default function AssessmentModal({ organizationId, onClose }) {
           type: formData.type,
           level: formData.level,
           assessmentNumber: formData.assessmentNumber,
+          to_be_done: formData.to_be_done, // Add to_be_done field
+          created_date: currentDate, // Keep created date separate
           assigned_students: assignedStudents,
-          date_created: currentDate,
           status: "created",
           student_count: assignedStudents.length,
         };
 
-        // console.log(`Attempting to create assessment document for ${school.name}...`);
+        console.log(`Attempting to create assessment document for ${school.name}...`);
         
         // Create the main assessment document
         const assessmentPromise = setDoc(doc(db, "assessments", assessmentId), assessmentData)
           .then(() => {
-            // console.log(`✅ Main assessment document created for ${school.name}`);
+            console.log(`✅ Main assessment document created for ${school.name}`);
             
             // Create assessment-results subcollection for each student
             const resultsPromises = schoolStuds.map(async (student) => {
@@ -343,6 +384,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
                 student_grade: Number(student.grade) || 0,
                 competence_level: 0,
                 assessment_level: formData.level,
+                to_be_done: formData.to_be_done, // Add to_be_done to results
                 created_at: new Date().toISOString(),
                 status: "pending",
               };
@@ -376,7 +418,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
       console.log(`Waiting for ${creationPromises.length} assessments to be created...`);
       await Promise.all(creationPromises);
       
-      // console.log("✅ All assessments created successfully!");
+      console.log("✅ All assessments created successfully!");
       onClose();
       
     } catch (err) {
@@ -944,6 +986,43 @@ export default function AssessmentModal({ organizationId, onClose }) {
                 </button>
               </div>
             </div>
+
+            {/* Target Completion Date */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-foreground mb-3">
+                When should this assessment be completed? *
+              </label>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={formData.to_be_done}
+                  onChange={(e) => {
+                    console.log("Date changed:", e.target.value);
+                    setFormData(prev => ({ ...prev, to_be_done: e.target.value }));
+                  }}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-3 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-2 text-foreground bg-background-lighter transition-colors"
+                  required
+                  style={{
+                    colorScheme: 'dark', // For better dark mode support
+                    position: 'relative',
+                    zIndex: 10,
+                  }}
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
+                  onClick={() => document.querySelector('input[type="date"]')?.showPicker()}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                Target completion date for this assessment 
+              </p>
+</div>
 
             {/* Assessment Preview */}
             <div className="border-2 border-primary-2/30 rounded-xl p-6 bg-background-light mb-6">
