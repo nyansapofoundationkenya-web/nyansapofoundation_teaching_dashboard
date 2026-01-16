@@ -990,7 +990,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
             {/* Target Completion Date */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-foreground mb-3">
-                When should this assessment be completed? *
+                When should this assessment start? *
               </label>
               <div className="relative">
                 <input
