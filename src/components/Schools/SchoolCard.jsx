@@ -42,8 +42,8 @@ export default function SchoolCard({ school, organizationId }) {
         <div className="flex items-center gap-2 text-base">
           <FaChalkboardTeacher size={16} className="flex-shrink-0 text-primary-2" />
           <span className="truncate">
-            <span className="font-medium">{school.total_instructors || 0}</span>
-            <span className="hidden sm:inline"> Instructor{school.total_instructors !== 1 ? "s" : ""}</span>
+            <span className="font-medium">{school.total_teachers || 0}</span>
+            <span className="hidden sm:inline"> Instructor{school.total_teachers !== 1 ? "s" : ""}</span>
             <span className="sm:hidden"> Inst</span>
           </span>
         </div>
