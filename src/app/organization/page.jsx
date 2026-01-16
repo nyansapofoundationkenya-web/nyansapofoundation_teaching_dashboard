@@ -21,6 +21,7 @@ export default function OrganizationPage({
   
   // Get user data directly from Redux store
   const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
+  console.log(currentUser)
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [newOrgName, setNewOrgName] = useState("");
@@ -68,7 +69,7 @@ export default function OrganizationPage({
 
   const filteredOrganizations = getFilteredOrganizations();
   const userRole = currentUser?.role;
-  console.log(currentUser?.id)
+  // console.log(currentUser?.id)
   const isAdmin = userRole === "super_admin";
 
   // Handle add organization
@@ -105,7 +106,7 @@ export default function OrganizationPage({
     try {
       await handleLogout();
       onLogout();
-      router.push("/")
+      router.replace("/")
     } catch (err) {
       console.error("Logout error:", err);
     }

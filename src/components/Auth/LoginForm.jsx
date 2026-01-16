@@ -3,81 +3,68 @@
 import { useState } from "react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { getFirebaseErrorMessage } from "@/utils/firebaseErrorHandler";
 import * as Yup from "yup";
-import Link from "next/link";
 
 // Validation schemas
 const baseValidationSchema = Yup.object({
-  loginMethod: Yup.string().oneOf(["email", "phone"]).required(),
+  loginMethod: Yup.string().oneOf(["email", "phone-otp", "phone-password"]).required(),
   email: Yup.string().when("loginMethod", {
     is: "email",
-    then: () => Yup.string().email("Invalid email").required("Required"),
-    otherwise: () => Yup.string().notRequired(),
+    then: (schema) => schema.email("Invalid email").required("Required"),
   }),
   password: Yup.string().when("loginMethod", {
-    is: "email",
-    then: () => Yup.string().min(6).required("Required"),
-    otherwise: () => Yup.string().notRequired(),
+    is: (val) => val === "email" || val === "phone-password",
+    then: (schema) => schema.min(6, "Password must be at least 6 characters").required("Required"),
   }),
   phone: Yup.string().when("loginMethod", {
-    is: "phone",
-    then: () => Yup.string()
-      .required("Phone number is required")
-      .test('phone-format', function(value) {
-        if (!value) return true;
-        
-        if (!value.startsWith('+')) {
-          return this.createError({
-            message: "Please start your phone number with '+' (e.g., +254712345678)"
-          });
-        }
-        
-        if (!/^\+?[1-9]\d{1,14}$/.test(value)) {
-          return this.createError({
-            message: "Please enter a valid phone number with country code (e.g., +254712345678)"
-          });
-        }
-        
-        return true;
-      }),
-    otherwise: () => Yup.string().notRequired(),
+    is: (val) => val === "phone-otp" || val === "phone-password",
+    then: (schema) =>
+      schema
+        .required("Phone number is required")
+        .test("phone-format", function (value) {
+          if (!value) return true;
+          if (!value.startsWith("+")) {
+            return this.createError({ message: "Please start with '+' (e.g. +254...)" });
+          }
+          if (!/^\+[1-9]\d{1,14}$/.test(value)) {
+            return this.createError({ message: "Invalid phone format" });
+          }
+          return true;
+        }),
   }),
 });
 
 const verificationValidationSchema = Yup.object({
-  verificationCode: Yup.string().length(6).required("Required"),
+  verificationCode: Yup.string().length(6, "Must be 6 digits").required("Required"),
 });
 
 export default function LoginForm() {
-  const { 
-    handleLogin, 
-    verifyPhoneLoginCode, 
+  const {
+    handleLogin,                  // Firebase email + phone-otp
+    verifyPhoneLoginCode,
+    handleApiPhonePasswordLogin,  // API phone + password
     error,
     clearError,
     loading: authLoading,
-    recaptchaReady
+    recaptchaReady,
   } = useAuth();
-  
+
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [customError, setCustomError] = useState(null);
 
-  // Helper to extract Firebase error code from raw error string
-  const extractErrorCode = (rawError) => {
-    if (!rawError) return null;
-    const match = rawError.match(/\(([^)]+)\)/);
+  const extractErrorCode = (raw) => {
+    if (!raw) return null;
+    const match = raw.match(/\(([^)]+)\)/);
     return match ? match[1].trim() : null;
   };
 
-  // Process raw error from hook using the Firebase error mapper
-  const displayError = customError || (error 
-    ? getFirebaseErrorMessage({ code: extractErrorCode(error) })
-    : null);
+  const displayError = customError || (error ? getFirebaseErrorMessage({ code: extractErrorCode(error) }) : null);
 
   const formik = useFormik({
     initialValues: {
@@ -91,44 +78,41 @@ export default function LoginForm() {
     onSubmit: async (values, { setSubmitting, resetForm }) => {
       setCustomError(null);
       clearError();
-      
+      setSubmitting(true);
+
       try {
-        console.log("Login attempt with:", { 
-          loginMethod: values.loginMethod, 
-          email: values.email 
-        });
-
         if (step === 1) {
-          await handleLogin({
-            loginMethod: values.loginMethod,
-            email: values.email,
-            password: values.password,
-            phone: values.phone,
-          });
+          const method = values.loginMethod;
 
-          if (values.loginMethod === "phone") {
-            setStep(2);
-          } else {
+          if (method === "email") {
+            await handleLogin({ loginMethod: "email", email: values.email, password: values.password });
             setLoginSuccess(true);
             resetForm();
-            router.push("/organization");
+            setTimeout(() => router.push("/organization"), 1500);
+          } else if (method === "phone-otp") {
+            await handleLogin({ loginMethod: "phone-otp", phone: values.phone });
+            setStep(2);
+          } else if (method === "phone-password") {
+            await handleApiPhonePasswordLogin({ phone: values.phone, password: values.password });
+            setLoginSuccess(true);
+            resetForm();
+            setTimeout(() => router.push("/organization"), 1500);
           }
         } else {
+          // Only for phone-otp verification
           await verifyPhoneLoginCode(values.verificationCode);
           setLoginSuccess(true);
           resetForm();
           setStep(1);
-          router.push("/organization");
+          setTimeout(() => router.push("/organization"), 1500);
         }
       } catch (e) {
         console.error("Login error:", e);
-        
-        // Check if user doesn't exist and show appropriate message
-        const errorCode = extractErrorCode(e.message);
-        if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password') {
-          setCustomError("No account found with these credentials. Please create an account first.");
-        } else if (errorCode === 'auth/invalid-credential') {
-          setCustomError("Invalid login credentials. Please check your email and password or create an account.");
+        const code = extractErrorCode(e.message) || e.code;
+        if (["auth/user-not-found", "auth/wrong-password", "auth/invalid-credential"].includes(code)) {
+          setCustomError("Invalid credentials or account not found. Try another method or sign up.");
+        } else {
+          setCustomError(e.message || "Login failed. Please try again.");
         }
       } finally {
         setSubmitting(false);
@@ -136,17 +120,14 @@ export default function LoginForm() {
     },
   });
 
-  // Enhanced input handler to clear errors on type
   const handleInputChange = (e) => {
-    const target = e.target;
-    formik.setFieldValue(target.name, target.value);
+    formik.handleChange(e);
     if (error || customError) {
       clearError();
       setCustomError(null);
     }
   };
 
-  // For radio buttons
   const handleRadioChange = (e) => {
     formik.handleChange(e);
     if (error || customError) {
@@ -155,29 +136,26 @@ export default function LoginForm() {
     }
   };
 
-  // Check if inputs should be disabled (only for phone when recaptcha not ready)
-  const isInputDisabled = formik.values.loginMethod === "phone" && !recaptchaReady;
+  const isPhoneOtpDisabled = formik.values.loginMethod === "phone-otp" && !recaptchaReady;
 
   return (
     <div className="w-full p-6 bg-background-light rounded-3xl shadow-lg border border-gray-600">
-      {/* Invisible reCAPTCHA container - must be in the DOM */}
       <div id="recaptcha-container" />
-      
+
       {loginSuccess && (
-        <div className="mb-4 p-3 bg-green-500/20 text-green-400 rounded-xl border border-green-500/30">
+        <div className="mb-4 p-3 bg-green-500/20 text-green-400 rounded-xl border border-green-500/30 text-center">
           Login successful! Redirecting...
         </div>
       )}
-      
-      {/* Only show processed error—no duplicate */}
+
       {displayError && (
-        <div className="mb-4 p-3 bg-red-500/20 text-red-400 rounded-xl border border-red-500/30">
+        <div className="mb-4 p-3 bg-red-500/20 text-red-400 rounded-xl border border-red-500/30 text-center">
           {displayError}
         </div>
       )}
 
-      {authLoading && !recaptchaReady && formik.values.loginMethod === "phone" && (
-        <div className="mb-4 p-3 bg-primary-2/20 text-primary-2 rounded-xl border border-primary-2/30">
+      {authLoading && !recaptchaReady && formik.values.loginMethod === "phone-otp" && (
+        <div className="mb-4 p-3 bg-primary-2/20 text-primary-2 rounded-xl border border-primary-2/30 text-center">
           Initializing security verification...
         </div>
       )}
@@ -185,10 +163,11 @@ export default function LoginForm() {
       <form onSubmit={formik.handleSubmit}>
         {step === 1 ? (
           <>
+            {/* Login Method Selection */}
             <div className="mb-6">
               <label className="block mb-3 font-medium text-foreground">Login Method</label>
-              <div className="flex gap-4">
-                <label className="flex items-center font-medium text-foreground">
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center font-medium">
                   <input
                     type="radio"
                     name="loginMethod"
@@ -197,18 +176,29 @@ export default function LoginForm() {
                     onChange={handleRadioChange}
                     className="mr-2 text-primary-3 focus:ring-primary-3"
                   />
-                  Email
+                  Email + Password
                 </label>
-                <label className="flex items-center font-medium text-foreground">
+                <label className="flex items-center font-medium">
                   <input
                     type="radio"
                     name="loginMethod"
-                    value="phone"
-                    checked={formik.values.loginMethod === "phone"}
+                    value="phone-otp"
+                    checked={formik.values.loginMethod === "phone-otp"}
                     onChange={handleRadioChange}
                     className="mr-2 text-primary-3 focus:ring-primary-3"
                   />
-                  Phone
+                  Phone + OTP
+                </label>
+                <label className="flex items-center font-medium">
+                  <input
+                    type="radio"
+                    name="loginMethod"
+                    value="phone-password"
+                    checked={formik.values.loginMethod === "phone-password"}
+                    onChange={handleRadioChange}
+                    className="mr-2 text-primary-3 focus:ring-primary-3"
+                  />
+                  Phone + Password
                 </label>
               </div>
               {formik.touched.loginMethod && formik.errors.loginMethod && (
@@ -216,82 +206,83 @@ export default function LoginForm() {
               )}
             </div>
 
+            {/* Identifier fields first (email or phone) */}
             {formik.values.loginMethod === "email" && (
-              <>
-                <div className="mb-4">
-                  <label className="block mb-2 font-medium text-foreground">Email</label>
-                  <input
-                    type="email"
-                    name="email"
-                    className={`w-full p-3 rounded-xl border ${
-                      formik.touched.email && formik.errors.email 
-                        ? "border-red-400 bg-red-500/10" 
-                        : "border-gray-500 bg-background-lighter"
-                    } text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent`}
-                    placeholder="Enter your email"
-                    value={formik.values.email}
-                    onChange={handleInputChange}
-                    onBlur={formik.handleBlur}
-                  />
-                  {formik.touched.email && formik.errors.email && (
-                    <p className="text-red-400 text-sm mt-2">{formik.errors.email}</p>
-                  )}
-                </div>
-                <div className="mb-6">
-                  <label className="block mb-2 font-medium text-foreground">Password</label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      name="password"
-                      className={`w-full p-3 pr-10 rounded-xl border ${
-                        formik.touched.password && formik.errors.password 
-                          ? "border-red-400 bg-red-500/10" 
-                          : "border-gray-500 bg-background-lighter"
-                      } text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent`}
-                      placeholder="Enter your password"
-                      value={formik.values.password}
-                      onChange={handleInputChange}
-                      onBlur={formik.handleBlur}
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-foreground transition-colors"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                  {formik.touched.password && formik.errors.password && (
-                    <p className="text-red-400 text-sm mt-2">{formik.errors.password}</p>
-                  )}
-                </div>
-              </>
+              <div className="mb-6">
+                <label className="block mb-2 font-medium text-foreground">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formik.values.email}
+                  onChange={handleInputChange}
+                  onBlur={formik.handleBlur}
+                  placeholder="Enter your email"
+                  className={`w-full p-3 rounded-xl border ${
+                    formik.touched.email && formik.errors.email
+                      ? "border-red-400 bg-red-500/10"
+                      : "border-gray-500 bg-background-lighter"
+                  } text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent`}
+                />
+                {formik.touched.email && formik.errors.email && (
+                  <p className="text-red-400 text-sm mt-1">{formik.errors.email}</p>
+                )}
+              </div>
             )}
 
-            {formik.values.loginMethod === "phone" && (
+            {(formik.values.loginMethod === "phone-otp" || formik.values.loginMethod === "phone-password") && (
               <div className="mb-6">
-                <label className="block mb-2 font-medium text-foreground">Phone</label>
+                <label className="block mb-2 font-medium text-foreground">Phone Number</label>
                 <input
                   type="text"
                   name="phone"
-                  className={`w-full p-3 rounded-xl border ${
-                    formik.touched.phone && formik.errors.phone 
-                      ? "border-red-400 bg-red-500/10" 
-                      : "border-gray-500 bg-background-lighter"
-                  } text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent`}
-                  placeholder="Enter phone number with country code (e.g., +254712345678)"
                   value={formik.values.phone}
                   onChange={handleInputChange}
                   onBlur={formik.handleBlur}
-                  disabled={!recaptchaReady}
+                  placeholder="e.g. +254712345678"
+                  disabled={formik.values.loginMethod === "phone-otp" && !recaptchaReady}
+                  className={`w-full p-3 rounded-xl border ${
+                    formik.touched.phone && formik.errors.phone
+                      ? "border-red-400 bg-red-500/10"
+                      : "border-gray-500 bg-background-lighter"
+                  } text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent`}
                 />
                 {formik.touched.phone && formik.errors.phone && (
-                  <p className="text-red-400 text-sm mt-2">{formik.errors.phone}</p>
+                  <p className="text-red-400 text-sm mt-1">{formik.errors.phone}</p>
                 )}
-                {!recaptchaReady && (
-                  <p className="text-yellow-400 text-sm mt-2">
-                    Initializing security verification...
-                  </p>
+                {formik.values.loginMethod === "phone-otp" && !recaptchaReady && (
+                  <p className="text-yellow-400 text-sm mt-2">Initializing verification...</p>
+                )}
+              </div>
+            )}
+
+            {/* Password field comes AFTER email/phone */}
+            {(formik.values.loginMethod === "email" || formik.values.loginMethod === "phone-password") && (
+              <div className="mb-6 relative">
+                <label className="block mb-2 font-medium text-foreground">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    value={formik.values.password}
+                    onChange={handleInputChange}
+                    onBlur={formik.handleBlur}
+                    placeholder="Enter your password"
+                    className={`w-full p-3 pr-10 rounded-xl border ${
+                      formik.touched.password && formik.errors.password
+                        ? "border-red-400 bg-red-500/10"
+                        : "border-gray-500 bg-background-lighter"
+                    } text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent`}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-foreground transition-colors"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                {formik.touched.password && formik.errors.password && (
+                  <p className="text-red-400 text-sm mt-1">{formik.errors.password}</p>
                 )}
               </div>
             )}
@@ -302,30 +293,30 @@ export default function LoginForm() {
             <input
               type="text"
               name="verificationCode"
-              className={`w-full p-3 rounded-xl border ${
-                formik.touched.verificationCode && formik.errors.verificationCode 
-                  ? "border-red-400 bg-red-500/10" 
-                  : "border-gray-500 bg-background-lighter"
-              } text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent`}
-              placeholder="Enter 6-digit code sent to your phone"
               value={formik.values.verificationCode}
               onChange={handleInputChange}
               onBlur={formik.handleBlur}
+              placeholder="Enter 6-digit code"
+              className={`w-full p-3 rounded-xl border ${
+                formik.touched.verificationCode && formik.errors.verificationCode
+                  ? "border-red-400 bg-red-500/10"
+                  : "border-gray-500 bg-background-lighter"
+              } text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent`}
             />
             {formik.touched.verificationCode && formik.errors.verificationCode && (
-              <p className="text-red-400 text-sm mt-2">{formik.errors.verificationCode}</p>
+              <p className="text-red-400 text-sm mt-1">{formik.errors.verificationCode}</p>
             )}
           </div>
         )}
 
         <button
           type="submit"
-          className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center transition-all mb-4 ${
-            formik.isSubmitting || isInputDisabled
+          disabled={formik.isSubmitting || isPhoneOtpDisabled}
+          className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center transition-all ${
+            formik.isSubmitting || isPhoneOtpDisabled
               ? "bg-gray-600 text-gray-400 cursor-not-allowed"
               : "bg-primary-3 text-primary-1 hover:bg-yellow-400 shadow-md hover:shadow-lg"
           }`}
-          disabled={formik.isSubmitting || isInputDisabled}
         >
           {formik.isSubmitting ? (
             <>
@@ -339,32 +330,6 @@ export default function LoginForm() {
           )}
         </button>
       </form>
-
-      {/* Create account prompt
-      <div className="text-center pt-4 border-t border-gray-600">
-        <p className="text-foreground mb-3">
-          Don't have an account yet?
-        </p>
-        <Link 
-          href="/signup" 
-          className="inline-flex items-center justify-center w-full py-3 px-4 rounded-xl font-semibold bg-primary-2 text-primary-1 hover:bg-blue-600 shadow-md hover:shadow-lg transition-all"
-        >
-          Create Account
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </Link>
-      </div> */}
-
-      {/* Forgot password link - only show for email login
-      {formik.values.loginMethod === "email" && (
-        <div className="text-center mt-4">
-          <Link 
-            href="/forgot-password" 
-            className="text-primary-3 hover:text-yellow-400 text-sm transition-colors"
-          >
-            Forgot your password?
-          </Link>
-        </div>
-      )} */}
     </div>
   );
 }

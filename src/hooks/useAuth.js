@@ -1,22 +1,24 @@
 import { useState, useEffect } from "react";
 import {
-  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPhoneNumber,
   PhoneAuthProvider,
-  linkWithCredential,
   signOut,
   onAuthStateChanged,
-  deleteUser,
   RecaptchaVerifier,
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import Cookies from "js-cookie";
 import { parsePhoneNumber } from "libphonenumber-js";
 import { auth, db } from "@/firebase/config";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import { setUser, clearUser, setLoading as setReduxLoading } from "@/redux/slices/authSlice";
+import {
+  setUser,
+  clearUser,
+  setLoading as setReduxLoading,
+  setIsApiAuth,
+} from "@/redux/slices/authSlice";
 
 export function useAuth() {
   const [loading, setLoading] = useState(true);
@@ -24,79 +26,84 @@ export function useAuth() {
   const [confirmationResult, setConfirmationResult] = useState(null);
   const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
   const [recaptchaReady, setRecaptchaReady] = useState(false);
-  
+
   const router = useRouter();
   const dispatch = useDispatch();
-  
-  // Get user data from Redux store
-  const { user: currentUser, loading: reduxLoading } = useSelector((state) => state.auth);
 
-  // Function to fetch and store complete user profile
+  const { user: currentUser, loading: reduxLoading, isApiAuth } = useSelector(
+    (state) => state.auth
+  );
+
+  // Fetch and store complete user profile
   const fetchAndStoreUserProfile = async (firebaseUser) => {
     try {
       const userProfile = await fetchUserById(firebaseUser.uid);
-      
-      // Combine Firebase auth data with Firestore profile data
+
       const completeUserData = {
-        // Firebase auth data
         uid: firebaseUser.uid,
-        email: firebaseUser.email,
-        emailVerified: firebaseUser.emailVerified,
-        phoneNumber: firebaseUser.phoneNumber,
-        displayName: firebaseUser.displayName,
-        photoURL: firebaseUser.photoURL,
+        email: firebaseUser.email ?? null,
+        emailVerified: firebaseUser.emailVerified ?? false,
+        phoneNumber: firebaseUser.phoneNumber ?? null,
+        displayName: firebaseUser.displayName ?? null,
+        photoURL: firebaseUser.photoURL ?? null,
         metadata: {
-          creationTime: firebaseUser.metadata.creationTime,
-          lastSignInTime: firebaseUser.metadata.lastSignInTime,
+          creationTime: firebaseUser.metadata?.creationTime ?? null,
+          lastSignInTime: firebaseUser.metadata?.lastSignInTime ?? new Date().toISOString(),
         },
-        
-        // Firestore profile data
-        ...userProfile
+        ...userProfile,
       };
-      
+
       dispatch(setUser(completeUserData));
       return completeUserData;
     } catch (err) {
       console.error("Failed to fetch user profile:", err);
-      // If profile fetch fails, still store basic auth info
+
       const basicUserData = {
         uid: firebaseUser.uid,
-        email: firebaseUser.email,
-        emailVerified: firebaseUser.emailVerified,
-        phoneNumber: firebaseUser.phoneNumber,
-        displayName: firebaseUser.displayName,
-        photoURL: firebaseUser.photoURL,
+        email: firebaseUser.email ?? null,
+        emailVerified: firebaseUser.emailVerified ?? false,
+        phoneNumber: firebaseUser.phoneNumber ?? null,
+        displayName: firebaseUser.displayName ?? null,
+        photoURL: firebaseUser.photoURL ?? null,
         metadata: {
-          creationTime: firebaseUser.metadata.creationTime,
-          lastSignInTime: firebaseUser.metadata.lastSignInTime,
+          creationTime: firebaseUser.metadata?.creationTime ?? null,
+          lastSignInTime: firebaseUser.metadata?.lastSignInTime ?? new Date().toISOString(),
         },
       };
+
       dispatch(setUser(basicUserData));
       return basicUserData;
     }
   };
 
+  // Listen to Firebase auth state changes – protected against clearing API sessions
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log("onAuthStateChanged → user:", user ? user.uid : "null");
+
       if (user) {
         const token = await user.getIdToken();
         Cookies.set("auth_token", token, { expires: 7 });
-        
-        // Fetch complete user profile from Firestore and store in Redux
         await fetchAndStoreUserProfile(user);
+        dispatch(setIsApiAuth(false));
       } else {
-        // Clear user from Redux when logged out
-        dispatch(clearUser());
-        Cookies.remove("auth_token");
+        if (!isApiAuth) {
+          console.log("Clearing user → Firebase reports no user and isApiAuth = false");
+          dispatch(clearUser());
+          Cookies.remove("auth_token");
+        } else {
+          console.log("Skipping clear → API session active (isApiAuth = true)");
+        }
       }
+
       setLoading(false);
       dispatch(setReduxLoading(false));
     });
-    
-    return () => unsubscribe();
-  }, [dispatch]);
 
-  // Setup invisible reCAPTCHA once on mount
+    return () => unsubscribe();
+  }, [dispatch, isApiAuth]);
+
+  // Setup invisible reCAPTCHA
   useEffect(() => {
     if (typeof window !== "undefined" && !window.recaptchaVerifier) {
       try {
@@ -116,11 +123,10 @@ export function useAuth() {
           window.recaptchaVerifier = verifier;
           setRecaptchaVerifier(verifier);
           setRecaptchaReady(true);
-        }).catch(err => {
+        }).catch((err) => {
           console.error("reCAPTCHA render error:", err);
           setError("Failed to initialize reCAPTCHA. Please refresh the page.");
         });
-
       } catch (err) {
         console.error("reCAPTCHA initialization error:", err);
         setError("Failed to initialize security verification. Please refresh the page.");
@@ -134,82 +140,15 @@ export function useAuth() {
     };
   }, []);
 
-  const handleSignup = async ({ email, password, name, phone }) => {
-    setError(null);
-    let user = null;
-    try {
-      const phoneNumber = parsePhoneNumber(phone || "");
-      if (!phoneNumber || !phoneNumber.isValid()) {
-        throw new Error("Invalid phone number format. Please include country code.");
-      }
-      const formattedPhone = phoneNumber.format("E.164");
-
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      user = userCredential.user;
-
-      const confirmation = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
-      setConfirmationResult(confirmation);
-
-      return { user, confirmation, email, name, phone: formattedPhone };
-    } catch (err) {
-      console.error("Signup error:", err);
-      if (user) {
-        try {
-          await deleteUser(user);
-        } catch (delErr) {
-          console.error("Failed to delete partial user:", delErr);
-        }
-      }
-      setError(err.message);
-      throw err;
-    }
-  };
-
-  const verifyPhoneCode = async (code, user, email, name, phone) => {
-    setError(null);
-    try {
-      if (!confirmationResult) throw new Error("No phone verification in progress.");
-      
-      const phoneCredential = PhoneAuthProvider.credential(
-        confirmationResult.verificationId, 
-        code
-      );
-      await linkWithCredential(user, phoneCredential);
-
-      const userRef = doc(db, "user", user.uid); 
-      await setDoc(userRef, {
-        uid: user.uid,
-        email,
-        phone,
-        name,
-        role: "teacher",
-        createdAt: new Date().toISOString(),
-      });
-
-      const token = await user.getIdToken();
-      Cookies.set("auth_token", token, { expires: 7 });
-      return user;
-    } catch (err) {
-      console.error("Verification error:", err);
-      if (user) {
-        try {
-          await deleteUser(user);
-        } catch (delErr) {
-          console.error("Failed to delete partial user:", delErr);
-        }
-      }
-      setError(err.message);
-      throw err;
-    }
-  };
-
+  // ──────────────────────────────────────────────
+  // Existing Firebase email login
+  // ──────────────────────────────────────────────
   const handleLogin = async ({ loginMethod, email, password, phone }) => {
     setError(null);
     try {
       console.log("Auth hook: Login attempt with", { loginMethod, email });
 
       if (loginMethod === "email") {
-        // Email login - no reCAPTCHA dependency
         if (!email || !password) {
           throw new Error("Email and password are required");
         }
@@ -218,15 +157,13 @@ export function useAuth() {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         console.log("Email login successful:", user.uid);
-        
+
         const token = await user.getIdToken();
         Cookies.set("auth_token", token, { expires: 7 });
-        
-        // Fetch and store complete user profile in Redux
+
         await fetchAndStoreUserProfile(user);
         return user;
       } else {
-        // Phone login - requires reCAPTCHA
         if (!recaptchaReady) {
           throw new Error("Security verification is not ready yet. Please try again.");
         }
@@ -242,11 +179,7 @@ export function useAuth() {
         const formattedPhone = phoneNumber.format("E.164");
 
         console.log("Attempting phone login with:", formattedPhone);
-        const confirmation = await signInWithPhoneNumber(
-          auth, 
-          formattedPhone, 
-          recaptchaVerifier
-        );
+        const confirmation = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
         setConfirmationResult(confirmation);
         console.log("Phone verification sent");
         return { confirmation };
@@ -256,29 +189,31 @@ export function useAuth() {
         code: err.code,
         message: err.message,
         loginMethod,
-        email
+        email,
       });
       setError(err.message);
       throw err;
     }
   };
 
+  // ──────────────────────────────────────────────
+  // Existing Firebase phone OTP verification (for login)
+  // ──────────────────────────────────────────────
   const verifyPhoneLoginCode = async (code) => {
     setError(null);
     try {
       if (!confirmationResult || !confirmationResult.verificationId) {
         throw new Error("No verification in progress or session expired.");
       }
-      
+
       console.log("Verifying phone code...");
       const result = await confirmationResult.confirm(code);
       const user = result.user;
       console.log("Phone login successful:", user.uid);
-      
+
       const token = await user.getIdToken();
       Cookies.set("auth_token", token, { expires: 7 });
-      
-      // Fetch and store complete user profile in Redux
+
       await fetchAndStoreUserProfile(user);
       return user;
     } catch (err) {
@@ -288,11 +223,65 @@ export function useAuth() {
     }
   };
 
+  // ──────────────────────────────────────────────
+  // API-based phone + password login
+  // ──────────────────────────────────────────────
+  const handleApiPhonePasswordLogin = async ({ phone, password }) => {
+    setError(null);
+    try {
+      if (!phone || !password) {
+        throw new Error("Phone number and password are required");
+      }
+
+      const phoneNumber = parsePhoneNumber(phone);
+      if (!phoneNumber?.isValid()) {
+        throw new Error("Invalid phone number format. Please use international format (+254...)");
+      }
+      const formattedPhone = phoneNumber.format("E.164");
+
+      const response = await fetch("https://nyansapo-auth.vercel.app/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: formattedPhone, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Login failed – please check your phone number and password");
+      }
+
+      const { token, uid } = data;
+
+      if (!token || !uid) {
+        throw new Error("Server response missing required fields (token or uid)");
+      }
+
+      Cookies.set("auth_token", token, { expires: 7 });
+
+      const minimalUser = { uid };
+      const fullProfile = await fetchAndStoreUserProfile(minimalUser);
+
+      // Mark as API session → prevent clearing by onAuthStateChanged
+      dispatch(setIsApiAuth(true));
+
+      return {
+        uid,
+        email: fullProfile.email || data.email || null,
+        displayName: fullProfile.displayName || data.name || null,
+        phoneNumber: fullProfile.phoneNumber || formattedPhone,
+      };
+    } catch (err) {
+      console.error("API phone+password login failed:", err);
+      setError(err.message || "Unable to sign in. Please try again.");
+      throw err;
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
       Cookies.remove("auth_token");
-      // User will be automatically cleared from Redux via onAuthStateChanged
       router.replace("/");
     } catch (err) {
       console.error("Logout error:", err);
@@ -301,7 +290,6 @@ export function useAuth() {
     }
   };
 
-  // Fetch user by ID from Firestore
   const fetchUserById = async (userId) => {
     setError(null);
     try {
@@ -318,7 +306,7 @@ export function useAuth() {
 
       return {
         id: userSnap.id,
-        ...userSnap.data()
+        ...userSnap.data(),
       };
     } catch (err) {
       console.error("Fetch user error:", err);
@@ -327,7 +315,6 @@ export function useAuth() {
     }
   };
 
-  // Refresh user profile from Firestore
   const refreshUserProfile = async () => {
     if (!currentUser) {
       throw new Error("No user is currently logged in");
@@ -335,7 +322,6 @@ export function useAuth() {
     return await fetchAndStoreUserProfile(currentUser);
   };
 
-  // Update user profile in Redux and Firestore
   const updateUserProfile = async (updates) => {
     setError(null);
     try {
@@ -346,9 +332,7 @@ export function useAuth() {
       const userRef = doc(db, "user", currentUser.uid);
       await setDoc(userRef, updates, { merge: true });
 
-      // Refresh the user profile to get updated data
       await refreshUserProfile();
-
       return true;
     } catch (err) {
       console.error("Update user profile error:", err);
@@ -357,7 +341,6 @@ export function useAuth() {
     }
   };
 
-  // Clear error manually
   const clearError = () => {
     setError(null);
   };
@@ -367,15 +350,14 @@ export function useAuth() {
     loading: loading || reduxLoading,
     error,
     recaptchaReady,
-    handleSignup,
-    verifyPhoneCode,
     handleLogin,
     verifyPhoneLoginCode,
+    handleApiPhonePasswordLogin,
     handleLogout,
     confirmationResult,
     fetchUserById,
     updateUserProfile,
     refreshUserProfile,
-    clearError, // Added clearError function
+    clearError,
   };
 }
