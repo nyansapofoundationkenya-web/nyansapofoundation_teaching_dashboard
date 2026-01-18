@@ -28,7 +28,7 @@ const ai = getAI(app);
 // Create Gemini model instance 
 const model = getGenerativeModel(ai, { model: "gemini-2.5-flash" });
 
-console.log("✅ Firebase initialized with API key");
+console.log(" Firebase initialized with API key");
 console.log("   Project:", firebaseConfig.projectId);
 console.log("   Model: gemini-2.5-flash");
 
@@ -40,7 +40,7 @@ export async function testConnectionWithNewKey() {
     const result = await model.countTokens("Test");
     return {
       success: true,
-      message: `✅ Connected! Tokens: ${result.totalTokens}`
+      message: `Connected! Tokens: ${result.totalTokens}`
     };
   } catch (error) {
     return {
