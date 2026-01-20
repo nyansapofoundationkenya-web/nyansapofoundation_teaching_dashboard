@@ -159,6 +159,11 @@ const Sidebar = ({ initialTitle, organizationId }) => {
   ];
 
   const adminMenuItems = [
+    {
+      name : "Ai Assistant",
+      icon: <FiMessageSquare size={20} />,
+      path: `/dashboard/${organizationId}/ai-assistant`
+    },
     { 
       name: "Instructors", 
       icon: <FiUserCheck size={20} />, 
