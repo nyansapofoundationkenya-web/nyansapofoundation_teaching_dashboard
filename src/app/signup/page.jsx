@@ -33,6 +33,18 @@ export default function Signup() {
             </Link>
           </p>
         </div>
+
+        <div className="mt-8 text-center">
+          <p className="text-sm text-gray-300">
+            Need Help?{" "}
+            <Link 
+              href="/contact-us" 
+              className="text-primary-2 hover:text-primary-3 font-medium transition-colors"
+            >
+              Contact Us
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
