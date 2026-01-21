@@ -22,7 +22,7 @@ export default function Signup() {
 
         <SignupForm />
 
-        <div className="mt-8 text-center">
+        {/* <div className="mt-8 text-center">
           <p className="text-sm text-gray-300">
             Have an Account?{" "}
             <Link 
@@ -32,7 +32,7 @@ export default function Signup() {
               Sign in here
             </Link>
           </p>
-        </div>
+        </div> */}
 
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-300">

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useFormik } from "formik";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import * as Yup from "yup";
@@ -28,15 +29,23 @@ const validationSchema = Yup.object({
 
       return true;
     }),
-  password: Yup.string().min(6, "Password must be at least 6 characters").required("Password is required"),
-  confirm: Yup.string()
-    .oneOf([Yup.ref("password"), null], "Passwords must match")
-    .required("Confirm password is required"),
+  pin: Yup.string()
+    .required("PIN is required")
+    .matches(/^\d{6}$/, "PIN must be exactly 6 digits")
+    .test("pin-format", "PIN must contain only numbers (0-9)", (value) => {
+      return /^\d{6}$/.test(value);
+    }),
+  confirmPin: Yup.string()
+    .required("Confirm PIN is required")
+    .oneOf([Yup.ref("pin"), null], "PINs must match")
+    .test("confirm-pin-format", "Confirm PIN must be exactly 6 digits", (value) => {
+      return /^\d{6}$/.test(value);
+    }),
 });
 
 export default function SignupForm() {
   const router = useRouter();
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPin, setShowPin] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [success, setSuccess] = useState(false);
 
@@ -45,8 +54,8 @@ export default function SignupForm() {
       name: "",
       email: "",
       phone: "",
-      password: "",
-      confirm: "",
+      pin: "",
+      confirmPin: "",
     },
     validationSchema,
     onSubmit: async (values, { setSubmitting, resetForm }) => {
@@ -64,8 +73,8 @@ export default function SignupForm() {
             name: values.name.trim(),
             email: values.email.trim(),
             phone: values.phone.trim(),
-            password: values.password,
-            confirm: values.confirm, // backend seems to expect it
+            password: values.pin, // Send PIN as password to backend
+            confirm: values.confirmPin, // Send confirm PIN as confirm to backend
           }),
         });
 
@@ -84,9 +93,6 @@ export default function SignupForm() {
         setSuccess(true);
         resetForm();
 
-        // Optional: store token if returned
-        // if (data.token) { localStorage.setItem("token", data.token); }
-
         setTimeout(() => {
           router.push("/noorganization"); // or "/dashboard" / login page etc.
         }, 1800);
@@ -98,6 +104,28 @@ export default function SignupForm() {
       }
     },
   });
+
+  // Handle PIN input change - allow only numbers
+  const handlePinChange = (e) => {
+    const { name, value } = e.target;
+    // Remove any non-numeric characters
+    const numbersOnly = value.replace(/\D/g, '');
+    // Limit to 6 digits
+    const limitedValue = numbersOnly.slice(0, 6);
+    formik.setFieldValue(name, limitedValue);
+  };
+
+  // Handle regular input changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    
+    // For PIN fields, use special handler
+    if (name === "pin" || name === "confirmPin") {
+      handlePinChange(e);
+    } else {
+      formik.handleChange(e);
+    }
+  };
 
   return (
     <div className="w-full p-6 bg-background-light rounded-3xl shadow-lg border border-gray-600">
@@ -114,37 +142,62 @@ export default function SignupForm() {
       )}
 
       <form onSubmit={formik.handleSubmit}>
-        <FormField label="Name" name="name" type="text" formik={formik} placeholder="Enter your name" />
-        <FormField label="Email" name="email" type="email" formik={formik} placeholder="Enter email" />
+        <FormField 
+          label="Name" 
+          name="name" 
+          type="text" 
+          formik={formik} 
+          placeholder="Enter your name" 
+          onChange={handleInputChange}
+        />
+        
+        <FormField 
+          label="Email" 
+          name="email" 
+          type="email" 
+          formik={formik} 
+          placeholder="Enter email" 
+          onChange={handleInputChange}
+        />
+        
         <FormField
           label="Phone Number"
           name="phone"
           type="text"
           formik={formik}
           placeholder="e.g., +254712345678"
+          onChange={handleInputChange}
         />
+        
         <FormField
-          label="Password"
-          name="password"
-          type={showPassword ? "text" : "password"}
+          label="6-Digit PIN"
+          name="pin"
+          type={showPin ? "text" : "password"}
           formik={formik}
-          placeholder="Enter a strong password"
+          placeholder="Enter 6-digit PIN"
+          onChange={handleInputChange}
+          maxLength={6}
           rightIcon={
             <button
               type="button"
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-foreground transition-colors"
-              onClick={() => setShowPassword((prev) => !prev)}
+              onClick={() => setShowPin((prev) => !prev)}
             >
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              {showPin ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           }
+          helpText="Must be exactly 6 numbers (0-9)"
         />
+        
         <FormField
-          label="Confirm Password"
-          name="confirm"
-          type={showPassword ? "text" : "password"} // same toggle for simplicity
+          label="Confirm PIN"
+          name="confirmPin"
+          type={showPin ? "text" : "password"}
           formik={formik}
-          placeholder="Confirm your password"
+          placeholder="Confirm 6-digit PIN"
+          onChange={handleInputChange}
+          maxLength={6}
+          helpText="Re-enter your 6-digit PIN"
         />
 
         <button
@@ -165,13 +218,24 @@ export default function SignupForm() {
             "Sign Up"
           )}
         </button>
+        <div className="mt-8 text-center">
+          <p className="text-sm text-gray-300">
+            Have an Account?{" "}
+            <Link 
+              href="/" 
+              className="text-primary-2 hover:text-primary-3 font-medium transition-colors"
+            >
+              Sign in here
+            </Link>
+          </p>
+        </div>
       </form>
     </div>
   );
 }
 
-// Keep your existing FormField component (unchanged)
-function FormField({ label, name, type, formik, placeholder, rightIcon = null }) {
+// Updated FormField component with help text support
+function FormField({ label, name, type, formik, placeholder, rightIcon = null, helpText = null, maxLength, onChange }) {
   const hasError = formik.touched[name] && formik.errors[name];
   return (
     <div className="mb-4">
@@ -181,9 +245,10 @@ function FormField({ label, name, type, formik, placeholder, rightIcon = null })
           type={type}
           name={name}
           value={formik.values[name]}
-          onChange={formik.handleChange}
+          onChange={onChange || formik.handleChange}
           onBlur={formik.handleBlur}
           placeholder={placeholder}
+          maxLength={maxLength}
           className={`w-full p-3 rounded-xl border ${
             hasError
               ? "border-red-400 bg-red-500/10 text-foreground"
@@ -193,6 +258,7 @@ function FormField({ label, name, type, formik, placeholder, rightIcon = null })
         {rightIcon}
       </div>
       {hasError && <p className="text-red-400 text-sm mt-2">{formik.errors[name]}</p>}
+      {helpText && !hasError && <p className="text-gray-400 text-xs mt-1">{helpText}</p>}
     </div>
   );
 }

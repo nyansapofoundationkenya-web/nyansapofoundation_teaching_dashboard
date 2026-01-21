@@ -21,18 +21,6 @@ export default function Login() {
         </div>
 
         <LoginForm />
-
-        <div className="mt-8 text-center">
-          <p className="text-sm text-gray-300">
-            Don&apos;t have an Account?{" "}
-            <Link 
-              href="/signup" 
-              className="text-primary-2 hover:text-primary-3 font-medium transition-colors"
-            >
-              Sign up here
-            </Link>
-          </p>
-        </div>
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-300">
             Need Help?{" "}
