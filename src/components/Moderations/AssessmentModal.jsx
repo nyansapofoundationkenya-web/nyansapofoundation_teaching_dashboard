@@ -39,6 +39,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
   useEffect(() => {
     if (formData.projectId && formData.schoolIds.length > 0) {
       setStudentsLoading(true);
+      // Use the same function for both Baseline and Endline - no distinction needed
       fetchStudentsForSchools(formData.projectId, formData.schoolIds, formData.level)
         .finally(() => {
           setStudentsLoading(false);
@@ -230,8 +231,11 @@ export default function AssessmentModal({ organizationId, onClose }) {
 
   // Helper function to generate unique assessment name
   const generateUniqueAssessmentName = async (schoolName, level, toBeDoneDate, schoolId) => {
-    // Base name format: Kitende_Baseline_2026-01-20
-    let baseName = `${schoolName}_${level}_${toBeDoneDate}`;
+    // Get grade from current assessment if it exists
+    const gradeInfo = currentAssessment?.grade ? `_Grade${currentAssessment.grade}` : '';
+    
+    // Base name format: Kitende_Baseline_2026-01-20_Grade3 (if grade exists)
+    let baseName = `${schoolName}_${level}_${toBeDoneDate}${gradeInfo}`;
     let assessmentName = baseName;
     
     try {
@@ -253,7 +257,8 @@ export default function AssessmentModal({ organizationId, onClose }) {
       // If base name exists, add counter
       let counter = 1;
       while (existingNames.includes(assessmentName)) {
-        assessmentName = `${baseName}_${counter}`;
+        // When adding counter, keep the grade in the name
+        assessmentName = `${schoolName}_${level}_${toBeDoneDate}${gradeInfo}_${counter}`;
         counter++;
       }
       
@@ -560,8 +565,16 @@ export default function AssessmentModal({ organizationId, onClose }) {
         </div>
       );
     } else {
+      // NUMERACY PREVIEW - Added grade display
       return (
         <div className="space-y-6">
+          {/* Add grade display for Numeracy - similar to Literacy */}
+          {currentAssessment.grade && (
+            <div className="bg-primary-2/20 border border-primary-2/30 rounded-xl p-4">
+              <h4 className="font-semibold text-primary-2 text-lg">Grade {currentAssessment.grade}</h4>
+            </div>
+          )}
+          
           {currentAssessment.countAndMatchNumbersList && (
             <div>
               <h5 className="text-sm font-semibold text-foreground mb-3 flex items-center">
@@ -724,7 +737,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
           />
           <div className="ml-3">
             <span className="text-sm font-medium text-foreground block">Baseline</span>
-            <span className="text-xs text-gray-400 mt-1">Uses current student list</span>
+            <span className="text-xs text-gray-400 mt-1">Uses student list</span>
           </div>
         </label>
         <label className={`flex items-center p-4 rounded-xl cursor-pointer transition-all border-2 ${
@@ -741,7 +754,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
           />
           <div className="ml-3">
             <span className="text-sm font-medium text-foreground block">Endline</span>
-            <span className="text-xs text-gray-400 mt-1">Uses register list</span>
+            <span className="text-xs text-gray-400 mt-1">Uses student list</span>
           </div>
         </label>
       </div>
@@ -795,7 +808,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
               <label className="block text-sm font-medium text-foreground mb-3">
                 Select Schools * 
                 <span className="ml-2 text-xs text-gray-400">
-                  ({formData.level === "Endline" ? "Using register list" : "Using student list"})
+                  (Using student list)
                 </span>
               </label>
               
@@ -1022,7 +1035,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
               <p className="text-xs text-gray-400 mt-2">
                 Target completion date for this assessment 
               </p>
-</div>
+            </div>
 
             {/* Assessment Preview */}
             <div className="border-2 border-primary-2/30 rounded-xl p-6 bg-background-light mb-6">
