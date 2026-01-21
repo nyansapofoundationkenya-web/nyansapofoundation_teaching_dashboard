@@ -326,7 +326,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
           first_name: student.first_name || "",
           grade: Number(student.grade) || 0,
           group: student.group || "",
-          has_done: true,
+          has_done: false,
           id: student.id,
           last_name: student.last_name || "",
           name: `${student.first_name || ""} ${student.last_name || ""}`.trim(),
