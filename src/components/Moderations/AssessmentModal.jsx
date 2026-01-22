@@ -24,22 +24,23 @@ export default function AssessmentModal({ organizationId, onClose }) {
     schoolIds: [],
     type: "Numeracy",
     level: "Baseline",
-    assessmentNumber: 1,
-    to_be_done: new Date().toISOString().split('T')[0], // Add to_be_done field
+    assessmentNumber: 0, // Changed default to 0
+    to_be_done: new Date().toISOString().split('T')[0],
   });
   const [selectAllSchools, setSelectAllSchools] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [currentAssessment, setCurrentAssessment] = useState(null);
   const [loadingAssessment, setLoadingAssessment] = useState(false);
-  const [maxAssessmentNumber, setMaxAssessmentNumber] = useState(1);
+  const [availableAssessmentNumbers, setAvailableAssessmentNumbers] = useState([]); // Changed from maxAssessmentNumber
   const [studentsLoading, setStudentsLoading] = useState(false);
+  const [minAssessmentNumber, setMinAssessmentNumber] = useState(0); // Track minimum number
+  const [maxAssessmentNumber, setMaxAssessmentNumber] = useState(0); // Still track max for UI
 
   // Fetch students when project, schools, or level changes
   useEffect(() => {
     if (formData.projectId && formData.schoolIds.length > 0) {
       setStudentsLoading(true);
-      // Use the same function for both Baseline and Endline - no distinction needed
       fetchStudentsForSchools(formData.projectId, formData.schoolIds, formData.level)
         .finally(() => {
           setStudentsLoading(false);
@@ -61,9 +62,9 @@ export default function AssessmentModal({ organizationId, onClose }) {
     }
   }, [selectAllSchools, schools.length]);
 
-  // Fetch max assessment number when type changes
+  // Fetch available assessment numbers when type changes
   useEffect(() => {
-    const fetchMaxAssessmentNumber = async () => {
+    const fetchAvailableAssessmentNumbers = async () => {
       setLoadingAssessment(true);
       try {
         const collectionName = formData.type.toLowerCase();
@@ -77,27 +78,45 @@ export default function AssessmentModal({ organizationId, onClose }) {
           }
         });
         
-        const maxNum = numbers.length > 0 ? Math.max(...numbers) : 1;
-        setMaxAssessmentNumber(maxNum);
+        // Sort numbers to get min and max
+        const sortedNumbers = [...numbers].sort((a, b) => a - b);
         
-        if (formData.assessmentNumber > maxNum) {
-          setFormData(prev => ({ ...prev, assessmentNumber: 1 }));
+        if (sortedNumbers.length > 0) {
+          const minNum = Math.min(...sortedNumbers);
+          const maxNum = Math.max(...sortedNumbers);
+          setMinAssessmentNumber(minNum);
+          setMaxAssessmentNumber(maxNum);
+          setAvailableAssessmentNumbers(sortedNumbers);
+          
+          // If current selection is not in available numbers, default to min (0)
+          if (!sortedNumbers.includes(formData.assessmentNumber)) {
+            setFormData(prev => ({ ...prev, assessmentNumber: minNum }));
+          }
+        } else {
+          // No assessments exist yet
+          setMinAssessmentNumber(0);
+          setMaxAssessmentNumber(0);
+          setAvailableAssessmentNumbers([0]);
+          setFormData(prev => ({ ...prev, assessmentNumber: 0 }));
         }
       } catch (error) {
         console.error("Error fetching assessment count:", error);
-        setMaxAssessmentNumber(1);
+        setMinAssessmentNumber(0);
+        setMaxAssessmentNumber(0);
+        setAvailableAssessmentNumbers([0]);
+        setFormData(prev => ({ ...prev, assessmentNumber: 0 }));
       } finally {
         setLoadingAssessment(false);
       }
     };
 
-    fetchMaxAssessmentNumber();
+    fetchAvailableAssessmentNumbers();
   }, [formData.type]);
 
   // Fetch current assessment when type or number changes
   useEffect(() => {
     const fetchCurrentAssessment = async () => {
-      if (!formData.type || !formData.assessmentNumber) return;
+      if (!formData.type || formData.assessmentNumber === null || formData.assessmentNumber === undefined) return;
       
       setLoadingAssessment(true);
       try {
@@ -216,16 +235,24 @@ export default function AssessmentModal({ organizationId, onClose }) {
     setStudentsLoading(false);
   };
 
-  // Navigation for assessment preview
+  // Navigation for assessment preview - modified to handle 0
   const nextAssessment = () => {
-    if (formData.assessmentNumber < maxAssessmentNumber) {
-      setFormData(prev => ({ ...prev, assessmentNumber: prev.assessmentNumber + 1 }));
+    const currentIndex = availableAssessmentNumbers.indexOf(formData.assessmentNumber);
+    if (currentIndex < availableAssessmentNumbers.length - 1) {
+      setFormData(prev => ({ 
+        ...prev, 
+        assessmentNumber: availableAssessmentNumbers[currentIndex + 1] 
+      }));
     }
   };
 
   const prevAssessment = () => {
-    if (formData.assessmentNumber > 1) {
-      setFormData(prev => ({ ...prev, assessmentNumber: prev.assessmentNumber - 1 }));
+    const currentIndex = availableAssessmentNumbers.indexOf(formData.assessmentNumber);
+    if (currentIndex > 0) {
+      setFormData(prev => ({ 
+        ...prev, 
+        assessmentNumber: availableAssessmentNumbers[currentIndex - 1] 
+      }));
     }
   };
 
@@ -349,6 +376,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
         );
 
         console.log(`Assessment name: ${assessmentName}`);
+        console.log(`Using assessment number: ${formData.assessmentNumber}`);
 
         // Prepare the main assessment document data
         const assessmentData = {
@@ -361,9 +389,9 @@ export default function AssessmentModal({ organizationId, onClose }) {
           school_id: schoolId,
           type: formData.type,
           level: formData.level,
-          assessmentNumber: formData.assessmentNumber,
-          to_be_done: formData.to_be_done, // Add to_be_done field
-          created_date: currentDate, // Keep created date separate
+          assessmentNumber: formData.assessmentNumber, // This will be 0, 1, 2, 3, etc.
+          to_be_done: formData.to_be_done,
+          created_date: currentDate,
           assigned_students: assignedStudents,
           status: "created",
           student_count: assignedStudents.length,
@@ -389,7 +417,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
                 student_grade: Number(student.grade) || 0,
                 competence_level: 0,
                 assessment_level: formData.level,
-                to_be_done: formData.to_be_done, // Add to_be_done to results
+                to_be_done: formData.to_be_done,
                 created_at: new Date().toISOString(),
                 status: "pending",
               };
@@ -565,10 +593,9 @@ export default function AssessmentModal({ organizationId, onClose }) {
         </div>
       );
     } else {
-      // NUMERACY PREVIEW - Added grade display
+      // NUMERACY PREVIEW
       return (
         <div className="space-y-6">
-          {/* Add grade display for Numeracy - similar to Literacy */}
           {currentAssessment.grade && (
             <div className="bg-primary-2/20 border border-primary-2/30 rounded-xl p-4">
               <h4 className="font-semibold text-primary-2 text-lg">Grade {currentAssessment.grade}</h4>
@@ -761,6 +788,12 @@ export default function AssessmentModal({ organizationId, onClose }) {
     </div>
   );
 
+  // Helper to get display range
+  const getDisplayRange = () => {
+    if (availableAssessmentNumbers.length === 0) return "0-0";
+    return `${minAssessmentNumber}-${maxAssessmentNumber}`;
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black bg-opacity-50">
       <div className="bg-background-light rounded-2xl shadow-xl w-full max-w-4xl flex flex-col h-[calc(100%-2rem)] sm:h-[95vh] max-h-screen border border-gray-600 mx-4 sm:mx-0">
@@ -933,7 +966,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
                     type="radio"
                     value="Numeracy"
                     checked={formData.type === "Numeracy"}
-                    onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value, assessmentNumber: 1 }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value, assessmentNumber: 0 }))}
                     className="w-4 h-4 text-primary-2 bg-background-lighter border-gray-500 focus:ring-primary-2 focus:ring-2"
                   />
                   <span className="ml-3 text-sm font-medium text-foreground">Numeracy</span>
@@ -947,7 +980,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
                     type="radio"
                     value="Literacy"
                     checked={formData.type === "Literacy"}
-                    onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value, assessmentNumber: 1 }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value, assessmentNumber: 0 }))}
                     className="w-4 h-4 text-primary-2 bg-background-lighter border-gray-500 focus:ring-primary-2 focus:ring-2"
                   />
                   <span className="ml-3 text-sm font-medium text-foreground">Literacy</span>
@@ -968,7 +1001,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
                 <button
                   type="button"
                   onClick={prevAssessment}
-                  disabled={formData.assessmentNumber <= 1}
+                  disabled={formData.assessmentNumber <= minAssessmentNumber}
                   className="flex items-center px-5 py-3 bg-primary-2 text-white rounded-xl hover:bg-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg disabled:hover:shadow-md"
                 >
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -982,7 +1015,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
                     {formData.type} Assessment #{formData.assessmentNumber}
                   </span>
                   <div className="text-sm text-primary-2 mt-1">
-                    {formData.assessmentNumber} of {maxAssessmentNumber}
+                    Available: {getDisplayRange()} (Current: {formData.assessmentNumber})
                   </div>
                 </div>
                 
@@ -1017,7 +1050,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
                   className="w-full px-4 py-3 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-2 text-foreground bg-background-lighter transition-colors"
                   required
                   style={{
-                    colorScheme: 'dark', // For better dark mode support
+                    colorScheme: 'dark',
                     position: 'relative',
                     zIndex: 10,
                   }}
