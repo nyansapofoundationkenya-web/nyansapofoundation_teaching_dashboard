@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import Cookies from "js-cookie";
@@ -15,6 +15,7 @@ import {
 export function useAuth() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const router = useRouter();
   const dispatch = useDispatch();
@@ -23,7 +24,9 @@ export function useAuth() {
     (state) => state.auth
   );
 
-  // Fetch and store complete user profile
+  const isInitializingRef = useRef(false);
+
+  // ---------------- FETCH & STORE USER PROFILE ----------------
   const fetchAndStoreUserProfile = async (firebaseUser) => {
     try {
       const userProfile = await fetchUserById(firebaseUser.uid);
@@ -32,17 +35,21 @@ export function useAuth() {
         uid: firebaseUser.uid,
         email: firebaseUser.email ?? userProfile?.email ?? null,
         emailVerified: firebaseUser.emailVerified ?? false,
-        phoneNumber: firebaseUser.phoneNumber ?? userProfile?.phoneNumber ?? null,
-        displayName: firebaseUser.displayName ?? userProfile?.displayName ?? null,
+        phoneNumber:
+          firebaseUser.phoneNumber ?? userProfile?.phoneNumber ?? null,
+        displayName:
+          firebaseUser.displayName ?? userProfile?.displayName ?? null,
         photoURL: firebaseUser.photoURL ?? userProfile?.photoURL ?? null,
         metadata: {
           creationTime: firebaseUser.metadata?.creationTime ?? null,
-          lastSignInTime: firebaseUser.metadata?.lastSignInTime ?? new Date().toISOString(),
+          lastSignInTime:
+            firebaseUser.metadata?.lastSignInTime ?? new Date().toISOString(),
         },
         ...userProfile,
       };
 
       dispatch(setUser(completeUserData));
+      localStorage.setItem("user_uid", firebaseUser.uid);
       return completeUserData;
     } catch (err) {
       console.error("Failed to fetch user profile:", err);
@@ -56,130 +63,164 @@ export function useAuth() {
         photoURL: firebaseUser.photoURL ?? null,
         metadata: {
           creationTime: firebaseUser.metadata?.creationTime ?? null,
-          lastSignInTime: firebaseUser.metadata?.lastSignInTime ?? new Date().toISOString(),
+          lastSignInTime:
+            firebaseUser.metadata?.lastSignInTime ?? new Date().toISOString(),
         },
       };
 
       dispatch(setUser(basicUserData));
+      localStorage.setItem("user_uid", firebaseUser.uid);
       return basicUserData;
     }
   };
 
-  // Listen to Firebase auth state changes
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const token = await user.getIdToken();
-        Cookies.set("auth_token", token, { expires: 7 });
-        await fetchAndStoreUserProfile(user);
-        dispatch(setIsApiAuth(false));
-      } else {
-        if (!isApiAuth) {
-          dispatch(clearUser());
-          Cookies.remove("auth_token");
-        }
+  // ---------------- RESTORE USER FROM UID ----------------
+  const restoreUserFromLocalStorage = async () => {
+    const savedUid =
+      localStorage.getItem("user_uid") || sessionStorage.getItem("user_uid");
+
+    if (!savedUid || currentUser) return;
+
+    try {
+      const userProfile = await fetchUserById(savedUid);
+      if (userProfile) {
+        dispatch(setUser(userProfile));
+        dispatch(setIsApiAuth(true));
+        console.log("Restored user from storage:", savedUid);
       }
+    } catch (err) {
+      console.error("Failed to restore user:", err);
+      localStorage.removeItem("user_uid");
+    }
+  };
 
-      setLoading(false);
-      dispatch(setReduxLoading(false));
+  // ---------------- AUTH STATE LISTENER ----------------
+  useEffect(() => {
+    if (isInitializingRef.current) return;
+    isInitializingRef.current = true;
+
+    // Step 1: Try restoring user from UID first
+    restoreUserFromLocalStorage().finally(() => {
+      // Step 2: Listen for Firebase auth changes
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        console.log("Auth state changed:", user ? "User logged in" : "No user");
+
+        if (user) {
+          const token = await user.getIdToken();
+          Cookies.set("auth_token", token, { expires: 7 });
+          await fetchAndStoreUserProfile(user);
+          dispatch(setIsApiAuth(false));
+        } else {
+          const token = Cookies.get("auth_token");
+          const savedUid = localStorage.getItem("user_uid");
+
+          // Only clear user if no API session and no UID stored
+          if (!token && !savedUid && !isApiAuth && isInitialized) {
+            console.log("Clearing user — no token, no UID, not API auth");
+            dispatch(clearUser());
+            Cookies.remove("auth_token");
+          }
+        }
+
+        if (!isInitialized) setIsInitialized(true);
+
+        setLoading(false);
+        dispatch(setReduxLoading(false));
+      });
+
+      return () => {
+        unsubscribe();
+        isInitializingRef.current = false;
+      };
     });
+  }, [dispatch, isApiAuth, isInitialized, currentUser]);
 
-    return () => unsubscribe();
-  }, [dispatch, isApiAuth]);
-
-  // API-based phone + password login (PIN)
+  // ---------------- API PHONE + PASSWORD LOGIN ----------------
   const handleApiPhonePasswordLogin = async ({ phone, password }) => {
     setError(null);
-    
     try {
       if (!phone || !password) {
         throw new Error("Phone number and PIN are required");
       }
 
-      // Validate PIN is 6 digits
       if (!/^\d{6}$/.test(password)) {
         throw new Error("PIN must be exactly 6 digits");
       }
 
-      const response = await fetch("https://nyansapo-auth.vercel.app/api/auth/login", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify({ phone, password }),
-      });
+      const response = await fetch(
+        "https://nyansapo-auth.vercel.app/api/auth/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ phone, password }),
+        }
+      );
 
       const responseText = await response.text();
       let data;
-      
+
       try {
         data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error("Failed to parse JSON:", parseError);
+      } catch {
         throw new Error("Server returned invalid response");
       }
 
       if (!response.ok) {
-        const errorMessage = data.message || data.error || data.details || `Login failed (HTTP ${response.status})`;
-        throw new Error(errorMessage);
+        const msg =
+          data.message ||
+          data.error ||
+          data.details ||
+          `Login failed (HTTP ${response.status})`;
+        throw new Error(msg);
       }
 
-      // Check for success in various formats
-      const success = data.success !== false;
       const token = data.token || data.access_token || data.jwt;
       const uid = data.uid || data.userId || data.id || data.user?.uid;
 
       if (!token || !uid) {
-        console.error("Missing auth data in response:", data);
         throw new Error("Server response missing authentication data");
       }
 
       Cookies.set("auth_token", token, { expires: 7 });
+      localStorage.setItem("user_uid", uid);
 
-      // Create a minimal user object
-      const minimalUser = { 
+      dispatch(setIsApiAuth(true));
+
+      const minimalUser = {
         uid,
         email: data.email || data.user?.email || null,
         phoneNumber: phone,
-        displayName: data.name || data.user?.name || data.displayName || null 
+        displayName:
+          data.name || data.user?.name || data.displayName || null,
       };
-      
+
       const fullProfile = await fetchAndStoreUserProfile(minimalUser);
-
-      // Mark as API session
-      dispatch(setIsApiAuth(true));
-
-      return {
-        uid,
-        email: fullProfile.email || data.email || null,
-        displayName: fullProfile.displayName || data.name || null,
-        phoneNumber: fullProfile.phoneNumber || phone,
-      };
+      return fullProfile;
     } catch (err) {
-      console.error("API phone+PIN login failed:", err);
-      
-      let userErrorMessage = "Unable to sign in. Please try again.";
-      
+      console.error("API login failed:", err);
+      let msg = "Unable to sign in. Please try again.";
       if (err.message.includes("Network")) {
-        userErrorMessage = "Network error. Please check your internet connection.";
-      } else if (err.message.includes("Invalid phone")) {
-        userErrorMessage = err.message;
+        msg = "Network error. Please check your internet connection.";
       } else if (err.message.includes("PIN must be")) {
-        userErrorMessage = err.message;
-      } else if (err.message.includes("Authentication") || err.message.includes("Invalid credentials")) {
-        userErrorMessage = "Invalid phone number or PIN. Please try again.";
+        msg = err.message;
+      } else if (err.message.includes("Invalid")) {
+        msg = "Invalid phone number or PIN. Please try again.";
       }
-      
-      setError(userErrorMessage);
+      setError(msg);
       throw err;
     }
   };
 
+  // ---------------- LOGOUT ----------------
   const handleLogout = async () => {
     try {
+      dispatch(setIsApiAuth(false));
       await signOut(auth);
       Cookies.remove("auth_token");
+      localStorage.removeItem("user_uid");
       router.replace("/");
     } catch (err) {
       console.error("Logout error:", err);
@@ -188,27 +229,17 @@ export function useAuth() {
     }
   };
 
+  // ---------------- FIRESTORE HELPERS ----------------
   const fetchUserById = async (userId) => {
     setError(null);
     try {
-      if (!userId) {
-        throw new Error("User ID is required");
-      }
+      if (!userId) throw new Error("User ID is required");
 
       const userRef = doc(db, "user", userId);
-      const userSnap = await getDoc(userRef);
+      const snap = await getDoc(userRef);
 
-      if (!userSnap.exists()) {
-        return {
-          id: userId,
-          uid: userId,
-        };
-      }
-
-      return {
-        id: userSnap.id,
-        ...userSnap.data(),
-      };
+      if (!snap.exists()) return { id: userId, uid: userId };
+      return { id: snap.id, ...snap.data() };
     } catch (err) {
       console.error("Fetch user error:", err);
       setError(err.message);
@@ -217,34 +248,27 @@ export function useAuth() {
   };
 
   const refreshUserProfile = async () => {
-    if (!currentUser) {
-      throw new Error("No user is currently logged in");
-    }
+    if (!currentUser) throw new Error("No user logged in");
     return await fetchAndStoreUserProfile(currentUser);
   };
 
   const updateUserProfile = async (updates) => {
     setError(null);
     try {
-      if (!currentUser) {
-        throw new Error("No user is currently logged in");
-      }
+      if (!currentUser) throw new Error("No user logged in");
 
       const userRef = doc(db, "user", currentUser.uid);
       await setDoc(userRef, updates, { merge: true });
-
       await refreshUserProfile();
       return true;
     } catch (err) {
-      console.error("Update user profile error:", err);
+      console.error("Update profile error:", err);
       setError(err.message);
       throw err;
     }
   };
 
-  const clearError = () => {
-    setError(null);
-  };
+  const clearError = () => setError(null);
 
   return {
     currentUser,

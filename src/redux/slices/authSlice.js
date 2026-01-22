@@ -5,7 +5,7 @@ const initialState = {
   user: null,
   loading: true,
   error: null,
-  isApiAuth: false,           // ← NEW: prevents clearing during API sessions
+  isApiAuth: false,    
 };
 
 const authSlice = createSlice({
@@ -21,7 +21,7 @@ const authSlice = createSlice({
       state.user = null;
       state.loading = false;
       state.error = null;
-      state.isApiAuth = false;   // reset flag
+      state.isApiAuth = false;   
     },
     setLoading: (state, action) => {
       state.loading = action.payload;
@@ -35,7 +35,7 @@ const authSlice = createSlice({
         state.user = { ...state.user, ...action.payload };
       }
     },
-    setIsApiAuth: (state, action) => {   // ← NEW action
+    setIsApiAuth: (state, action) => { 
       state.isApiAuth = action.payload;
     },
   },
@@ -47,7 +47,7 @@ export const {
   setLoading,
   setError,
   updateUserProfile,
-  setIsApiAuth,               // ← export it
+  setIsApiAuth,            
 } = authSlice.actions;
 
 export default authSlice.reducer;
