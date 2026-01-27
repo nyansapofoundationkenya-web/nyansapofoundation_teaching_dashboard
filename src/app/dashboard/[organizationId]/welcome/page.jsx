@@ -1,183 +1,197 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AnimatePresence, motion } from "framer-motion"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { useSelector } from "react-redux"
 import { useOrganizations } from "@/hooks/useOrganization"
-import { ChevronDownIcon, XMarkIcon, InformationCircleIcon, PlusIcon } from "@heroicons/react/24/outline"
+import { useProjects } from "@/hooks/UseProjects"
+import { useLiteracyMetrics } from "@/hooks/metrics/useLiteracyMetrics"
+import { useTeacherClassroomMetrics } from "@/hooks/metrics/useTeacherClassroomMetrics"
+import {
+  InformationCircleIcon,
+  UsersIcon,
+  BookOpenIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline"
 import Header from "@/components/Welcome/Header"
 import DashboardLayout from "../DashboardLayout"
 import GetStarted from "@/components/Welcome/GetStarted"
 import HowItWorks from "@/components/Welcome/HowItWorks"
-import RecentProjects from "@/components/Welcome/RecentProjects"
-import Modal from "@/components/ui/Modal"
-import { useProjects } from "@/hooks/UseProjects"
+import LearningMetricsCard from "@/components/Welcome/LearningMetricsCard"
+import TeacherClassroomMetricsCard from "@/components/Welcome/TeacherClassroomMetricsCard"
 
 export default function WelcomePage() {
   const { organizationId } = useParams()
+  const router = useRouter()
   const { handleFetchOrganizationById } = useOrganizations()
-  const [organization, setOrganization] = useState(null)
-  const [refreshTrigger, setRefreshTrigger] = useState(0)
-  const [hasProjects, setHasProjects] = useState(false)
-  const [showWelcomeSections, setShowWelcomeSections] = useState(true)
-  
-  // States for Create Project modal
-  const [showCreateModal, setShowCreateModal] = useState(false)
   const { createProject } = useProjects(organizationId)
-  
-  // Get user data directly from Redux store
-  const { user: currentUser } = useSelector((state) => state.auth);
-  const isAdminOrSuperAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
 
+  const [organization, setOrganization] = useState(null)
+  const [showGuide, setShowGuide] = useState(false)
+  const [stats, setStats] = useState({
+    projects: "—",
+    schools: "—",
+    students: "—",
+    teachers: "—",
+    ratio: "—",
+  })
+
+  const { user: currentUser } = useSelector((state) => state.auth)
+  const isAdminOrSuperAdmin =
+    currentUser?.role === "admin" || currentUser?.role === "super_admin"
+
+  // ------------------- Fetch Organization Stats -------------------
   useEffect(() => {
-    const fetchOrg = async () => {
+    const fetchData = async () => {
+      if (!organizationId) return
       try {
         const org = await handleFetchOrganizationById(organizationId)
         setOrganization(org)
+
+        if (org) {
+          const projects = Number(org.total_projects ?? 0)
+          const schools = Number(org.total_schools ?? 0)
+          const students = Number(org.total_students ?? 0)
+          const teachers = Number(org.total_teachers ?? 0)
+
+          const ratio = teachers > 0 ? (students / teachers).toFixed(2) : "—"
+
+          setStats({
+            projects: projects.toLocaleString(),
+            schools: schools.toLocaleString(),
+            students: students.toLocaleString(),
+            teachers: teachers.toLocaleString(),
+            ratio,
+          })
+        }
       } catch (err) {
-        console.error("Error fetching organization:", err)
+        console.error("Failed to load organization stats:", err)
       }
     }
 
-    if (organizationId) {
-      fetchOrg()
-    }
-  }, [organizationId])
+    fetchData()
+  }, [organizationId, handleFetchOrganizationById])
 
-  // Function to refresh projects when a new one is created
-  const refreshProjects = () => {
-    setRefreshTrigger((prev) => prev + 1)
-  }
+  // ------------------- Fetch Metrics -------------------
+  const literacyMetrics = useLiteracyMetrics(organizationId)
+  const teacherMetrics = useTeacherClassroomMetrics(organizationId)
 
-  // Function to handle when projects are loaded
-  const handleProjectsLoaded = (projects) => {
-    const hasProjects = projects && projects.length > 0
-    setHasProjects(hasProjects)
-    // Only auto-hide welcome sections if there are projects
-    if (hasProjects && showWelcomeSections) {
-      setShowWelcomeSections(false)
-    }
-  }
-
-  // Function to toggle welcome sections visibility
-  const toggleWelcomeSections = () => {
-    setShowWelcomeSections(!showWelcomeSections)
-  }
-
-  const projectFields = [
-    {
-      name: "name",
-      label: "Project Name",
-      type: "text",
-      required: true,
-      placeholder: "e.g., Read, count and shine",
-    },
-    {
-      name: "location",
-      label: "County",
-      type: "text",
-      required: true,
-      placeholder: "e.g., Nairobi",
-    },
-  ]
-
-  const handleCreateProjectSubmit = async (data) => {
-    try {
-      await createProject(data)
-      setShowCreateModal(false)
-      refreshProjects()
-    } catch (err) {
-      console.error("Error creating project:", err)
-    }
-  }
+  const goTo = (path) => path && router.push(path)
 
   return (
     <DashboardLayout title="Welcome" organizationId={organizationId}>
       <div className="min-h-screen text-foreground flex flex-col">
         <Header organizationName={organization?.name || "Loading..."} />
-        
-        <main className="w-full max-w-6xl mx-auto flex flex-col gap-4">
-          {/* Conditionally render welcome sections with animation and close icon */}
-          <AnimatePresence mode="wait">
-            {(!hasProjects || showWelcomeSections) && (
-              <motion.div
-                key="guide"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3, ease: "easeInOut" }}
-                className="bg-background-lighter rounded-3xl relative overflow-hidden shadow-lg"
+
+        <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* Quick Guide button */}
+          <div className="flex justify-end mb-6">
+            <button
+              onClick={() => setShowGuide(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-background-lighter border border-gray-600 hover:border-gray-500 rounded-xl text-sm font-medium transition-colors shadow-sm"
+            >
+              <InformationCircleIcon className="h-5 w-5 text-primary-2" />
+              Quick Guide
+            </button>
+          </div>
+
+          {/* Organization stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6 mb-10">
+            {[
+              { label: "Projects", value: stats.projects },
+              { label: "Schools", value: stats.schools },
+              { label: "Students", value: stats.students },
+              { label: "Teachers", value: stats.teachers },
+              { label: "Instructor/Student Ratio", value: stats.ratio },
+            ].map((item, i) => (
+              <div
+                key={i}
+                className="bg-background-lighter rounded-2xl p-5 border border-gray-700 text-center"
               >
-                {/* Close icon: Top-right, subtle, accessible */}
-                {hasProjects && showWelcomeSections && (
-                  <button
-                    onClick={toggleWelcomeSections}
-                    className="absolute top-4 right-4 z-10 p-2 text-gray-500 hover:text-gray-700 transition-colors rounded-full bg-background-light hover:bg-background"
-                    aria-label="Close guide"
-                  >
-                    <XMarkIcon className="h-4 w-4" />
-                  </button>
-                )}
-                
-                <div className="p-6">
-                  <GetStarted 
-                    organizationId={organizationId} 
-                    onProjectCreated={refreshProjects} 
-                  />
-                  <hr className="border-t border-gray-600 my-6" />
-                  <HowItWorks />
+                <div className="text-3xl md:text-4xl font-bold">{item.value}</div>
+                <div className="text-sm text-gray-400 mt-2">{item.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Metric cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Learning metrics card */}
+            <LearningMetricsCard
+              metrics={literacyMetrics}
+              onClick={() =>
+                goTo(`/dashboard/${organizationId}/analytics/learning-performance`)
+              }
+            />
+
+            {/* Teacher metrics card */}
+            <TeacherClassroomMetricsCard
+              metrics={teacherMetrics}
+              onClick={() =>
+                goTo(`/dashboard/${organizationId}/analytics/teacher-metrics`)
+              }
+            />
+
+            {/* Engagement card */}
+            <div
+              onClick={() => goTo(`/dashboard/${organizationId}/analytics/engagement`)}
+              className="bg-background-lighter p-6 rounded-2xl border border-gray-700 hover:border-primary-2 hover:shadow-lg transition-all cursor-pointer flex flex-col h-full"
+            >
+              <div className="flex items-center gap-3 mb-5">
+                <div className="p-3 bg-background rounded-xl">
+                  <UsersIcon className="h-6 w-6 text-primary-2" />
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          
-          {/* RecentProjects with integrated "Show Guide" toggle and "Create Project" button when hidden */}
-          <div className="flex flex-col gap-4">
-            {hasProjects && !showWelcomeSections && isAdminOrSuperAdmin && (
-              <div className="flex items-center justify-between p-4 bg-background-lighter rounded-2xl border border-gray-600 shadow-lg">
-                <span className="text-base flex items-center gap-2 text-secondary-1">
-                  <InformationCircleIcon className="h-4 w-4" />
-                  New to Nyansapo Dashboard? Check out the quick start guide.
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={toggleWelcomeSections}
-                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-primary-2 text-white rounded-xl hover:bg-blue-400 transition-colors"
-                    aria-label="Open guide"
-                  >
-                    Open Guide
-                    <ChevronDownIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-primary-3 text-primary-1 rounded-xl hover:bg-yellow-400 transition-colors font-medium"
-                    aria-label="Create project"
-                  >
-                    <PlusIcon className="h-4 w-4" />
-                    Create Project
-                  </button>
+                <h3 className="font-semibold text-xl">Engagement Metrics</h3>
+              </div>
+              <div className="space-y-4 flex-grow">
+                <div className="flex justify-between text-base">
+                  <span className="text-gray-300">Daily Active Users</span>
+                  <span className="font-medium">1,234</span>
+                </div>
+                <div className="flex justify-between text-base">
+                  <span className="text-gray-300">Avg. session time</span>
+                  <span className="font-medium">24m</span>
+                </div>
+                <div className="flex justify-between text-base">
+                  <span className="text-gray-300">Completion rate</span>
+                  <span className="font-medium">82%</span>
                 </div>
               </div>
-            )}
-            
-            <RecentProjects 
-              organizationId={organizationId} 
-              refreshTrigger={refreshTrigger}
-              onProjectsLoaded={handleProjectsLoaded}
-            />
+              <div className="mt-6 text-sm text-primary-2 hover:text-primary-1 transition-colors">
+                View detailed report →
+              </div>
+            </div>
           </div>
         </main>
 
-        {/* Create Project Modal - Rendered when button is clicked */}
-        {isAdminOrSuperAdmin && (
-          <Modal
-            isOpen={showCreateModal}
-            onClose={() => setShowCreateModal(false)}
-            title="Create New Project"
-            fields={projectFields}
-            onSubmit={handleCreateProjectSubmit}
-          />
+        {/* Quick guide modal */}
+        {showGuide && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-background-lighter rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-gray-700 flex flex-col">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+                <h2 className="text-xl font-semibold">Quick Start Guide</h2>
+                <button
+                  onClick={() => setShowGuide(false)}
+                  className="p-2 rounded-full hover:bg-background transition-colors"
+                >
+                  <XMarkIcon className="h-6 w-6" />
+                </button>
+              </div>
+              <div className="flex-1 p-6 md:p-8 overflow-y-auto">
+                <GetStarted organizationId={organizationId} />
+                <hr className="border-t border-gray-700 my-10" />
+                <HowItWorks />
+              </div>
+              <div className="px-6 py-4 border-t border-gray-700 flex justify-end">
+                <button
+                  onClick={() => setShowGuide(false)}
+                  className="px-5 py-2.5 bg-primary-2 text-white rounded-xl hover:bg-blue-500 transition-colors"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </DashboardLayout>
