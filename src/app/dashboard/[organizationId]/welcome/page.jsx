@@ -114,9 +114,8 @@ export default function WelcomePage() {
             ))}
           </div>
 
-          {/* Metric cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Learning metrics card */}
+          {/* Metric cards — 2 in a row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <LearningMetricsCard
               metrics={literacyMetrics}
               onClick={() =>
@@ -124,42 +123,41 @@ export default function WelcomePage() {
               }
             />
 
-            {/* Teacher metrics card */}
             <TeacherClassroomMetricsCard
               metrics={teacherMetrics}
               onClick={() =>
                 goTo(`/dashboard/${organizationId}/analytics/teacher-metrics`)
               }
             />
+          </div>
 
-            {/* Engagement card */}
-            <div
-              onClick={() => goTo(`/dashboard/${organizationId}/analytics/engagement`)}
-              className="bg-background-lighter p-6 rounded-2xl border border-gray-700 hover:border-primary-2 hover:shadow-lg transition-all cursor-pointer flex flex-col h-full"
-            >
-              <div className="flex items-center gap-3 mb-5">
-                <div className="p-3 bg-background rounded-xl">
-                  <UsersIcon className="h-6 w-6 text-primary-2" />
-                </div>
-                <h3 className="font-semibold text-xl">Engagement Metrics</h3>
+          {/* Engagement card full width */}
+          <div
+            onClick={() => goTo(`/dashboard/${organizationId}/analytics/engagement`)}
+            className="bg-background-lighter p-6 rounded-2xl border border-gray-700 hover:border-primary-2 hover:shadow-lg transition-all cursor-pointer flex flex-col h-full"
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-3 bg-background rounded-xl">
+                <UsersIcon className="h-6 w-6 text-primary-2" />
               </div>
-              <div className="space-y-4 flex-grow">
-                <div className="flex justify-between text-base">
-                  <span className="text-gray-300">Daily Active Users</span>
-                  <span className="font-medium">1,234</span>
-                </div>
-                <div className="flex justify-between text-base">
-                  <span className="text-gray-300">Avg. session time</span>
-                  <span className="font-medium">24m</span>
-                </div>
-                <div className="flex justify-between text-base">
-                  <span className="text-gray-300">Completion rate</span>
-                  <span className="font-medium">82%</span>
-                </div>
+              <h3 className="font-semibold text-xl">Engagement Metrics</h3>
+            </div>
+            <div className="space-y-4 flex-grow">
+              <div className="flex justify-between text-base">
+                <span className="text-gray-300">Daily Active Users</span>
+                <span className="font-medium">1,234</span>
               </div>
-              <div className="mt-6 text-sm text-primary-2 hover:text-primary-1 transition-colors">
-                View detailed report →
+              <div className="flex justify-between text-base">
+                <span className="text-gray-300">Avg. session time</span>
+                <span className="font-medium">24m</span>
               </div>
+              <div className="flex justify-between text-base">
+                <span className="text-gray-300">Completion rate</span>
+                <span className="font-medium">82%</span>
+              </div>
+            </div>
+            <div className="mt-6 text-sm text-primary-2 hover:text-primary-1 transition-colors">
+              View detailed report →
             </div>
           </div>
         </main>

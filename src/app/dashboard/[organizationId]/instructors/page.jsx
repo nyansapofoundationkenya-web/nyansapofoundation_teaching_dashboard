@@ -11,14 +11,13 @@ import InstructorModal from "@/components/Instructors/InstructorsModal";
 import InstructorTable from "@/components/Instructors/InstructorTable";
 import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/firebase/config";
+import { unassignInstructorFromOrganization } from "@/utils/instructorUtils"; // Add this import
 
 export default function InstructorsPage() {
   const { organizationId } = useParams();
-  // Get current user from Redux
   const { user: currentUser } = useSelector((state) => state.auth);
   const userRole = currentUser?.role;
   
-  // Pass user role to useInstructors hook
   const { instructors, loading, error, refetchInstructors } = useInstructors(organizationId, userRole);
   const { 
     loading: actionLoading, 
@@ -37,14 +36,11 @@ export default function InstructorsPage() {
   const [roleUpdateOpen, setRoleUpdateOpen] = useState(null);
   const [newRole, setNewRole] = useState("");
   
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Check if user can update roles (only super_admin)
   const canUpdateRoles = userRole === 'super_admin';
 
-  // Get role badge color
   const getRoleBadgeColor = (role) => {
     switch (role) {
       case 'super_admin':
@@ -66,13 +62,11 @@ export default function InstructorsPage() {
         const orgRef = collection(db, "organization");
         const orgSnapshot = await getDocs(orgRef);
         
-        // Filter organizations based on user role
         let orgs = orgSnapshot.docs.map((doc) => ({
           id: doc.id,
           name: doc.data().name || `Org ${doc.id.slice(0, 8)}`,
         }));
 
-        // If user is admin, only show their organization
         if (userRole === 'admin' && organizationId) {
           orgs = orgs.filter(org => org.id === organizationId);
         }
@@ -109,16 +103,27 @@ export default function InstructorsPage() {
     fetchData();
   }, [organizationId, userRole]);
 
-  // Filtered instructors with search across name, email, and phone (without displaying email/phone)
   const filteredInstructors = useMemo(() => {
-    return instructors.filter((instructor) =>
-      instructor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      instructor.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      instructor.phone?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const query = searchTerm.trim().toLowerCase();
+    
+    if (query) {
+      return instructors.filter((instructor) =>
+        instructor.name?.toLowerCase().includes(query) ||
+        instructor.email?.toLowerCase().includes(query) ||
+        instructor.phone?.toLowerCase().includes(query)
+      );
+    }
+    
+    return instructors.filter((instructor) => {
+      const hasOrganization = (instructor.orgCount || 0) > 0;
+      return hasOrganization;
+    });
   }, [instructors, searchTerm]);
 
-  // Pagination calculations
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   const totalPages = Math.ceil(filteredInstructors.length / itemsPerPage);
 
   const handleUpdateInstructor = (instructorId) => {
@@ -149,7 +154,30 @@ export default function InstructorsPage() {
     }
   };
 
-  // Handle role update
+  // NEW: Handle unassign instructor from organization
+  const handleUnassignInstructor = async (instructorId, instructorName) => {
+    if (!organizationId) {
+      alert('No organization context available');
+      return;
+    }
+
+    const confirmMessage = `Are you sure you want to remove ${instructorName} from this organization? This will remove all their projects and schools within this organization.`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      await unassignInstructorFromOrganization(instructorId, organizationId);
+      setActionMenuOpen(null);
+      refetchInstructors();
+      alert('Instructor removed from organization successfully!');
+    } catch (err) {
+      console.error('Error unassigning instructor:', err);
+      alert(`Error removing instructor: ${err.message}`);
+    }
+  };
+
   const handleUpdateRole = async (instructorId, role) => {
     if (!confirm(`Are you sure you want to update the role to ${role}?`)) {
       return;
@@ -168,7 +196,6 @@ export default function InstructorsPage() {
     }
   };
 
-  // Get available roles for dropdown (admin cannot set super_admin)
   const getAvailableRoles = () => {
     if (userRole === 'super_admin') {
       return [
@@ -184,7 +211,6 @@ export default function InstructorsPage() {
     }
   };
 
-  // Pagination handlers
   const handlePageChange = (page) => {
     setCurrentPage(page);
     setActionMenuOpen(null);
@@ -196,7 +222,6 @@ export default function InstructorsPage() {
     setActionMenuOpen(null);
   };
 
-  // Close action menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (actionMenuOpen && !event.target.closest('.action-menu-container')) {
@@ -211,7 +236,6 @@ export default function InstructorsPage() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [actionMenuOpen, roleUpdateOpen]);
 
-  // Loading state
   if (isLoadingData) {
     return (
       <DashboardLayout title="Instructors" organizationId={organizationId}>
@@ -225,7 +249,6 @@ export default function InstructorsPage() {
     );
   }
 
-  // Error state
   if (fetchError) {
     return (
       <DashboardLayout title="Instructors" organizationId={organizationId}>
@@ -236,12 +259,10 @@ export default function InstructorsPage() {
     );
   }
 
-  // Main content
   return (
     <DashboardLayout title="Instructors" organizationId={organizationId}>
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-          {/* Search Input */}
           <div className="relative w-full sm:w-auto sm:max-w-md">
             <input
               type="text"
@@ -269,6 +290,7 @@ export default function InstructorsPage() {
           onItemsPerPageChange={handleItemsPerPageChange}
           onEditInstructor={handleEditInstructor}
           onDeleteInstructor={handleDeleteInstructor}
+          onUnassignInstructor={handleUnassignInstructor} // Add this
           onUpdateRole={handleUpdateRole}
           actionMenuOpen={actionMenuOpen}
           setActionMenuOpen={setActionMenuOpen}
@@ -280,7 +302,8 @@ export default function InstructorsPage() {
           canUpdateRoles={canUpdateRoles}
           getRoleBadgeColor={getRoleBadgeColor}
           getAvailableRoles={getAvailableRoles}
-          currentOrganizationId={organizationId}
+          currentOrganizationId={organizationId} // Add this
+          searchQuery={searchTerm}
         />
 
         <InstructorModal

@@ -162,7 +162,7 @@ const filteredStudents = useMemo(() => {
         </div>
 
         {/* Student metrics */}
-        <StudentMetrics students={filteredStudents} loading={loading} />
+        <StudentMetrics students={filteredStudents} loading={loading} assessmentId={assessmentId} />
 
         {/* Students list */}
         <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
