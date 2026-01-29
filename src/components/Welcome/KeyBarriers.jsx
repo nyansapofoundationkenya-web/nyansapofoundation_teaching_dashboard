@@ -101,7 +101,7 @@ export default function KeyBarriers({ organizationId }) {
                   <span
                     className="text-secondary-1 font-bold leading-none"
                     style={{
-                      fontSize: "clamp(4rem, 8vw, 6rem)",
+                      fontSize: "clamp(2rem, 6vmin, 3rem)",
                     }}
                   >
                     {item.value}
@@ -110,7 +110,7 @@ export default function KeyBarriers({ organizationId }) {
                     <span
                       className="text-secondary-1 font-bold leading-none mx-2"
                       style={{
-                        fontSize: "clamp(4rem, 8vw, 6rem)",
+                        fontSize: "clamp(2rem, 6vmin, 3rem)",
                       }}
                     >
                       ,
