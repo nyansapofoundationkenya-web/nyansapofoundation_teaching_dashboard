@@ -16,13 +16,13 @@ export default function WeeklyEngagementChart() {
 
   // Hardcoded data for now - week abbreviations: M, T, W, T, F, S, S
   const chartData = [
-    { day: "M", engagement: 45 },
-    { day: "T", engagement: 55 },
-    { day: "W", engagement: 70 },
-    { day: "T", engagement: 83 },
-    { day: "F", engagement: 82 },
-    { day: "S", engagement: 76 },
-    { day: "S", engagement: 40 },
+    { day: "M", engagement: 0 },
+    { day: "T", engagement: 0 },
+    { day: "W", engagement: 0 },
+    { day: "T", engagement: 0},
+    { day: "F", engagement: 0 },
+    { day: "S", engagement: 0 },
+    { day: "S", engagement: 0 },
   ]
 
   useEffect(() => {

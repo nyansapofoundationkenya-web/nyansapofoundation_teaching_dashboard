@@ -71,29 +71,26 @@ export default function WelcomePage() {
     fetchData()
   }, [organizationId, handleFetchOrganizationById])
 
-  // Stats configuration with colors
-  const statsConfig = [
+    const statsConfig = [
     { 
       label: "Learners Reached", 
       value: stats.students,
       color: "text-secondary-2"
     },
-    { 
-      label: "Projects", 
-      value: stats.projects,
-      color: "text-primary-3"
-    },
-    { 
-      label: "Schools", 
+     { 
+      label: (
+        <span>
+          Schools in <span className="text-primary-3 font-bold">{stats.projects} </span>Projects
+        </span>
+      ),
       value: stats.schools,
-      color: "text-secondary-1"
+      color: "text-primary-3"
     },
     { 
       label: "Teachers", 
       value: stats.teachers,
       color: "text-primary-3"
     },
-    // { label: "Instructor/Student Ratio", value: stats.ratio }, // Commented out
   ]
 
   return (
@@ -114,7 +111,7 @@ export default function WelcomePage() {
           </div>
 
           {/* Organization stats - Redesigned */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-10">
             {statsConfig.map((item, i) => (
               <div
                 key={i}
