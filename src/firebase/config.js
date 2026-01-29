@@ -3,6 +3,7 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAI, getGenerativeModel } from "firebase/ai";
+import { getAnalytics, isSupported } from "firebase/analytics"; // ADD THIS
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_API_KEY, 
@@ -24,15 +25,24 @@ const storage = getStorage(app);
 
 // Initialize Firebase AI
 const ai = getAI(app);
-
-// Create Gemini model instance 
 const model = getGenerativeModel(ai, { model: "gemini-2.5-flash" });
 
-console.log(" Firebase initialized with API key");
+// Initialize Analytics (client-side only) - ADD THIS
+let analytics;
+if (typeof window !== "undefined") {
+  isSupported().then((supported) => {
+    if (supported) {
+      analytics = getAnalytics(app);
+      console.log("✓ Firebase Analytics initialized");
+    }
+  });
+}
+
+console.log("✓ Firebase initialized with API key");
 console.log("   Project:", firebaseConfig.projectId);
 console.log("   Model: gemini-2.5-flash");
 
-export { auth, db, storage, app, ai, model };
+export { auth, db, storage, app, ai, model, analytics }; // ADD analytics to exports
 
 // Test function
 export async function testConnectionWithNewKey() {
@@ -49,5 +59,4 @@ export async function testConnectionWithNewKey() {
       fix: "Check if API key has AI permissions"
     };
   }
-  
 }

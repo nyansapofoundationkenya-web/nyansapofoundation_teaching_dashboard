@@ -5,20 +5,20 @@ import { useParams, useRouter } from "next/navigation"
 import { useSelector } from "react-redux"
 import { useOrganizations } from "@/hooks/useOrganization"
 import { useProjects } from "@/hooks/UseProjects"
-import { useLiteracyMetrics } from "@/hooks/metrics/useLiteracyMetrics"
-import { useTeacherClassroomMetrics } from "@/hooks/metrics/useTeacherClassroomMetrics"
 import {
   InformationCircleIcon,
-  UsersIcon,
-  BookOpenIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline"
 import Header from "@/components/Welcome/Header"
 import DashboardLayout from "../DashboardLayout"
 import GetStarted from "@/components/Welcome/GetStarted"
 import HowItWorks from "@/components/Welcome/HowItWorks"
-import LearningMetricsCard from "@/components/Welcome/LearningMetricsCard"
-import TeacherClassroomMetricsCard from "@/components/Welcome/TeacherClassroomMetricsCard"
+import StudentLevelsChart from "@/components/Welcome/StudentLevelChart"
+import KeyBarriers from "@/components/Welcome/KeyBarriers"
+import WeeklyEngagementChart from "@/components/Welcome/WeeklyEngagementChart"
+import ProgramImpact from "@/components/Welcome/ProgramImpact"
+import AssessmentHealth from "@/components/Welcome/AssessmentHealth"
+import AttendanceOverview from "@/components/Welcome/AttendanceOverview"
 
 export default function WelcomePage() {
   const { organizationId } = useParams()
@@ -53,7 +53,6 @@ export default function WelcomePage() {
           const schools = Number(org.total_schools ?? 0)
           const students = Number(org.total_students ?? 0)
           const teachers = Number(org.total_teachers ?? 0)
-
           const ratio = teachers > 0 ? (students / teachers).toFixed(2) : "—"
 
           setStats({
@@ -71,12 +70,6 @@ export default function WelcomePage() {
 
     fetchData()
   }, [organizationId, handleFetchOrganizationById])
-
-  // ------------------- Fetch Metrics -------------------
-  const literacyMetrics = useLiteracyMetrics(organizationId)
-  const teacherMetrics = useTeacherClassroomMetrics(organizationId)
-
-  const goTo = (path) => path && router.push(path)
 
   return (
     <DashboardLayout title="Welcome" organizationId={organizationId}>
@@ -114,51 +107,40 @@ export default function WelcomePage() {
             ))}
           </div>
 
-          {/* Metric cards — 2 in a row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <LearningMetricsCard
-              metrics={literacyMetrics}
-              onClick={() =>
-                goTo(`/dashboard/${organizationId}/analytics/learning-performance`)
-              }
-            />
+          {/* Student Level Distribution Chart + Key Barriers */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+            {/* Left side - Student Levels Chart (takes 2 columns) */}
+            <div className="lg:col-span-2">
+              <StudentLevelsChart organizationId={organizationId} />
+            </div>
 
-            <TeacherClassroomMetricsCard
-              metrics={teacherMetrics}
-              onClick={() =>
-                goTo(`/dashboard/${organizationId}/analytics/teacher-metrics`)
-              }
-            />
+            {/* Right side - Key Barriers (takes 1 column) */}
+            <div className="lg:col-span-1">
+              <KeyBarriers organizationId={organizationId} />
+            </div>
           </div>
 
-          {/* Engagement card full width */}
-          <div
-            onClick={() => goTo(`/dashboard/${organizationId}/analytics/engagement`)}
-            className="bg-background-lighter p-6 rounded-2xl border border-gray-700 hover:border-primary-2 hover:shadow-lg transition-all cursor-pointer flex flex-col h-full"
-          >
-            <div className="flex items-center gap-3 mb-5">
-              <div className="p-3 bg-background rounded-xl">
-                <UsersIcon className="h-6 w-6 text-primary-2" />
-              </div>
-              <h3 className="font-semibold text-xl">Engagement Metrics</h3>
+          {/* Weekly Engagement Chart + Program Impact */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+            {/* Left side - Weekly Engagement Chart (takes 2 columns) */}
+            <div className="lg:col-span-2">
+              <WeeklyEngagementChart organizationId={organizationId} />
             </div>
-            <div className="space-y-4 flex-grow">
-              <div className="flex justify-between text-base">
-                <span className="text-gray-300">Daily Active Users</span>
-                <span className="font-medium">1,234</span>
-              </div>
-              <div className="flex justify-between text-base">
-                <span className="text-gray-300">Avg. session time</span>
-                <span className="font-medium">24m</span>
-              </div>
-              <div className="flex justify-between text-base">
-                <span className="text-gray-300">Completion rate</span>
-                <span className="font-medium">82%</span>
-              </div>
+
+            {/* Right side - Program Impact (takes 1 column) */}
+            <div className="lg:col-span-1">
+              <ProgramImpact organizationId={organizationId} />
             </div>
-            <div className="mt-6 text-sm text-primary-2 hover:text-primary-1 transition-colors">
-              View detailed report →
-            </div>
+          </div>
+
+          {/* Assessment Health - Full width */}
+          <div className="mb-10">
+            <AssessmentHealth organizationId={organizationId} />
+          </div>
+
+          {/* Attendance Overview - Full width */}
+          <div className="mb-10">
+            <AttendanceOverview organizationId={organizationId} />
           </div>
         </main>
 
