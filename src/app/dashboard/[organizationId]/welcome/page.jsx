@@ -33,7 +33,7 @@ export default function WelcomePage() {
     schools: "—",
     students: "—",
     teachers: "—",
-    ratio: "—",
+    // ratio: "—", // Commented out
   })
 
   const { user: currentUser } = useSelector((state) => state.auth)
@@ -53,14 +53,14 @@ export default function WelcomePage() {
           const schools = Number(org.total_schools ?? 0)
           const students = Number(org.total_students ?? 0)
           const teachers = Number(org.total_teachers ?? 0)
-          const ratio = teachers > 0 ? (students / teachers).toFixed(2) : "—"
+          // const ratio = teachers > 0 ? (students / teachers).toFixed(2) : "—" // Commented out
 
           setStats({
             projects: projects.toLocaleString(),
             schools: schools.toLocaleString(),
             students: students.toLocaleString(),
             teachers: teachers.toLocaleString(),
-            ratio,
+            // ratio, // Commented out
           })
         }
       } catch (err) {
@@ -70,6 +70,31 @@ export default function WelcomePage() {
 
     fetchData()
   }, [organizationId, handleFetchOrganizationById])
+
+  // Stats configuration with colors
+  const statsConfig = [
+    { 
+      label: "Learners Reached", 
+      value: stats.students,
+      color: "text-secondary-2"
+    },
+    { 
+      label: "Projects", 
+      value: stats.projects,
+      color: "text-primary-3"
+    },
+    { 
+      label: "Schools", 
+      value: stats.schools,
+      color: "text-secondary-1"
+    },
+    { 
+      label: "Teachers", 
+      value: stats.teachers,
+      color: "text-primary-3"
+    },
+    // { label: "Instructor/Student Ratio", value: stats.ratio }, // Commented out
+  ]
 
   return (
     <DashboardLayout title="Welcome" organizationId={organizationId}>
@@ -88,21 +113,20 @@ export default function WelcomePage() {
             </button>
           </div>
 
-          {/* Organization stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6 mb-10">
-            {[
-              { label: "Projects", value: stats.projects },
-              { label: "Schools", value: stats.schools },
-              { label: "Students", value: stats.students },
-              { label: "Teachers", value: stats.teachers },
-              { label: "Instructor/Student Ratio", value: stats.ratio },
-            ].map((item, i) => (
+          {/* Organization stats - Redesigned */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
+            {statsConfig.map((item, i) => (
               <div
                 key={i}
-                className="bg-background-lighter rounded-2xl p-5 border border-gray-700 text-center"
+                className="bg-background-lighter rounded-2xl p-6 border border-gray-700 text-center"
               >
-                <div className="text-3xl md:text-4xl font-bold">{item.value}</div>
-                <div className="text-sm text-gray-400 mt-2">{item.label}</div>
+                <div className={`text-3xl font-bold ${item.color}`}>
+                  {item.value}
+                </div>
+                <hr className="border-t border-gray-600 my-4" />
+                <div className="text-xl text-gray-400 tracking-wide">
+                  {item.label}
+                </div>
               </div>
             ))}
           </div>
