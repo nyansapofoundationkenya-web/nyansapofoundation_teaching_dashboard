@@ -61,37 +61,48 @@ export default function KeyBarriers({ organizationId }) {
     { letter: "w" },
     { letter: "d" }
   ]
-  
+
   const successRate = barriersData?.stats?.success_rate || 65.12
 
   // Calculate accuracy percentage for display
   const accuracy = successRate
 
   return (
-    <div className="bg-background-lighter rounded-2xl p-8 border border-gray-700 h-full flex flex-col">
+    <div className="bg-background-lighter rounded-2xl p-6 md:p-8 border border-gray-700 h-full flex flex-col">
       <div className="flex-1 flex flex-col items-center justify-center text-center">
         {/* Header */}
-        <h3 className="text-secondary-1 text-base font-semibold tracking-wider mb-8 uppercase">
+        <h3 className="text-secondary-1 text-base font-semibold tracking-wider mb-4 md:mb-6 uppercase">
           Key Barriers
         </h3>
 
-        {/* Large Letters Display - Significantly Increased Size */}
-        <div className="mb-6">
-          <div className="flex items-center justify-center gap-8 mb-6">
+        {/* Large Letters Display - Readable but not oversized */}
+        <div className="mb-4 md:mb-6 w-full flex-1 flex flex-col items-center justify-center">
+          <div className="flex items-center justify-center gap-4 md:gap-6 mb-4 md:mb-6 max-w-full px-2">
             {topMissedLetters.map((item, index) => (
               <div key={item.letter} className="flex items-center">
-                <span className="text-secondary-1 text-[12rem] md:text-[16rem] lg:text-[20rem] font-bold leading-none">
+                {/* More reasonable text sizing */}
+                <span 
+                  className="text-secondary-1 font-bold leading-none"
+                  style={{
+                    fontSize: 'clamp(4rem, 8vw, 6rem)', // min 4rem (64px), ideal 8vw, max 6rem (96px)
+                  }}
+                >
                   {item.letter}
                 </span>
                 {index < topMissedLetters.length - 1 && (
-                  <span className="text-secondary-1 text-[12rem] md:text-[16rem] lg:text-[20rem] font-bold mx-2 leading-none">
+                  <span 
+                    className="text-secondary-1 font-bold leading-none mx-2"
+                    style={{
+                      fontSize: 'clamp(4rem, 8vw, 6rem)',
+                    }}
+                  >
                     ,
                   </span>
                 )}
               </div>
             ))}
           </div>
-          <p className="text-gray-300 text-lg">
+          <p className="text-gray-300 text-sm md:text-base lg:text-lg">
             Most Missed ({accuracy}% Accuracy)
           </p>
         </div>
@@ -102,7 +113,7 @@ export default function KeyBarriers({ organizationId }) {
             // Add your navigation or action here
             console.log("Start TaRL Group Activity clicked")
           }}
-          className="mt-8 w-full max-w-sm bg-primary-3 hover:bg-secondary-1 text-primary-1 font-semibold py-4 px-8 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+          className="mt-4 md:mt-6 w-full max-w-sm bg-primary-3 hover:bg-secondary-1 text-primary-1 font-semibold py-3 md:py-4 px-6 md:px-8 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 text-sm md:text-base"
         >
           START GROUP ACTIVITY
         </button>
