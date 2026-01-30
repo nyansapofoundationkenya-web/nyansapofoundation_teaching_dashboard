@@ -9,6 +9,7 @@ import {
   getDocs,
   updateDoc,
   arrayUnion,
+  setDoc
 } from "firebase/firestore"
 import { db } from "@/firebase/config"
 
@@ -61,6 +62,10 @@ export default function AddStudentModal({ assessmentId, onClose }) {
         .map(doc => ({
           id: doc.id,
           ...doc.data(),
+          // Ensure grade is stored as number
+          grade: typeof doc.data().grade === 'string' 
+            ? parseInt(doc.data().grade, 10) || 0
+            : Number(doc.data().grade) || 0
         }))
         .filter(student => !assignedIds.has(student.id))
 
@@ -80,6 +85,32 @@ export default function AddStudentModal({ assessmentId, onClose }) {
     })
   }
 
+  const createAssessmentResult = async (assessmentId, studentId, studentData) => {
+    try {
+      const assessmentResultId = `${assessmentId}_${studentId}`
+      const assessmentResultRef = doc(
+        db, 
+        "assessments", 
+        assessmentId, 
+        "assessments-results", 
+        assessmentResultId
+      )
+
+      // Create simple assessment result document with only essential fields
+      await setDoc(assessmentResultRef, {
+        student_id: studentId,
+        first_name: studentData.first_name,
+        last_name: studentData.last_name,
+        grade: studentData.grade // Stored as number
+      })
+      
+      console.log(`Created assessment result for student ${studentId}`)
+    } catch (error) {
+      console.error(`Error creating assessment result for student ${studentId}:`, error)
+      throw error
+    }
+  }
+
   const handleAddStudents = async () => {
     if (selectedIds.size === 0) return
 
@@ -92,24 +123,33 @@ export default function AddStudentModal({ assessmentId, onClose }) {
           id: s.id,
           first_name: s.first_name,
           last_name: s.last_name,
-          grade: s.grade,
+          grade: Number(s.grade) || 0, // Ensure grade is stored as number
           sex: s.sex,
           baseline: "",
           completed_assessment: false,
           assessment_status: "not_started",
-          name: "",
-          group: "",
         }))
 
-      const assessmentRef = doc(db, "assessments", assessmentId)
+      // First, create assessment results for each selected student
+      for (const student of selectedStudents) {
+        try {
+          await createAssessmentResult(assessmentId, student.id, student)
+        } catch (error) {
+          console.error(`Failed to create assessment result for student ${student.id}:`, error)
+          // Continue with other students even if one fails
+        }
+      }
 
+      // Then add students to the assessment
+      const assessmentRef = doc(db, "assessments", assessmentId)
       await updateDoc(assessmentRef, {
-        assigned_students: arrayUnion(...selectedStudents),
+        assigned_students: arrayUnion(...selectedStudents)
       })
 
       onClose()
     } catch (err) {
       console.error("Error adding students:", err)
+      alert("Failed to add students. Please try again.")
     } finally {
       setSaving(false)
     }
