@@ -30,25 +30,14 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
 
       const snapshot = await getDocs(q)
       
-      const raw = snapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data()
-            }))
+      const assessmentsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
 
-      const VALID_LEVELS = ["beginner", "letter", "word", "paragraph", "story"]
-
-      // Only keep assessments with at least ONE truly completed student
-      const validAssessments = raw.filter(assessment => {
-        if (!Array.isArray(assessment.assigned_students)) return false
-
-        return assessment.assigned_students.some(student => {
-          const done = student.has_done === true
-          const level = student.baseline?.toString().toLowerCase().trim()
-          return done && level && VALID_LEVELS.includes(level)
-        })
-      })
-
-      setAssessments(validAssessments)
+      // REMOVED the filter that only kept assessments with completed students
+      // Now we show ALL assessments regardless of student completion status
+      setAssessments(assessmentsData)
     } catch (err) {
       console.error(err)
       setError("Failed to load assessments")
@@ -114,12 +103,12 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
     return (
       <div className="text-center py-16">
         <div className="text-gray-400 text-lg mb-3">
-          {error ? "Failed to load assessments" : "No assessments with progress"}
+          {error ? "Failed to load assessments" : "No assessments found"}
         </div>
         <div className="text-sm text-gray-500 max-w-md mx-auto">
           {error
             ? "Please try again."
-            : "Assessments will appear here once students complete their baseline with a valid level (beginner, letter, word, paragraph, or story)."}
+            : "No assessments match the current filters."}
         </div>
         {error && (
           <button onClick={fetchAssessments} className="mt-4 text-primary-2 hover:underline text-sm">
@@ -167,7 +156,7 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
                   <span>{total} Assigned</span>
                 </div>
 
-                {/* Completed — always shown when ≥1 */}
+                {/* Completed — shown when ≥1 */}
                 {completed > 0 && (
                   <div className="flex items-center gap-2 text-green-300 font-medium">
                     <UserCheck className="w-4 h-4" />
@@ -175,11 +164,27 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
                   </div>
                 )}
 
-                {/* Remaining — only shown when >0 */}
+                {/* Remaining — shown when >0 */}
                 {remaining > 0 && (
                   <div className="flex items-center gap-2 text-red-300 font-medium">
                     <AlertCircle className="w-4 h-4" />
                     <span>{remaining} remaining</span>
+                  </div>
+                )}
+
+                {/* Show message when no students have completed */}
+                {completed === 0 && total > 0 && (
+                  <div className="flex items-center gap-2 text-yellow-300 font-medium">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>No students completed yet</span>
+                  </div>
+                )}
+
+                {/* Show message when no students are assigned */}
+                {total === 0 && (
+                  <div className="flex items-center gap-2 text-gray-300 font-medium">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>No students assigned</span>
                   </div>
                 )}
 

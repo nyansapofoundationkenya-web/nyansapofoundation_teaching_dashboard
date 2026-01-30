@@ -11,7 +11,7 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
   const [selectedProject, setSelectedProject] = useState(null)
   const [selectedSchool, setSelectedSchool] = useState(null)
   const [type, setType] = useState(currentFilters?.type || "Literacy") // Default: Literacy
-  const [level, setLevel] = useState(currentFilters?.level || "Endline") // Default: Endline
+  const [level, setLevel] = useState(currentFilters?.level || "all") // Default: All Levels (changed from "All Levels" to "all" for consistency)
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [assessmentData, setAssessmentData] = useState([])
@@ -26,8 +26,8 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
     if (currentFilters) {
       setSelectedProject(currentFilters.projectId || null)
       setSelectedSchool(currentFilters.schoolId || null)
-      setType(currentFilters.type || "Literacy") // Keep Literacy as default
-      setLevel(currentFilters.level || "Endline") // Keep Endline as default
+      setType(currentFilters.type || "Literacy")
+      setLevel(currentFilters.level || "all") // Changed to "all"
     }
   }, [currentFilters])
 
@@ -37,7 +37,7 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
       projectId: selectedProject, 
       schoolId: selectedSchool,
       type: type,
-      level: level
+      level: level === "all" ? null : level // Send null when "all" is selected
     })
   }, [selectedProject, selectedSchool, type, level])
 
@@ -51,7 +51,6 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
       if (baselineDoc.exists()) {
         const baselineData = baselineDoc.data()
         // Check if baseline data has actual content (not just metadata)
-        // Adjust these checks based on your actual baseline data structure
         const hasContent = 
           (baselineData.score !== undefined && baselineData.score !== null) ||
           (baselineData.responses && Object.keys(baselineData.responses).length > 0) ||
@@ -171,9 +170,9 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
         assessments: assessmentsByDate[dateStr]
           .filter(assessment => {
             // Filter by type (default is "Literacy")
-            if (type && assessment.type !== type) return false
-            // Filter by level (default is "Endline")
-            if (level && assessment.level !== level) return false
+            if (type && type !== "all" && assessment.type !== type) return false
+            // Filter by level (don't filter if "all" is selected)
+            if (level && level !== "all" && assessment.level !== level) return false
             return true
           })
           .sort((a, b) => b.completedCount - a.completedCount)
@@ -186,106 +185,6 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
 
     return () => unsubscribe()
   }, [organizationId, type, level])
-
-  // Alternative simplified version if baseline data check is too heavy
-  // This version only checks for has_done: true without checking baseline data
-  const useSimplifiedVersion = false
-  
-  // You can uncomment this useEffect and comment the one above if performance is an issue
-  /*
-  useEffect(() => {
-    if (!organizationId) {
-      setAssessmentData([])
-      setLoadingData(false)
-      return
-    }
-
-    setLoadingData(true)
-    const assessmentsQuery = query(
-      collection(db, "assessments"),
-      where("organization_id", "==", organizationId)
-    )
-    const unsubscribe = onSnapshot(assessmentsQuery, (snapshot) => {
-      const assessmentsByDate = {}
-      
-      snapshot.docs.forEach(doc => {
-        const data = doc.data()
-        const assessmentId = doc.id
-        
-        // Get creation date
-        if (data.created_at) {
-          let dateStr
-          if (data.created_at.includes('T')) {
-            dateStr = data.created_at.split('T')[0]
-          } else {
-            dateStr = data.created_at
-          }
-          
-          // NEW STRATEGY: Only count students with has_done: true
-          let completedCount = 0; 
-
-          if (Array.isArray(data.assigned_students)) {
-            // Only count students where has_done is explicitly true
-            completedCount = data.assigned_students.filter(student =>
-              student.has_done === true
-            ).length;
-          }          
-          
-          // Only include assessments with completed students (NEW: has_done: true)
-          if (completedCount > 0) {
-            if (!assessmentsByDate[dateStr]) {
-              assessmentsByDate[dateStr] = []
-            }
-            
-            assessmentsByDate[dateStr].push({
-              id: assessmentId,
-              completedCount: completedCount,
-              name: data.name || "Unnamed Assessment",
-              created_at: data.created_at,
-              date: dateStr,
-              type: data.type || "Literacy",
-              level: data.level || "Baseline"
-            })
-          }
-        }
-      })
-
-      // Get dates with assessments and sort them (most recent first)
-      const datesWithAssessments = Object.keys(assessmentsByDate)
-        .sort((a, b) => new Date(b) - new Date(a))
-
-      if (datesWithAssessments.length === 0) {
-        setAssessmentData([])
-        setLoadingData(false)
-        return
-      }
-
-      // Take only the last 10 dates that have assessments
-      const last10Dates = datesWithAssessments.slice(0, 10)
-      
-      // Build the assessment data structure
-      const assessmentDataList = last10Dates.map(dateStr => ({
-        date: dateStr,
-        displayDate: new Date(dateStr),
-        assessments: assessmentsByDate[dateStr]
-          .filter(assessment => {
-            // Filter by type (default is "Literacy")
-            if (type && assessment.type !== type) return false
-            // Filter by level (default is "Endline")
-            if (level && assessment.level !== level) return false
-            return true
-          })
-          .sort((a, b) => b.completedCount - a.completedCount)
-      })).filter(dateData => dateData.assessments.length > 0)
-
-      // Reverse to show from oldest to most recent (left to right)
-      setAssessmentData(assessmentDataList.reverse())
-      setLoadingData(false)
-    })
-
-    return () => unsubscribe()
-  }, [organizationId, type, level])
-  */
 
   const fetchProjects = async () => {
     try {
@@ -341,7 +240,7 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
     setSelectedSchool(null)
     // Reset to defaults
     setType("Literacy")
-    setLevel("Endline")
+    setLevel("all") // Changed to "all"
   }
 
   const clearSpecificFilter = (filterType) => {
@@ -350,7 +249,7 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
         setType("Literacy") // Reset to default
         break;
       case 'level':
-        setLevel("Endline") // Reset to default
+        setLevel("all") // Reset to "all"
         break;
       case 'project':
         setSelectedProject(null)
@@ -399,7 +298,7 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
             </select>
           </div>
 
-          {/* Level Filter */}
+          {/* Level Filter - Make sure "All Levels" is first */}
           <div className="flex-1 sm:flex-none sm:w-40">
             <label className="block text-xs font-medium text-gray-300 mb-1">
               Level
@@ -409,9 +308,9 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
               onChange={(e) => handleLevelChange(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-500 rounded-lg bg-background-light text-gray-300 focus:ring-2 focus:ring-primary-2 focus:border-primary-2 outline-none"
             >
+              <option value="all">All Levels</option>
               <option value="Endline">Endline</option>
               <option value="Baseline">Baseline</option>
-              <option value="all">All Levels</option>
             </select>
           </div>
 
@@ -472,7 +371,7 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
         </div>
 
         {/* Active Filters Display */}
-        {(selectedProject || selectedSchool || type !== "Literacy" || level !== "Endline") && (
+        {(selectedProject || selectedSchool || type !== "Literacy" || level !== "all") && (
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-sm text-gray-300 font-medium">Active filters:</span>
             
@@ -486,10 +385,10 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
               </span>
             )}
             
-            {/* Show Level filter if it's not the default (Endline) */}
-            {level !== "Endline" && (
+            {/* Show Level filter if it's not the default (all) */}
+            {level !== "all" && (
               <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-500/20 text-purple-300 rounded-lg text-sm border border-purple-500/30">
-                Level: {level === "all" ? "All Levels" : level}
+                Level: {level}
                 <button onClick={() => clearSpecificFilter('level')} className="ml-1 hover:bg-purple-500/30 rounded-full p-1">
                   <X className="w-3 h-3" />
                 </button>
@@ -517,7 +416,7 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
               </span>
             )}
             
-            {(selectedProject || selectedSchool || type !== "Literacy" || level !== "Endline") && (
+            {(selectedProject || selectedSchool || type !== "Literacy" || level !== "all") && (
               <button
                 onClick={clearAllFilters}
                 className="text-sm text-red-400 hover:text-red-300 underline ml-2"
