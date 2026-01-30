@@ -44,8 +44,8 @@ Nyansapo Teaching Dashboard is a Next.js-based web application that provides adm
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/nyansapo-teaching-dashboard.git
-   cd nyansapo-teaching-dashboard
+   git clone https://github.com/nyansapofoundationkenya-web/nyansapofoundation_teaching_dashboard
+   cd nyansapofoundation_teaching_dashboard
    ```
 
 2. Install dependencies:
