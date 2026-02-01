@@ -108,6 +108,49 @@ export const useAssessment = (organizationId) => {
     }
   }, [organizationId]);
 
+  // NEW: Function to always fetch from students collection (not register_list)
+  const fetchBaselineStudents = useCallback(async (projectId, schoolIds) => {
+    if (!projectId || !schoolIds.length || !organizationId) {
+      setStudents({});
+      return;
+    }
+
+    try {
+      setLoading(prev => ({ ...prev, students: true }));
+      setError(null);
+      
+      const newSchoolStudents = {};
+      
+      for (const schoolId of schoolIds) {
+        try {
+          // ALWAYS fetch from students collection (not register_list)
+          const studentsCollectionPath = `organization/${organizationId}/projects/${projectId}/schools/${schoolId}/students`;
+          
+          const studentsQuery = query(
+            collection(db, studentsCollectionPath),
+            orderBy("last_name")
+          );
+          const querySnapshot = await getDocs(studentsQuery);
+          const schoolStuds = [];
+          querySnapshot.forEach((docSnap) => {
+            schoolStuds.push({ id: docSnap.id, ...docSnap.data() });
+          });
+          newSchoolStudents[schoolId] = schoolStuds;
+        } catch (err) {
+          console.error(`Error fetching baseline students for school ${schoolId}:`, err);
+          newSchoolStudents[schoolId] = [];
+        }
+      }
+      setStudents(newSchoolStudents);
+    } catch (err) {
+      console.error("Error fetching baseline students:", err);
+      setError("Failed to load baseline students");
+      setStudents({});
+    } finally {
+      setLoading(prev => ({ ...prev, students: false }));
+    }
+  }, [organizationId]);
+
   // Clear students when not needed
   const clearStudents = useCallback(() => {
     setStudents({});
@@ -121,6 +164,7 @@ export const useAssessment = (organizationId) => {
     error,
     fetchSchools, 
     fetchStudentsForSchools,
+    fetchBaselineStudents,
     clearStudents
   };
 };
