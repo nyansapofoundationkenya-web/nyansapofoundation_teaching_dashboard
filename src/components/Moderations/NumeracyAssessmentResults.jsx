@@ -13,7 +13,7 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
 
   const handleResultsClick = (result, type, section, index) => {
     router.push(
-    //   `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/numeracymoderation?section=${section}&index=${index}`
+      `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/numeracymoderation?section=${section}&index=${index}`
     );
   };
 
