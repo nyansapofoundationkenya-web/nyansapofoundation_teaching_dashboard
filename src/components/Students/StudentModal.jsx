@@ -47,31 +47,43 @@ export default function StudentModal({
     setSubmitting(false);
   }, [student, isOpen]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    
-    // If gender is being changed, also update sex with the same value
-    if (name === "gender") {
-      setFormData(prev => ({
-        ...prev,
-        gender: value,
-        sex: value // Auto-populate sex with same value
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
-    
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ""
-      }));
-    }
-  };
+const handleChange = (e) => {
+  const { name, value } = e.target;
+
+  // Convert grade and age to numbers automatically
+  if (name === "grade" || name === "age") {
+    const numericValue = value === "" ? "" : Number(value);
+    setFormData((prev) => ({
+      ...prev,
+      [name]: numericValue,
+    }));
+  }
+
+  // Keep gender and sex synced
+  else if (name === "gender") {
+    setFormData((prev) => ({
+      ...prev,
+      gender: value,
+      sex: value,
+    }));
+  }
+
+  // Normal case for all other fields
+  else {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  }
+
+  // Clear validation errors for that field
+  if (errors[name]) {
+    setErrors((prev) => ({
+      ...prev,
+      [name]: "",
+    }));
+  }
+};
 
   const validateForm = () => {
     const newErrors = {};
@@ -319,9 +331,9 @@ export default function StudentModal({
             {errors.gender && (
               <p className="text-red-400 text-xs mt-1">{errors.gender}</p>
             )}
-            <p className="text-xs text-gray-400">
+            {/* <p className="text-xs text-gray-400">
               This will be saved as both sex and gender in the database
-            </p>
+            </p> */}
           </div>
 
           {/* Form Summary */}
@@ -333,7 +345,7 @@ export default function StudentModal({
               <div><strong>Name:</strong> {formData.first_name} {formData.last_name}</div>
               <div><strong>Age:</strong> {formData.age || 'Not set'}</div>
               <div><strong>Grade:</strong> {formData.grade ? `Grade ${formData.grade}` : 'Not set'}</div>
-              <div><strong>Gender:</strong> {formData.gender || 'Not set'} (saved as both sex and gender)</div>
+              <div><strong>Gender:</strong> {formData.gender || 'Not set'}</div>
             </div>
           </div>
 

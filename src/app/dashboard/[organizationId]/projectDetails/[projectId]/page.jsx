@@ -242,7 +242,7 @@ export default function ProjectDetails() {
                         <Building2 className="w-4 h-4 flex-shrink-0" />
                       </button>
                     </li>
-                    <li>
+                    {/* <li>
                       <button
                         onClick={() => {
                           setIsInstructorModalOpen(true);
@@ -253,7 +253,7 @@ export default function ProjectDetails() {
                         <span>Add Instructor</span>
                         <FaChalkboardTeacher className="w-4 h-4 flex-shrink-0" />
                       </button>
-                    </li>
+                    </li> */}
                     <li>
                       <button
                         onClick={() => {

@@ -10,13 +10,13 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  Cell,
 } from "recharts"
 
 export default function StudentLevelsChart({ organizationId }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [chartData, setChartData] = useState([])
+  const [levelType, setLevelType] = useState("literacy") // literacy | numeracy
 
   useEffect(() => {
     const fetchData = async () => {
@@ -26,7 +26,13 @@ export default function StudentLevelsChart({ organizationId }) {
       setError(null)
 
       try {
-        const response = await fetch("/api/literacy/student-levels", {
+        // Determine API endpoint based on dropdown
+        const endpoint =
+          levelType === "literacy"
+            ? "/api/literacy/student-levels"
+            : "/api/numeracy/levels"
+
+        const response = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ organization_id: organizationId }),
@@ -39,16 +45,37 @@ export default function StudentLevelsChart({ organizationId }) {
           return
         }
 
-        // Transform data for the chart
-        // Levels in order from bottom to top (Story at top)
-        const levels = ["beginner", "letter", "word", "paragraph", "story"]
-        const transformed = levels.reverse().map((level) => ({
-          level: level.charAt(0).toUpperCase() + level.slice(1),
-          baseline: result.data.baseline[level] || 0,
-          current: result.data.endline[level] || 0,
+        // Define levels depending on type
+        const levels =
+          levelType === "literacy"
+            ? ["beginner", "letter", "word", "paragraph", "story", "above"]
+            : [
+                "beginner",
+                "number_recognition",
+                "addition",
+                "subtraction",
+                "multiplication",
+                "division",
+              ]
+
+        // Correct keys based on API
+        const baselineKey =
+          levelType === "literacy" ? "baseline" : "numeracy_baseline"
+        const endlineKey =
+          levelType === "literacy" ? "endline" : "numeracy_endline"
+
+        // Transform data for chart
+        const transformed = levels.map((level) => ({
+          level:
+            level
+              .split("_")
+              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(" "),
+          baseline: result.data[baselineKey][level] || 0,
+          current: result.data[endlineKey][level] || 0,
         }))
 
-        setChartData(transformed)
+        setChartData(transformed.reverse()) // Show highest level at top
       } catch (err) {
         setError(err.message)
       } finally {
@@ -57,9 +84,9 @@ export default function StudentLevelsChart({ organizationId }) {
     }
 
     fetchData()
-  }, [organizationId])
+  }, [organizationId, levelType]) //Re-fetch when literacy/numeracy changes
 
-  // Custom tooltip
+  // Tooltip for chart
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       return (
@@ -77,38 +104,31 @@ export default function StudentLevelsChart({ organizationId }) {
     return null
   }
 
+  // Loading UI
   if (loading) {
     return (
-      <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700">
-        <h2 className="text-xl font-semibold mb-6 text-primary-2">
-          STUDENT LEVEL DISTRIBUTION
-        </h2>
-        <div className="h-80 flex items-center justify-center">
-          <div className="text-gray-400">Loading chart data...</div>
+      <ChartContainer title="STUDENT LEVEL DISTRIBUTION" levelType={levelType} setLevelType={setLevelType}>
+        <div className="h-80 flex items-center justify-center text-gray-400">
+          Loading chart data...
         </div>
-      </div>
+      </ChartContainer>
     )
   }
 
+  // Error UI
   if (error) {
     return (
-      <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700">
-        <h2 className="text-xl font-semibold mb-6 text-primary-2">
-          STUDENT LEVEL DISTRIBUTION
-        </h2>
-        <div className="h-80 flex items-center justify-center">
-          <div className="text-red-400">{error}</div>
+      <ChartContainer title="STUDENT LEVEL DISTRIBUTION" levelType={levelType} setLevelType={setLevelType}>
+        <div className="h-80 flex items-center justify-center text-red-400">
+          {error}
         </div>
-      </div>
+      </ChartContainer>
     )
   }
 
+  // Chart UI
   return (
-    <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700">
-      <h2 className="text-xl font-semibold mb-6 text-primary-2">
-        STUDENT LEVEL DISTRIBUTION
-      </h2>
-
+    <ChartContainer title="STUDENT LEVEL DISTRIBUTION" levelType={levelType} setLevelType={setLevelType}>
       <ResponsiveContainer width="100%" height={400}>
         <BarChart
           data={chartData}
@@ -117,13 +137,8 @@ export default function StudentLevelsChart({ organizationId }) {
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
           <XAxis type="number" stroke="#9CA3AF" />
-          <YAxis
-            type="category"
-            dataKey="level"
-            stroke="#9CA3AF"
-            width={80}
-          />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(55, 65, 81, 0.3)" }} />
+          <YAxis type="category" dataKey="level" stroke="#9CA3AF" width={120} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(55,65,81,0.3)" }} />
           <Legend
             wrapperStyle={{ paddingTop: "20px" }}
             iconType="rect"
@@ -137,6 +152,32 @@ export default function StudentLevelsChart({ organizationId }) {
           <Bar dataKey="current" fill="#60A5FA" radius={[0, 4, 4, 0]} />
         </BarChart>
       </ResponsiveContainer>
+    </ChartContainer>
+  )
+}
+
+// Dropdown + wrapper
+function ChartContainer({ children, title, levelType, setLevelType }) {
+  return (
+    <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-semibold text-primary-2">{title}</h2>
+        <Dropdown levelType={levelType} setLevelType={setLevelType} />
+      </div>
+      {children}
     </div>
+  )
+}
+
+function Dropdown({ levelType, setLevelType }) {
+  return (
+    <select
+      value={levelType}
+      onChange={(e) => setLevelType(e.target.value)}
+      className="bg-gray-800 border border-gray-600 text-gray-200 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+    >
+      <option value="literacy">Literacy</option>
+      <option value="numeracy">Numeracy</option>
+    </select>
   )
 }
