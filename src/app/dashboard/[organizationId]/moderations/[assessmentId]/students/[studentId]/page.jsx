@@ -81,7 +81,7 @@ export default function StudentDetailsPage() {
     }
   }, [organizationId, assessmentId, studentId]);
 
-  console.log(student);
+  // console.log(student);
 
   /* ------------------------------------------------------------------ */
   /*  Loading State                                                     */

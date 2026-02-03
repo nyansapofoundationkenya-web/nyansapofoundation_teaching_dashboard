@@ -86,7 +86,7 @@ export function useAuth() {
       if (userProfile) {
         dispatch(setUser(userProfile));
         dispatch(setIsApiAuth(true));
-        console.log("Restored user from storage:", savedUid);
+        // console.log("Restored user from storage:", savedUid);
       }
     } catch (err) {
       console.error("Failed to restore user:", err);
@@ -103,7 +103,7 @@ export function useAuth() {
     restoreUserFromLocalStorage().finally(() => {
       // Step 2: Listen for Firebase auth changes
       const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        console.log("Auth state changed:", user ? "User logged in" : "No user");
+        // console.log("Auth state changed:", user ? "User logged in" : "No user");
 
         if (user) {
           const token = await user.getIdToken();
@@ -116,7 +116,7 @@ export function useAuth() {
 
           // Only clear user if no API session and no UID stored
           if (!token && !savedUid && !isApiAuth && isInitialized) {
-            console.log("Clearing user — no token, no UID, not API auth");
+            // console.log("Clearing user — no token, no UID, not API auth");
             dispatch(clearUser());
             Cookies.remove("auth_token");
           }

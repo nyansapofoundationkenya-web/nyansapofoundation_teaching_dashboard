@@ -55,12 +55,12 @@ undefined
 const eligibleStudents = useMemo(() => {
   return assessment?.assigned_students?.filter((s) => {
     const isEligible = s.linked === true || s.has_done === true;
-    console.log(`Pre-filter check - Student ${s.first_name} ${s.last_name}: linked=${s.linked}, has_done=${s.has_done}, eligible=${isEligible}`); // Debug each
+    // console.log(`Pre-filter check - Student ${s.first_name} ${s.last_name}: linked=${s.linked}, has_done=${s.has_done}, eligible=${isEligible}`); 
     return isEligible;
   }) ?? [];
 }, [assessment?.assigned_students]); // Depend only on raw data
 
-console.log('Eligible students (linked OR has_done):', eligibleStudents); // Should show only those passing OR
+// console.log('Eligible students (linked OR has_done):', eligibleStudents); 
 
 // Now apply search + grade on the eligible list
 const filteredStudents = useMemo(() => {
@@ -71,7 +71,7 @@ const filteredStudents = useMemo(() => {
     const matchesGrade =
       gradeFilter === "All Grades" || String(s.grade) === gradeFilter;
     const isEligible = s.linked === true || s.has_done === true; // Re-check for logging, but it's already filtered
-    console.log(`Full filter - Student ${s.first_name} ${s.last_name}: search=${matchesSearch}, grade=${matchesGrade}, eligible=${isEligible}`); // Debug the rest
+    // console.log(`Full filter - Student ${s.first_name} ${s.last_name}: search=${matchesSearch}, grade=${matchesGrade}, eligible=${isEligible}`); 
     return matchesSearch && matchesGrade && isEligible; // The && isEligible is redundant here but explicit
   });
 }, [eligibleStudents, searchQuery, gradeFilter]); // Depend on pre-filtered + vars

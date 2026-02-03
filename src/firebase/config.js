@@ -33,14 +33,14 @@ if (typeof window !== "undefined") {
   isSupported().then((supported) => {
     if (supported) {
       analytics = getAnalytics(app);
-      console.log("✓ Firebase Analytics initialized");
+      // console.log("✓ Firebase Analytics initialized");
     }
   });
 }
 
-console.log("✓ Firebase initialized with API key");
-console.log("   Project:", firebaseConfig.projectId);
-console.log("   Model: gemini-2.5-flash");
+// console.log("✓ Firebase initialized with API key");
+// console.log("   Project:", firebaseConfig.projectId);
+// console.log("   Model: gemini-2.5-flash");
 
 export { auth, db, storage, app, ai, model, analytics }; // ADD analytics to exports
 

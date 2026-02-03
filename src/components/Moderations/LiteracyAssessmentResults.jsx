@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect} from "react";
+import { useState, useEffect } from "react";
 import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
@@ -12,26 +12,23 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
   const router = useRouter();
 
   // Get user data directly from Redux store
-const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
-const userRole = currentUser?.role;
+  const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
+  const userRole = currentUser?.role;
 
-const handleResultsClick = (result, type, filteredIndex) => {
-  // Calculate the original index in reading_results
-  const readingResults = results?.literacy_results?.reading_results || [];
-  const originalIndex = readingResults.findIndex((r) => r === result);
-  
-  // Role-based check: Only allow admin or super_admin to proceed
-  if (userRole === 'admin' || userRole === 'super_admin') {
-    router.push(
-      `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?round=${originalIndex}`
-    );
-  } else {
-    // Show user-friendly message instead of console.log
-    alert('You do not have permission to access audio moderation. Please contact an administrator if you believe this is an error.');
-    // Alternative: If you have a toast library (e.g., react-hot-toast), use: toast.error('Access denied: Insufficient permissions.');
-    // Or set a state like setError('Access denied...') and display it in your component's JSX.
-  }
-};
+  const handleResultsClick = (result, type, filteredIndex) => {
+    // Calculate the original index in reading_results
+    const readingResults = results?.literacy_results?.reading_results || [];
+    const originalIndex = readingResults.findIndex((r) => r === result);
+    
+    // Role-based check: Only allow admin or super_admin to proceed
+    if (userRole === 'admin' || userRole === 'super_admin') {
+      router.push(
+        `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?round=${originalIndex}`
+      );
+    } else {
+      alert('You do not have permission to access audio moderation. Please contact an administrator if you believe this is an error.');
+    }
+  };
 
   const fetchStudentResults = async () => {
     try {
@@ -64,99 +61,96 @@ const handleResultsClick = (result, type, filteredIndex) => {
   }, [assessmentId, studentId]);
 
   // Updated function based on countMistakes logic
-  // Now properly matches as a subsequence without skipping transcript words on mismatch
-  // Also cleans both expected and transcript consistently for matching
-  // Returns JSX for colored words (for display) and optionally the mistake stats
-function normalizeText(text) {
-  return text
-    .toLowerCase()
-    .replace(/[^\w\s]/g, ' ') // remove punctuation
-    .split(/\s+/)
-    .filter(Boolean);
-}
+  function normalizeText(text) {
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ') // remove punctuation
+      .split(/\s+/)
+      .filter(Boolean);
+  }
 
-function levenshteinAlignment(expectedWords, spokenWords) {
-  const m = expectedWords.length;
-  const n = spokenWords.length;
-  const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  function levenshteinAlignment(expectedWords, spokenWords) {
+    const m = expectedWords.length;
+    const n = spokenWords.length;
+    const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
 
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
 
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      if (expectedWords[i - 1] === spokenWords[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1];
-      } else {
-        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (expectedWords[i - 1] === spokenWords[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1];
+        } else {
+          dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+        }
       }
     }
-  }
 
-  // Backtrack to find matched and mismatched words
-  const matchedIndices = new Set();
-  let i = m, j = n;
-  while (i > 0 && j > 0) {
-    if (expectedWords[i - 1] === spokenWords[j - 1]) {
-      matchedIndices.add(i - 1);
-      i--;
-      j--;
-    } else if (dp[i - 1][j - 1] <= dp[i - 1][j] && dp[i - 1][j - 1] <= dp[i][j - 1]) {
-      i--;
-      j--;
-    } else if (dp[i - 1][j] < dp[i][j - 1]) {
-      i--;
-    } else {
-      j--;
+    // Backtrack to find matched and mismatched words
+    const matchedIndices = new Set();
+    let i = m, j = n;
+    while (i > 0 && j > 0) {
+      if (expectedWords[i - 1] === spokenWords[j - 1]) {
+        matchedIndices.add(i - 1);
+        i--;
+        j--;
+      } else if (dp[i - 1][j - 1] <= dp[i - 1][j] && dp[i - 1][j - 1] <= dp[i][j - 1]) {
+        i--;
+        j--;
+      } else if (dp[i - 1][j] < dp[i][j - 1]) {
+        i--;
+      } else {
+        j--;
+      }
     }
+
+    const mistakes = dp[m][n];
+    return { mistakes, matchedIndices };
   }
 
-  const mistakes = dp[m][n];
-  return { mistakes, matchedIndices };
-}
+  const getColoredWords = (content, transcript) => {
+    if (!content) {
+      return {
+        coloredWords: null,
+        stats: { totalWords: 0, mistakes: 0, accuracy: 0 },
+      };
+    }
 
-const getColoredWords = (content, transcript) => {
-  if (!content) {
+    // Normalize both
+    const expectedWords = normalizeText(content);
+    const spokenWords = normalizeText(transcript || "");
+
+    // Align using Levenshtein
+    const { mistakes, matchedIndices } = levenshteinAlignment(expectedWords, spokenWords);
+
+    const totalWords = expectedWords.length;
+    const accuracy = totalWords ? Math.max(0, ((totalWords - mistakes) / totalWords) * 100) : 0;
+
+    // Split original content (preserve punctuation for display)
+    const contentWords = content.trim().split(/\s+/);
+
+    const coloredWords = contentWords.map((word, index) => {
+      const cleanWord = word.replace(/[^\w\s]/g, "").toLowerCase();
+      const matched = matchedIndices.has(index);
+
+      return (
+        <span
+          key={index}
+          className={`mr-1 font-semibold ${
+            matched ? "text-secondary-2" : "text-red-400"
+          }`}
+        >
+          {word}
+        </span>
+      );
+    });
+
     return {
-      coloredWords: null,
-      stats: { totalWords: 0, mistakes: 0, accuracy: 0 },
+      coloredWords,
+      stats: { totalWords, mistakes, accuracy: accuracy.toFixed(1) },
     };
-  }
-
-  // Normalize both
-  const expectedWords = normalizeText(content);
-  const spokenWords = normalizeText(transcript || "");
-
-  // Align using Levenshtein
-  const { mistakes, matchedIndices } = levenshteinAlignment(expectedWords, spokenWords);
-
-  const totalWords = expectedWords.length;
-  const accuracy = totalWords ? Math.max(0, ((totalWords - mistakes) / totalWords) * 100) : 0;
-
-  // Split original content (preserve punctuation for display)
-  const contentWords = content.trim().split(/\s+/);
-
-  const coloredWords = contentWords.map((word, index) => {
-    const cleanWord = word.replace(/[^\w\s]/g, "").toLowerCase();
-    const matched = matchedIndices.has(index);
-
-    return (
-      <span
-        key={index}
-        className={`mr-1 font-semibold ${
-          matched ? "text-secondary-2" : "text-red-400"
-        }`}
-      >
-        {word}
-      </span>
-    );
-  });
-
-  return {
-    coloredWords,
-    stats: { totalWords, mistakes, accuracy: accuracy.toFixed(1) },
   };
-};
 
   if (loading) return <div className="text-foreground">Loading...</div>;
   if (error) return <div className="text-red-400">Error: {error}</div>;
@@ -174,6 +168,12 @@ const getColoredWords = (content, transcript) => {
   const storyResults = Array.isArray(results?.literacy_results?.reading_results)
     ? results.literacy_results.reading_results.filter((r) => r?.metadata?.type === "Story" || r?.type === "Story")
     : [];
+
+  // Check for comprehension multiple choice questions in both formats
+  const comprehensionMultipleChoice = results?.literacy_results?.comprehension_multiple_choice_questions || [];
+  const flatMultipleChoice = results?.literacy_results?.multiple_choice_questions || [];
+
+  // console.log(comprehensionMultipleChoice)
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -295,11 +295,75 @@ const getColoredWords = (content, transcript) => {
         )}
       </div>
 
-      {/* Comprehension Questions */}
-      <div className="mb-4">
-        <h2 className="text-xl font-semibold mb-4 text-primary-3">Comprehension Questions</h2>
-        {results?.literacy_results?.multiple_choice_questions?.length > 0 ? (
-          results.literacy_results.multiple_choice_questions.map((question, index) => (
+      {/* Comprehension Questions - New Structure (Grouped by Content) */}
+      {comprehensionMultipleChoice.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 text-primary-3">Comprehension Questions</h2>
+          {comprehensionMultipleChoice.map((contentGroup, contentIndex) => (
+            <div key={contentIndex} className="mb-6 p-4 bg-background-lighter rounded-xl border border-gray-600">
+              {/* Content/Story */}
+              <div className="mb-4">
+                <h3 className="font-medium text-sm text-gray-400 mb-2">Reading Passage:</h3>
+                <div className="p-3 bg-background-light rounded-lg border border-gray-700">
+                  <p className="text-foreground leading-relaxed">{contentGroup.content}</p>
+                </div>
+              </div>
+              
+              {/* Questions for this content */}
+              <div className="space-y-4">
+                {contentGroup.questions?.map((question, questionIndex) => (
+                  <div key={questionIndex} className="p-4 bg-background-light rounded-lg border border-gray-700">
+                    <p className="font-medium mb-3 text-foreground">{question.question}</p>
+                    <ul className="list-none pl-0 space-y-2">
+                      {question.options?.map((option, optIndex) => (
+                        <li
+                          key={optIndex}
+                          className={`flex items-center justify-between py-2 px-3 rounded-lg transition-colors ${
+                            option === question.student_answer
+                              ? question.passed
+                                ? "bg-secondary-2/20 text-secondary-2 border border-secondary-2/30"
+                                : "bg-red-400/20 text-red-400 border border-red-400/30"
+                              : "text-foreground hover:bg-gray-700/50"
+                          }`}
+                        >
+                          <span>{option}</span>
+                          {option === question.student_answer && (
+                            <span className={`font-bold text-lg ${question.passed ? "text-secondary-2" : "text-red-400"}`}>
+                              {question.passed ? "✓" : "✗"}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                    {/* Result summary for this question */}
+                    <div className={`mt-2 text-sm font-medium ${question.passed ? "text-secondary-2" : "text-red-400"}`}>
+                      {question.passed ? "Correct" : "Incorrect"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Summary for this content group */}
+              <div className="mt-4 pt-3 border-t border-gray-700">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-400">
+                    Total questions: {contentGroup.questions?.length || 0}
+                  </span>
+                  <span className="font-medium text-foreground">
+                    Score: {contentGroup.questions?.filter(q => q.passed).length || 0}/{contentGroup.questions?.length || 0}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Comprehension Questions - Old Structure (Flat Array) */}
+      {flatMultipleChoice.length > 0 && comprehensionMultipleChoice.length === 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 text-primary-3">Comprehension Questions</h2>
+          {flatMultipleChoice.map((question, index) => (
             <div key={index} className="mb-4 p-4 bg-background-light rounded-xl border border-gray-600">
               <p className="font-medium mb-2 text-foreground">{question.question}</p>
               <ul className="list-none pl-0 text-gray-300">
@@ -324,11 +388,17 @@ const getColoredWords = (content, transcript) => {
                 ))}
               </ul>
             </div>
-          ))
-        ) : (
+          ))}
+        </div>
+      )}
+
+      {/* Show message if no comprehension questions in either format */}
+      {comprehensionMultipleChoice.length === 0 && flatMultipleChoice.length === 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 text-primary-3">Comprehension Questions</h2>
           <div className="text-gray-400">No comprehension questions available</div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
