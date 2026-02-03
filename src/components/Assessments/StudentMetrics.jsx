@@ -49,7 +49,7 @@ export default function StudentMetrics({
             className="flex items-center gap-2 px-3 py-2 bg-primary-3 hover:bg-primary-3/90 text-primary-1 font-medium rounded-xl transition-all duration-200 shadow-md hover:shadow-lg whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
-            Add Student
+            Assign Students
           </button>
         </div>
 
