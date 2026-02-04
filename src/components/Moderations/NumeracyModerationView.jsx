@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, XCircle, Calculator, Volume2, Image as ImageIcon, AlertCircle, Edit, ThumbsUp, Trash2 } from "lucide-react";
+import { CheckCircle, XCircle, Calculator, Volume2, Image as ImageIcon, AlertCircle, Edit, ThumbsUp, Trash2, TrendingUp } from "lucide-react";
 import AudioPlayer from "./numeracy/AudioPlayer";
 
 export default function NumeracyModerationView({ 
@@ -50,7 +50,8 @@ export default function NumeracyModerationView({
         modeltranscriptionverified: true,
         moderation_decision: "approved"
       },
-      ...(currentSection === "count_and_match" && { passed: true })
+      ...(currentSection === "count_and_match" && { passed: true }),
+      ...(currentSection === "highest_value" && { passed: true })
     });
   };
 
@@ -103,7 +104,7 @@ export default function NumeracyModerationView({
       <div className="mt-4">
         <div className="text-sm text-gray-400 mb-2">Transcript</div>
         <div className={`text-lg font-medium p-3 rounded-lg ${
-          currentResult.metadata?.passed
+          currentResult.metadata?.passed || currentResult.passed
             ? "bg-secondary-2/20 text-secondary-2 border border-secondary-2/30"
             : "bg-red-400/20 text-red-400 border border-red-400/30"
         }`}>
@@ -173,6 +174,8 @@ export default function NumeracyModerationView({
     switch (currentSection) {
       case "count_and_match":
         return renderCountAndMatchCard();
+      case "highest_value":
+        return renderHighestValueCard();
       case "number_recognition":
         return renderNumberRecognitionCard();
       case "number_operations":
@@ -241,6 +244,126 @@ export default function NumeracyModerationView({
                 Student's response
               </div>
             </div>
+          </div>
+        </div>
+        {renderModerationActions()}
+      </>
+    );
+  };
+
+  const renderHighestValueCard = () => {
+    const hasAudio = currentResult.metadata?.audio_url;
+    const transcript = editMode ? editedTranscript : (currentResult.metadata?.transcript || "");
+    
+    return (
+      <>
+        <div className="bg-background-lighter rounded-xl p-6 border border-gray-600 mb-4">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 flex items-center justify-center rounded-full bg-primary-3 text-foreground font-bold">
+                {currentIndex + 1}
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">
+                  {currentResult.type || "Highest Value"}
+                </h3>
+                <p className="text-sm text-gray-400">Identify the highest value from a set</p>
+              </div>
+            </div>
+            
+            <div className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
+              currentResult.passed
+                ? "bg-secondary-2/20 text-secondary-2"
+                : "bg-red-400/20 text-red-400"
+            }`}>
+              {currentResult.passed ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+              {currentResult.passed ? "Correct" : "Incorrect"}
+            </div>
+          </div>
+          
+          <div className="space-y-6">
+            {/* Values Set Display */}
+            <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-600">
+              <div className="flex items-center gap-3 mb-4">
+                <TrendingUp className="w-5 h-5 text-primary-3" />
+                <div className="text-sm text-gray-400">Number Set</div>
+              </div>
+              
+              <div className="grid grid-cols-4 gap-4">
+                {currentResult.values && currentResult.values.map((value, index) => (
+                  <div 
+                    key={index}
+                    className={`p-4 rounded-lg border-2 text-center ${
+                      value === currentResult.expected_number && currentResult.passed
+                        ? "border-green-500 bg-green-500/10"
+                        : value === currentResult.student_number && !currentResult.passed
+                        ? "border-red-500 bg-red-500/10"
+                        : "border-gray-600 bg-gray-700/50"
+                    }`}
+                  >
+                    <div className={`text-3xl font-bold ${
+                      value === currentResult.expected_number && currentResult.passed
+                        ? "text-green-400"
+                        : value === currentResult.student_number && !currentResult.passed
+                        ? "text-red-400"
+                        : "text-gray-300"
+                    }`}>
+                      {value}
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      {value === currentResult.expected_number 
+                        ? "Correct Answer" 
+                        : value === currentResult.student_number 
+                          ? "Student's Choice" 
+                          : ""}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Expected vs Student Answer */}
+            <div className="grid grid-cols-2 gap-6">
+              {/* Expected Highest Value */}
+              <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-600">
+                <div className="text-center">
+                  <div className="text-sm text-gray-400 mb-3">Expected Highest Value</div>
+                  <div className="text-7xl font-bold text-secondary-2">
+                    {currentResult.expected_number}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Student's Answer */}
+              <div className={`rounded-xl p-6 border-2 ${
+                currentResult.passed
+                  ? "border-secondary-2/30 bg-secondary-2/10"
+                  : "border-red-400/30 bg-red-400/10"
+              }`}>
+                <div className="text-center">
+                  <div className="text-sm text-gray-400 mb-3">Student's Answer</div>
+                  <div className={`text-7xl font-bold ${
+                    currentResult.passed ? "text-secondary-2" : "text-red-400"
+                  }`}>
+                    {currentResult.student_number}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Audio Response Card */}
+            {hasAudio && (
+              <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-600">
+                <div className="flex items-center gap-3 mb-4">
+                  <Volume2 className="w-5 h-5 text-primary-3" />
+                  <div className="text-sm text-gray-400">Audio Response</div>
+                </div>
+                <AudioPlayer currentResult={currentResult} />
+              </div>
+            )}
+            
+            {/* Transcript */}
+            {renderTranscriptDisplay(transcript)}
           </div>
         </div>
         {renderModerationActions()}

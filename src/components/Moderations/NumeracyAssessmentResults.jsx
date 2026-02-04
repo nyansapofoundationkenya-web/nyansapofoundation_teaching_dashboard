@@ -70,6 +70,81 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
         )}
       </div>
 
+      {/* Highest Value Results - Now below Count and Match */}
+      {numeracyResults.highest_value && numeracyResults.highest_value.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 text-primary-3">Highest Value</h2>
+          <div className="flex flex-wrap gap-4">
+            {numeracyResults.highest_value.map((item, index) => (
+              <div
+                key={index}
+                onClick={() => handleResultsClick(item, "Highest Value", "highest_value", index)}
+                className={`rounded-lg p-4 cursor-pointer transition-all hover:scale-105 min-w-[120px] border-2 ${
+                  item.passed
+                    ? "border-green-500 bg-green-500/10"
+                    : "border-red-500 bg-red-500/10"
+                }`}
+              >
+                <div className="text-center space-y-2">
+                  {/* Title */}
+                  <div className="text-sm font-medium text-gray-400 mb-1">
+                    {item.type || "Highest Value"}
+                  </div>
+                  
+                  {/* Expected number */}
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-sm text-gray-500">Expected:</span>
+                    <div className={`text-xl font-bold ${
+                      item.passed ? "text-green-400" : "text-red-400"
+                    }`}>
+                      {item.expected_number}
+                    </div>
+                  </div>
+                  
+                  {/* Student number */}
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-sm text-gray-500">Student:</span>
+                    <div className="text-lg font-semibold text-foreground">
+                      {item.student_number}
+                    </div>
+                  </div>
+                  
+                  {/* Values list */}
+                  <div className="mt-2 pt-2 border-t border-gray-600">
+                    <div className="text-xs text-gray-400 mb-1">Values:</div>
+                    <div className="flex flex-wrap gap-1 justify-center">
+                      {item.values && item.values.map((value, idx) => (
+                        <span 
+                          key={idx} 
+                          className={`px-2 py-1 rounded text-sm ${
+                            value === item.expected_number && item.passed
+                              ? "bg-green-400/20 text-green-300"
+                              : value === item.student_number && !item.passed
+                              ? "bg-red-400/20 text-red-300"
+                              : "bg-gray-700 text-gray-300"
+                          }`}
+                        >
+                          {value}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Pass/Fail indicator */}
+                  <div className={`mt-2 text-sm font-medium px-2 py-1 rounded ${
+                    item.passed
+                      ? "bg-green-500/20 text-green-400"
+                      : "bg-red-500/20 text-red-400"
+                  }`}>
+                    {item.passed ? "✓ Correct" : "✗ Incorrect"}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Number Recognition Results */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4 text-primary-3">Number recognition</h2>
