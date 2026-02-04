@@ -2,6 +2,7 @@
 "use client";
 
 import { AlertCircle } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
 
 export default function AssessmentResults({
   hasNoResults,
@@ -18,7 +19,18 @@ export default function AssessmentResults({
   getNextUnmoderatedIndex,
   children
 }) {
-  
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const contentRef = useRef(null);
+
+  useEffect(() => {
+    // Check if content overflows its container
+    if (contentRef.current) {
+      const element = contentRef.current;
+      setIsOverflowing(element.scrollHeight > element.clientHeight || 
+                       element.scrollWidth > element.clientWidth);
+    }
+  }, [currentResult]);
+
   function normalizeText(text) {
     return text
       .toLowerCase()
@@ -95,11 +107,10 @@ export default function AssessmentResults({
       return (
         <span
           key={index}
-          className={`mr-1 font-semibold ${
-            matched ? "text-secondary-2" : "text-red-400"
-          }`}
+          className={`${matched ? "text-secondary-2" : "text-red-400"}`}
         >
           {word}
+          {index < contentWords.length - 1 && " "}
         </span>
       );
     });
@@ -151,25 +162,27 @@ export default function AssessmentResults({
       {/* Content Display */}
       <div className="space-y-6">
         {/* Expected Text Card */}
-        <div className="bg-background-lighter rounded-xl p-6 border border-gray-600">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-foreground">Expected Text</h3>
-            {currentResult.type === "Letter" || currentResult.type === "Word" ? (
-              <div className={`px-3 py-1 rounded-lg font-medium ${
-                currentResult.metadata?.passed 
-                  ? "bg-secondary-2/20 text-secondary-2" 
-                  : "bg-red-400/20 text-red-400"
-              }`}>
-                {currentResult.metadata?.passed ? "✓ Correct" : "✗ Incorrect"}
-              </div>
-            ) : (
-              <div className="text-sm text-gray-400">
-                {coloredWords.stats.mistakes} mistakes
-              </div>
-            )}
+        <div className="bg-background-lighter rounded-xl border border-gray-600 overflow-hidden">
+          <div className="p-6 border-b border-gray-600">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-foreground">Expected Text</h3>
+              {currentResult.type === "Letter" || currentResult.type === "Word" ? (
+                <div className={`px-3 py-1 rounded-lg font-medium ${
+                  currentResult.metadata?.passed 
+                    ? "bg-secondary-2/20 text-secondary-2" 
+                    : "bg-red-400/20 text-red-400"
+                }`}>
+                  {currentResult.metadata?.passed ? "✓ Correct" : "✗ Incorrect"}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-400">
+                  {coloredWords.stats.mistakes} mistakes
+                </div>
+              )}
+            </div>
           </div>
           
-          <div className="text-lg font-medium leading-relaxed">
+          <div className="p-6">
             {currentResult.type === "Letter" || currentResult.type === "Word" ? (
               <div className={`text-4xl font-bold text-center py-4 ${
                 currentResult.metadata?.passed ? "text-secondary-2" : "text-red-400"
@@ -177,46 +190,58 @@ export default function AssessmentResults({
                 {currentResult.content}
               </div>
             ) : (
-              <div className="text-xl leading-relaxed">
+              <div 
+                ref={contentRef}
+                className="text-lg leading-relaxed whitespace-pre-wrap break-words overflow-y-auto max-h-[400px]"
+              >
                 {coloredWords.coloredWords}
+                {isOverflowing && (
+                  <div className="text-xs text-gray-500 text-right mt-2">
+                    Scroll to see more
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
 
         {/* Model Prediction Card */}
-        <div className="bg-background-lighter rounded-xl p-6 border border-gray-600">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-foreground">Model Prediction</h3>
-            <div className="text-sm text-gray-400">
-              {currentResult.metadata?.transcript ? 
-                `${currentResult.metadata.transcript.split(/\s+/).length} words` : 
-                "No transcript"
-              }
+        <div className="bg-background-lighter rounded-xl border border-gray-600 overflow-hidden">
+          <div className="p-6 border-b border-gray-600">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-foreground">Model Prediction</h3>
+              <div className="text-sm text-gray-400">
+                {currentResult.metadata?.transcript ? 
+                  `${currentResult.metadata.transcript.split(/\s+/).length} words` : 
+                  "No transcript"
+                }
+              </div>
             </div>
           </div>
           
-          {editMode ? (
-            <div className="space-y-3">
-              <textarea
-                value={editedTranscript}
-                onChange={(e) => setEditedTranscript(e.target.value)}
-                className="w-full p-3 border border-gray-500 rounded-lg text-gray-300 bg-background resize-y min-h-48 text-base leading-relaxed"
-                placeholder="Enter transcript"
-                rows={8}
-              />
-              {error && <p className="text-red-400 text-sm max-w-full break-words">{error}</p>}
-            </div>
-          ) : (
-            <div 
-              className="w-full p-3 rounded-lg bg-background border border-transparent text-gray-300 break-words whitespace-pre-wrap max-h-96 overflow-y-auto text-base leading-relaxed cursor-text"
-            >
-              {currentResult?.metadata?.transcript 
-                ? currentResult.metadata.transcript
-                : "No transcript available"
-              }
-            </div>
-          )}
+          <div className="p-6">
+            {editMode ? (
+              <div className="space-y-3">
+                <textarea
+                  value={editedTranscript}
+                  onChange={(e) => setEditedTranscript(e.target.value)}
+                  className="w-full p-3 border border-gray-500 rounded-lg text-gray-300 bg-background resize-y min-h-32 text-base leading-relaxed"
+                  placeholder="Enter transcript"
+                  rows={6}
+                />
+                {error && <p className="text-red-400 text-sm max-w-full break-words">{error}</p>}
+              </div>
+            ) : (
+              <div 
+                className="w-full p-3 rounded-lg bg-background border border-transparent text-gray-300 break-words whitespace-pre-wrap max-h-[400px] overflow-y-auto text-base leading-relaxed cursor-text"
+              >
+                {currentResult?.metadata?.transcript 
+                  ? currentResult.metadata.transcript
+                  : "No transcript available"
+                }
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
