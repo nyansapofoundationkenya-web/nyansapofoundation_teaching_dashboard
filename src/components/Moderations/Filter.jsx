@@ -42,31 +42,61 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
   }, [selectedProject, selectedSchool, type, level])
 
   // Helper function to check if a student's baseline data is not empty
-  const hasValidBaselineData = async (studentId, assessmentId) => {
-    try {
-      // Check if baseline data exists for this student
-      const baselineRef = doc(db, `assessments/${assessmentId}/baseline_data/${studentId}`)
-      const baselineDoc = await getDoc(baselineRef)
-      
-      if (baselineDoc.exists()) {
-        const baselineData = baselineDoc.data()
-        // Check if baseline data has actual content (not just metadata)
-        const hasContent = 
-          (baselineData.score !== undefined && baselineData.score !== null) ||
-          (baselineData.responses && Object.keys(baselineData.responses).length > 0) ||
-          (baselineData.data && Object.keys(baselineData.data).length > 0) ||
-          (baselineData.completed === true) ||
-          (baselineData.status && baselineData.status !== 'empty')
-        
-        return hasContent
-      }
-      return false
-    } catch (error) {
-      console.error("Error checking baseline data:", error)
-      return false
+const hasValidBaselineData = async (studentId, assessmentId) => {
+  try {
+    // First, get the assessment document
+    const assessmentRef = doc(db, `assessments/${assessmentId}`);
+    const assessmentDoc = await getDoc(assessmentRef);
+    
+    if (!assessmentDoc.exists()) {
+      console.log("Assessment not found");
+      return false;
     }
+    
+    const assessmentData = assessmentDoc.data();
+    
+    // Get the assigned_students array from the assessment
+    const assignedStudents = assessmentData.assigned_students || [];
+    
+    // Find the specific student by their ID
+    const student = assignedStudents.find(s => s.id === studentId);
+    
+    if (!student) {
+      console.log("Student not found in assigned_students");
+      return false;
+    }
+    
+    // Check if the student has a baseline field with content
+    if (student.baseline === undefined || student.baseline === null) {
+      return false;
+    }
+    
+    // If baseline is stored as a string
+    if (typeof student.baseline === 'string') {
+      return student.baseline.trim().length > 0;
+    }
+    
+    // If baseline is stored as an object
+    if (typeof student.baseline === 'object') {
+      const baselineData = student.baseline;
+      
+      // Check if baseline data has actual content
+      const hasContent = 
+        (baselineData.score !== undefined && baselineData.score !== null) ||
+        (baselineData.responses && Object.keys(baselineData.responses).length > 0) ||
+        (baselineData.data && Object.keys(baselineData.data).length > 0) ||
+        (baselineData.completed === true) ||
+        (baselineData.status && baselineData.status !== 'empty');
+      
+      return hasContent;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error("Error checking baseline data:", error);
+    return false;
   }
-
+};
   // Real-time listener for assessment data grouped by date
   useEffect(() => {
     if (!organizationId) {
