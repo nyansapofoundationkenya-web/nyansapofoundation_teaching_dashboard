@@ -32,14 +32,14 @@ export async function POST(request) {
     const now = Date.now();
     const cachedDoc = await statsRef.get();
 
-    // 1️⃣ If cached data exists
+    //If cached data exists
     if (cachedDoc.exists) {
       const data = cachedDoc.data();
       const isFresh =
         data.last_updated && now - data.last_updated.toMillis() < CACHE_DURATION;
 
       if (isFresh) {
-        console.log(`✅ Using cached student improvement stats for ${organization_id}`);
+        // console.log(`Using cached student improvement stats for ${organization_id}`);
         return Response.json({
           success: true,
           data: data.result,
@@ -49,7 +49,7 @@ export async function POST(request) {
       }
 
       // Return stale data immediately, start background recalculation
-      console.log(`⏳ Cache stale, returning old data while recalculating...`);
+      // console.log(`Cache stale, returning old data while recalculating...`);
       const response = Response.json({
         success: true,
         data: data.result,
@@ -60,10 +60,10 @@ export async function POST(request) {
 
       (async () => {
         try {
-          console.log(`♻️ Background recalculation started for ${organization_id}`);
+          // console.log(`Background recalculation started for ${organization_id}`);
           const freshResult = await computeStudentImprovement(organization_id);
           await statsRef.set({ result: freshResult, last_updated: new Date() });
-          console.log(`✅ Background cache updated for ${organization_id}`);
+          // console.log(`Background cache updated for ${organization_id}`);
         } catch (err) {
           console.error("ERROR in background recalculation:", err);
         }
@@ -72,7 +72,7 @@ export async function POST(request) {
       return response;
     }
 
-    // 2️⃣ No cache found — compute fresh
+    //No cache found — compute fresh
     const result = await computeStudentImprovement(organization_id);
     await statsRef.set({ result, last_updated: new Date() });
 
@@ -88,7 +88,6 @@ export async function POST(request) {
   }
 }
 
-// ----------------------
 // Heavy computation helper
 async function computeStudentImprovement(organization_id) {
   let totalStudents = 0;

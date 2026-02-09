@@ -13,7 +13,11 @@ if (!getApps().length) {
 }
 
 const db = getFirestore();
-const LEVELS = ["beginner", "letter", "word", "paragraph", "story", "above"];
+
+// Define the two possible literacy schemas
+const DEFAULT_SCHEMA = ["beginner", "letter", "word", "paragraph", "story", "above"];
+const NON_READER_SCHEMA = ["non-reader", "letter", "word", "paragraph", "reading-comprehension"];
+
 const CACHE_DURATION = 1000 * 60 * 60; // 1 hour
 
 export async function POST(request) {
@@ -32,14 +36,14 @@ export async function POST(request) {
     const now = Date.now();
     const cachedDoc = await statsRef.get();
 
-    // 1️⃣ If cached data exists
+    // If cached data exists
     if (cachedDoc.exists) {
       const data = cachedDoc.data();
       const isFresh =
         data.last_updated && now - data.last_updated.toMillis() < CACHE_DURATION;
 
       if (isFresh) {
-        console.log(`✅ Using cached student levels for ${organization_id}`);
+        console.log(`Using cached student levels for ${organization_id}`);
         return Response.json({
           success: true,
           data: data.result,
@@ -49,7 +53,7 @@ export async function POST(request) {
       }
 
       // Return stale data immediately + start background recalculation
-      console.log(`⏳ Cache stale, returning old data while recalculating...`);
+      console.log(`Cache stale, returning old data while recalculating...`);
       const response = Response.json({
         success: true,
         data: data.result,
@@ -60,10 +64,10 @@ export async function POST(request) {
 
       (async () => {
         try {
-          console.log(`♻️ Background recalculation started for ${organization_id}`);
+          console.log(`Background recalculation started for ${organization_id}`);
           const freshResult = await computeStudentLevels(organization_id);
           await statsRef.set({ result: freshResult, last_updated: new Date() });
-          console.log(`✅ Background cache updated for ${organization_id}`);
+          console.log(`Background cache updated for ${organization_id}`);
         } catch (err) {
           console.error("ERROR in background recalculation:", err);
         }
@@ -72,7 +76,7 @@ export async function POST(request) {
       return response;
     }
 
-    // 2️⃣ No cache found — compute fresh
+    //No cache found — compute fresh
     const result = await computeStudentLevels(organization_id);
     await statsRef.set({ result, last_updated: new Date() });
 
@@ -88,17 +92,62 @@ export async function POST(request) {
   }
 }
 
-// ----------------------
 // Heavy computation helper
 async function computeStudentLevels(organization_id) {
-  const baselineCounts = { beginner: 0, letter: 0, word: 0, paragraph: 0, story: 0, above: 0 };
-  const endlineCounts = { beginner: 0, letter: 0, word: 0, paragraph: 0, story: 0, above: 0 };
+  // Determine which schema this organization uses
+  let usesNonReaderSchema = false;
+  
+  const projectsSnapshot = await db.collection(`organization/${organization_id}/projects`).get();
+  
+  // Quick scan to detect which schema is used
+  for (const projectDoc of projectsSnapshot.docs) {
+    const projectId = projectDoc.id;
+    const schoolsSnapshot = await db
+      .collection(`organization/${organization_id}/projects/${projectId}/schools`)
+      .get();
+
+    for (const schoolDoc of schoolsSnapshot.docs) {
+      const schoolId = schoolDoc.id;
+      const studentsSnapshot = await db
+        .collection(
+          `organization/${organization_id}/projects/${projectId}/schools/${schoolId}/students`
+        )
+        .get();
+
+      for (const studentDoc of studentsSnapshot.docs) {
+        const student = studentDoc.data();
+        const baseline = student.baseline?.toLowerCase().trim();
+        const endline = student.endline?.toLowerCase().trim();
+        
+        // If we find "non-reader" or "reading-comprehension", use that schema
+        if (baseline === "non-reader" || endline === "non-reader" || 
+            baseline === "reading-comprehension" || endline === "reading-comprehension") {
+          usesNonReaderSchema = true;
+          break;
+        }
+      }
+      if (usesNonReaderSchema) break;
+    }
+    if (usesNonReaderSchema) break;
+  }
+  
+  // Use the appropriate schema
+  const schema = usesNonReaderSchema ? NON_READER_SCHEMA : DEFAULT_SCHEMA;
+  console.log(`Organization ${organization_id} uses schema:`, schema);
+  
+  // Initialize counts for ALL levels in the schema (with 0)
+  const baselineCounts = {};
+  const endlineCounts = {};
+  schema.forEach(level => {
+    baselineCounts[level] = 0;
+    endlineCounts[level] = 0;
+  });
+  
   let totalStudents = 0;
   let studentsWithBaseline = 0;
   let studentsWithEndline = 0;
 
-  const projectsSnapshot = await db.collection(`organization/${organization_id}/projects`).get();
-
+  // Reset and do full computation
   for (const projectDoc of projectsSnapshot.docs) {
     const projectId = projectDoc.id;
     const schoolsSnapshot = await db
@@ -120,11 +169,12 @@ async function computeStudentLevels(organization_id) {
         const baseline = student.baseline?.toLowerCase().trim();
         const endline = student.endline?.toLowerCase().trim();
 
-        if (baseline && LEVELS.includes(baseline)) {
+        // Only count if the level exists in our chosen schema
+        if (baseline && baselineCounts[baseline] !== undefined) {
           baselineCounts[baseline]++;
           studentsWithBaseline++;
         }
-        if (endline && LEVELS.includes(endline)) {
+        if (endline && endlineCounts[endline] !== undefined) {
           endlineCounts[endline]++;
           studentsWithEndline++;
         }

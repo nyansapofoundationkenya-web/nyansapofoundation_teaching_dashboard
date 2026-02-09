@@ -21,7 +21,7 @@ export default function OrganizationPage({
   
   // Get user data directly from Redux store
   const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
-  console.log(currentUser)
+  // console.log(currentUser)
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [newOrgName, setNewOrgName] = useState("");
@@ -31,7 +31,7 @@ export default function OrganizationPage({
   // Fetch organizations when user is available
   useEffect(() => {
     if (currentUser?.uid && !dataFetched) {
-      console.log("Fetching organizations for user:", currentUser.uid);
+      // console.log("Fetching organizations for user:", currentUser.uid);
       handleFetchOrganizations().catch(err => {
         console.error("Fetch Organizations Error:", err);
       });
