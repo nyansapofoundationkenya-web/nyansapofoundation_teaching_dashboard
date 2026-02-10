@@ -15,20 +15,29 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
   const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
   const userRole = currentUser?.role;
 
-  const handleResultsClick = (result, type, filteredIndex) => {
-    // Calculate the original index in reading_results
-    const readingResults = results?.literacy_results?.reading_results || [];
-    const originalIndex = readingResults.findIndex((r) => r === result);
-    
-    // Role-based check: Only allow admin or super_admin to proceed
-    if (userRole === 'admin' || userRole === 'super_admin') {
-      router.push(
-        `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?round=${originalIndex}`
-      );
-    } else {
-      alert('You do not have permission to access audio moderation. Please contact an administrator if you believe this is an error.');
-    }
+  // components/StudentAssessmentResults.jsx - Updated handleResultsClick
+const handleResultsClick = (result, type, filteredIndex) => {
+  // Map the type to URL-friendly format
+  const typeMap = {
+    'Letter Recognition': 'letter',
+    'Word': 'word',
+    'Paragraph': 'paragraph',
+    'Story': 'story'
   };
+  
+  const section = typeMap[type] || type.toLowerCase();
+  
+  // Role-based check: Only allow admin or super_admin to proceed
+  if (userRole === 'admin' || userRole === 'super_admin') {
+    console.log(`Navigating to: section=${section}, index=${filteredIndex}`);
+    
+    router.push(
+      `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?section=${section}&index=${filteredIndex}`
+    );
+  } else {
+    alert('You do not have permission to access audio moderation. Please contact an administrator if you believe this is an error.');
+  }
+};
 
   const fetchStudentResults = async () => {
     try {

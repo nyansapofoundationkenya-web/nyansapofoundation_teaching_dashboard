@@ -14,8 +14,9 @@ import { AlertCircle, ArrowLeft } from "lucide-react";
 export default function AudioModerationContent({ router, searchParams, organizationId, assessmentId, studentId }) {
   const [assessmentData, setAssessmentData] = useState(null);
   const [studentName, setStudentName] = useState("Loading...");
+  const [groupedResults, setGroupedResults] = useState({});
   const [currentSection, setCurrentSection] = useState("");
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentLocalIndex, setCurrentLocalIndex] = useState(0);
   const [editMode, setEditMode] = useState(false);
   const [editedTranscript, setEditedTranscript] = useState("");
   const [validationStatus, setValidationStatus] = useState("unvalidated");
@@ -29,176 +30,181 @@ export default function AudioModerationContent({ router, searchParams, organizat
   // Back URL
   const backUrl = `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}`;
 
-  // Get section and type from URL (we'll use 'section' param for literacy types)
-  useEffect(() => {
-    const section = searchParams.get("section") || "letter";
-    const index = parseInt(searchParams.get("index") || "0", 10);
-    setCurrentSection(section);
-    setCurrentIndex(index);
-  }, [searchParams]);
-
-  // Data fetching effects
-  useEffect(() => {
-    fetchStudentName();
-  }, [assessmentId, studentId]);
-
-  useEffect(() => {
-    if (currentSection) {
-      fetchAssessmentData();
-    }
-    fetchStudentIds();
-  }, [assessmentId, studentId, currentSection, currentIndex]);
-
-  const fetchStudentName = async () => {
-    try {
-      const assessmentRef = doc(db, `assessments`, assessmentId);
-      const assessmentSnap = await getDoc(assessmentRef);
-      
-      if (assessmentSnap.exists()) {
-        const assessmentData = assessmentSnap.data();
-        const assignedStudents = assessmentData.assigned_students || [];
-        const student = assignedStudents.find(s => s.id === studentId);
-        
-        if (student) {
-          setStudentName(`${student.first_name} ${student.last_name}`);
-        } else {
-          setStudentName("Student Not Found");
-        }
-      } else {
-        setStudentName("Assessment Not Found");
-      }
-    } catch (error) {
-      console.error("Error fetching student name:", error);
-      setStudentName("Unknown Student");
-    }
-  };
-
-  const fetchAssessmentData = async () => {
-    try {
-      setLoading(true);
-      const docRef = doc(db, `assessments/${assessmentId}/assessments-results`, `${assessmentId}_${studentId}`);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (!data.literacy_results) data.literacy_results = {};
-        if (!data.literacy_results.reading_results) data.literacy_results.reading_results = [];
-        setAssessmentData(data);
-        
-        // Get results for current section
-        const sectionResults = getSectionResults(currentSection);
-        
-        if (sectionResults.length === 0) {
-          setCurrentIndex(0);
-        } else {
-          const index = parseInt(searchParams.get("index") || "0", 10);
-          if (sectionResults[index]) {
-            setEditedTranscript(sectionResults[index].metadata?.transcript || "");
-            setCurrentIndex(index);
-          } else {
-            setCurrentIndex(0);
-            setEditedTranscript(sectionResults[0]?.metadata?.transcript || "");
-          }
-        }
-      } else {
-        setError("Assessment data not found");
-      }
-    } catch (error) {
-      console.error("Error fetching assessment data:", error);
-      setError("Failed to load assessment data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStudentIds = async () => {
-    try {
-      const collectionRef = collection(db, `assessments/${assessmentId}/assessments-results`);
-      const querySnapshot = await getDocs(collectionRef);
-      const ids = querySnapshot.docs.map((doc) => doc.id.split("_")[1]);
-      setStudentIds(ids);
-      setCurrentStudentIndex(ids.indexOf(studentId));
-    } catch (error) {
-      console.error("Error fetching student IDs:", error);
-      setError("Failed to load student list");
-    }
-  };
-
-  // Helper function to get results by section/type
-  const getSectionResults = (section) => {
-    if (!assessmentData?.literacy_results?.reading_results) return [];
-    
-    const typeMap = {
-      'letter': 'Letter',
-      'word': 'Word', 
-      'paragraph': 'Paragraph',
-      'story': 'Story'
+  // Helper function to group results by type
+  const groupResultsByType = (results) => {
+    const groups = {
+      letter: [],
+      word: [],
+      paragraph: [],
+      story: []
     };
     
-    const targetType = typeMap[section] || section;
-    return assessmentData.literacy_results.reading_results.filter(
-      result => result?.metadata?.type === targetType || result?.type === targetType
-    );
-  };
-
-  // Get all available sections
-  const getAvailableSections = () => {
-    if (!assessmentData?.literacy_results?.reading_results) return [];
+    if (!results || !Array.isArray(results)) return groups;
     
-    const sections = [];
-    const types = ['Letter', 'Word', 'Paragraph', 'Story'];
-    
-    types.forEach(type => {
-      const results = assessmentData.literacy_results.reading_results.filter(
-        result => result?.metadata?.type === type || result?.type === type
-      );
-      if (results.length > 0) {
-        sections.push({
-          id: type.toLowerCase(),
-          name: type,
-          results: results
+    results.forEach((result, globalIndex) => {
+      const type = (result?.metadata?.type || result?.type || '').toLowerCase();
+      if (groups[type] !== undefined) {
+        groups[type].push({
+          ...result,
+          globalIndex, // Keep reference to original position in reading_results array
+          localIndex: groups[type].length
         });
       }
     });
     
-    return sections;
+    return groups;
   };
 
+  // Initial data fetch - only runs once on mount
+  useEffect(() => {
+    const initializeData = async () => {
+      setLoading(true);
+      
+      try {
+        // Fetch all data in parallel
+        const assessmentRef = doc(db, `assessments`, assessmentId);
+        const resultsRef = doc(db, `assessments/${assessmentId}/assessments-results`, `${assessmentId}_${studentId}`);
+        const collectionRef = collection(db, `assessments/${assessmentId}/assessments-results`);
+        
+        const [assessmentSnap, resultsSnap, querySnapshot] = await Promise.all([
+          getDoc(assessmentRef),
+          getDoc(resultsRef),
+          getDocs(collectionRef)
+        ]);
+        
+        // Process student name
+        if (assessmentSnap.exists()) {
+          const assessmentData = assessmentSnap.data();
+          const assignedStudents = assessmentData.assigned_students || [];
+          const student = assignedStudents.find(s => s.id === studentId);
+          
+          if (student) {
+            setStudentName(`${student.first_name} ${student.last_name}`);
+          } else {
+            setStudentName("Student Not Found");
+          }
+        } else {
+          setStudentName("Assessment Not Found");
+        }
+        
+        // Process student IDs
+        const ids = querySnapshot.docs.map((doc) => doc.id.split("_")[1]);
+        setStudentIds(ids);
+        setCurrentStudentIndex(ids.indexOf(studentId));
+        
+        // Process assessment data
+        if (resultsSnap.exists()) {
+          const data = resultsSnap.data();
+          if (!data.literacy_results) data.literacy_results = {};
+          if (!data.literacy_results.reading_results) data.literacy_results.reading_results = [];
+          
+          setAssessmentData(data);
+          
+          // Group results by type
+          const grouped = groupResultsByType(data.literacy_results.reading_results);
+          setGroupedResults(grouped);
+          
+          // Get section and index from URL - NO RESETTING
+          const section = searchParams.get("section") || "letter";
+          const localIndex = parseInt(searchParams.get("index") || "0", 10);
+          
+          // Set current section and index directly from URL
+          setCurrentSection(section);
+          setCurrentLocalIndex(localIndex);
+          
+          // Update transcript if the result exists
+          const sectionResults = grouped[section] || [];
+          if (sectionResults[localIndex]) {
+            setEditedTranscript(sectionResults[localIndex].metadata?.transcript || "");
+          }
+          
+        } else {
+          setError("Assessment data not found");
+        }
+      } catch (error) {
+        console.error("Error initializing data:", error);
+        setError("Failed to load assessment data");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    initializeData();
+  }, [assessmentId, studentId]); // Only re-run when assessment or student changes
+
+  // Handle URL parameter changes (navigation)
+  useEffect(() => {
+    const section = searchParams.get("section");
+    const index = searchParams.get("index");
+    
+    if (section && section !== currentSection) {
+      setCurrentSection(section);
+    }
+    
+    if (index !== null) {
+      const localIdx = parseInt(index, 10);
+      if (localIdx !== currentLocalIndex) {
+        setCurrentLocalIndex(localIdx);
+        
+        // Update transcript for new index
+        const sectionResults = groupedResults[section || currentSection] || [];
+        if (sectionResults[localIdx]) {
+          setEditedTranscript(sectionResults[localIdx].metadata?.transcript || "");
+        }
+      }
+    }
+  }, [searchParams]); // Only depend on searchParams
+
+  // Update assessment result
   const updateAssessmentResult = async (updates) => {
     try {
-      const updatedData = { ...assessmentData };
-      const allResults = updatedData.literacy_results.reading_results;
+      const sectionResults = groupedResults[currentSection] || [];
+      const currentResult = sectionResults[currentLocalIndex];
       
-      // Find the current result in the full array
-      const sectionResults = getSectionResults(currentSection);
-      const currentResult = sectionResults[currentIndex];
-      const globalIndex = allResults.findIndex(r => r === currentResult);
-      
-      if (globalIndex === -1) {
+      if (!currentResult) {
         setError("Result not found");
         return;
       }
-
-      allResults[globalIndex].metadata = {
-        ...allResults[globalIndex].metadata,
-        ...updates,
+      
+      // Get the global index to update the correct item in reading_results
+      const globalIndex = currentResult.globalIndex;
+      
+      // Update the main assessment data
+      const updatedData = { ...assessmentData };
+      const allResults = [...updatedData.literacy_results.reading_results];
+      
+      allResults[globalIndex] = {
+        ...allResults[globalIndex],
+        metadata: {
+          ...allResults[globalIndex].metadata,
+          ...updates,
+        }
       };
-
+      
+      updatedData.literacy_results.reading_results = allResults;
+      
+      // Check if all results are moderated
       const allVerified = areAllResultsModerated(allResults);
-      if (allVerified) {
-        updatedData.verified = true;
-      } else {
-        updatedData.verified = false;
-      }
-
+      updatedData.verified = allVerified;
+      
+      // Update local state
       setAssessmentData(updatedData);
-
+      
+      // Re-group results to reflect changes
+      const newGrouped = groupResultsByType(allResults);
+      setGroupedResults(newGrouped);
+      
+      // Update Firestore
       const docRef = doc(db, `assessments/${assessmentId}/assessments-results`, `${assessmentId}_${studentId}`);
-      await updateDoc(docRef, updatedData);
+      await updateDoc(docRef, {
+        "literacy_results.reading_results": allResults,
+        "verified": allVerified
+      });
 
       // Add to moderation history
       setModerationHistory(prev => [{
         section: currentSection,
-        index: currentIndex + 1,
+        index: currentLocalIndex + 1,
         action: updates.modeltranscriptionverified ? "moderated" : "updated",
         timestamp: new Date().toISOString()
       }, ...prev.slice(0, 9)]);
@@ -214,7 +220,6 @@ export default function AudioModerationContent({ router, searchParams, organizat
     try {
       const urlObj = new URL(url);
       const path = decodeURIComponent(urlObj.pathname);
-      // Remove the leading "/v0/b/bucket-name/o/" part
       const match = path.match(/\/v0\/b\/[^/]+\/o\/(.+)/);
       if (match && match[1]) {
         return match[1];
@@ -234,20 +239,19 @@ export default function AudioModerationContent({ router, searchParams, organizat
         return;
       }
 
-      const updatedResults = [...assessmentData.literacy_results.reading_results];
-      const sectionResults = getSectionResults(currentSection);
-      const currentResult = sectionResults[currentIndex];
-      const globalIndex = updatedResults.findIndex(r => r === currentResult);
+      const sectionResults = groupedResults[currentSection] || [];
+      const currentResult = sectionResults[currentLocalIndex];
       
-      if (globalIndex === -1) {
+      if (!currentResult) {
         setError("Result not found");
         return;
       }
-
-      // Get audio URL before deleting the result
+      
+      const globalIndex = currentResult.globalIndex;
       const audioUrl = currentResult?.metadata?.audio_url;
       
-      // Remove the current round
+      // Remove the result from the array
+      const updatedResults = [...assessmentData.literacy_results.reading_results];
       updatedResults.splice(globalIndex, 1);
 
       const updatedData = {
@@ -264,6 +268,10 @@ export default function AudioModerationContent({ router, searchParams, organizat
 
       // Update local state
       setAssessmentData(updatedData);
+      
+      // Re-group results
+      const newGrouped = groupResultsByType(updatedResults);
+      setGroupedResults(newGrouped);
 
       // Update Firebase Firestore
       const docRef = doc(db, `assessments/${assessmentId}/assessments-results`, `${assessmentId}_${studentId}`);
@@ -283,15 +291,15 @@ export default function AudioModerationContent({ router, searchParams, organizat
           }
         } catch (storageError) {
           console.warn("⚠️ Could not delete audio file (may already be deleted):", storageError);
-          // Don't throw error - continue with round deletion
         }
       }
 
-      // Adjust navigation
-      const newSectionResults = getSectionResults(currentSection);
+      // Adjust navigation after deletion
+      const newSectionResults = newGrouped[currentSection] || [];
+      
       if (newSectionResults.length === 0) {
         // If no items left in this section, go to first available section
-        const sections = getAvailableSections();
+        const sections = getAvailableSections(newGrouped);
         if (sections.length > 0) {
           router.push(
             `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?section=${sections[0].id}&index=0`
@@ -299,21 +307,19 @@ export default function AudioModerationContent({ router, searchParams, organizat
         } else {
           router.push(backUrl);
         }
-      } else if (currentIndex >= newSectionResults.length) {
+      } else if (currentLocalIndex >= newSectionResults.length) {
         // If we deleted the last item, go to the new last item
         const newIndex = newSectionResults.length - 1;
-        setCurrentIndex(newIndex);
         router.push(
           `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?section=${currentSection}&index=${newIndex}`
         );
       } else {
-        // Stay at same index (items shifted up)
+        // Refresh the current view (items shifted up, same index now shows next item)
         router.push(
-          `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?section=${currentSection}&index=${currentIndex}`
+          `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?section=${currentSection}&index=${currentLocalIndex}`
         );
       }
 
-      // Close confirmation dialog
       setShowDeleteConfirm(false);
       setError(null);
 
@@ -354,7 +360,10 @@ export default function AudioModerationContent({ router, searchParams, organizat
       return;
     }
     
+    const sectionResults = groupedResults[currentSection] || [];
+    const currentResult = sectionResults[currentLocalIndex];
     const originalTranscript = currentResult?.metadata?.transcript || "";
+    
     await updateAssessmentResult({
       transcript: editedTranscript,
       originalmodeltranscript: originalTranscript,
@@ -374,27 +383,97 @@ export default function AudioModerationContent({ router, searchParams, organizat
     return getModerationStats(allResults);
   };
 
-  if (loading) return <div className="text-center p-8">Loading...</div>;
-  if (error && !currentResult) return <div className="text-center p-8 text-red-400">{error}</div>;
+  // Get all available sections from grouped results
+  const getAvailableSections = (grouped = groupedResults) => {
+    const sections = [];
+    const sectionOrder = ['letter', 'word', 'paragraph', 'story'];
+    const sectionNames = {
+      letter: 'Letter',
+      word: 'Word',
+      paragraph: 'Paragraph',
+      story: 'Story'
+    };
+    
+    sectionOrder.forEach(sectionId => {
+      const results = grouped[sectionId] || [];
+      if (results.length > 0) {
+        sections.push({
+          id: sectionId,
+          name: sectionNames[sectionId],
+          results: results
+        });
+      }
+    });
+    
+    return sections;
+  };
 
-  const sectionResults = getSectionResults(currentSection);
-  const currentResult = sectionResults[currentIndex];
+  // Get next unmoderated item across all sections
+  const getNextUnmoderatedItem = () => {
+    const sectionResults = groupedResults[currentSection] || [];
+    
+    // Check remaining items in current section
+    for (let i = currentLocalIndex + 1; i < sectionResults.length; i++) {
+      if (!isResultModerated(sectionResults[i])) {
+        return { section: currentSection, index: i };
+      }
+    }
+    
+    // Check other sections
+    const sections = getAvailableSections();
+    const currentSectionIndex = sections.findIndex(s => s.id === currentSection);
+    
+    for (let s = currentSectionIndex + 1; s < sections.length; s++) {
+      const section = sections[s];
+      for (let i = 0; i < section.results.length; i++) {
+        if (!isResultModerated(section.results[i])) {
+          return { section: section.id, index: i };
+        }
+      }
+    }
+    
+    // Start from beginning
+    for (let s = 0; s < sections.length; s++) {
+      const section = sections[s];
+      for (let i = 0; i < section.results.length; i++) {
+        if (!isResultModerated(section.results[i])) {
+          return { section: section.id, index: i };
+        }
+      }
+    }
+    
+    return null;
+  };
+
+  if (loading) return <div className="text-center p-8">Loading...</div>;
+  if (error && !groupedResults[currentSection]) {
+    return <div className="text-center p-8 text-red-400">{error}</div>;
+  }
+
+  const sectionResults = groupedResults[currentSection] || [];
+  const currentResult = sectionResults[currentLocalIndex];
   const hasNoResults = sectionResults.length === 0;
   const sectionStats = getModerationStats(sectionResults);
   const totalStats = getTotalModerationStats();
   const availableSections = getAvailableSections();
 
-  if (!currentResult && !hasNoResults) {
+  // Show error if index is out of bounds
+  if (!currentResult && !hasNoResults && !loading) {
     return (
       <div className="max-w-4xl mx-auto p-8">
         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-yellow-400 mb-4">No Result Found</h2>
-          <p className="text-gray-300 mb-4">Could not find the requested assessment item.</p>
+          <h2 className="text-lg font-semibold text-yellow-400 mb-4">Invalid Index</h2>
+          <p className="text-gray-300 mb-4">
+            Index {currentLocalIndex} doesn't exist in the {currentSection} section. 
+            This section has {sectionResults.length} items (indices 0-{sectionResults.length - 1}).
+          </p>
           <button
-            onClick={() => router.back()}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-foreground"
+            onClick={() => router.push(
+              `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?section=${currentSection}&index=0`
+            )}
+            className="px-4 py-2 bg-primary-3 hover:bg-primary-3/80 rounded-lg transition-colors text-foreground"
           >
-            Go Back
+            Go to First Item
           </button>
         </div>
       </div>
@@ -438,7 +517,7 @@ export default function AudioModerationContent({ router, searchParams, organizat
             Section: <span className="font-semibold capitalize">{currentSection}</span>
           </div>
           <div className="px-3 py-1.5 bg-primary-3/20 text-primary-3 rounded-lg">
-            Item: <span className="font-semibold">{currentIndex + 1} of {sectionResults.length}</span>
+            Item: <span className="font-semibold">{currentLocalIndex + 1} of {sectionResults.length}</span>
           </div>
           <div className={`px-3 py-1.5 rounded-lg ${
             currentResult?.metadata?.modeltranscriptionverified 
@@ -462,14 +541,14 @@ export default function AudioModerationContent({ router, searchParams, organizat
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 flex items-center justify-center rounded-full bg-primary-3 text-foreground font-bold">
-                    {currentIndex + 1}
+                    {currentLocalIndex + 1}
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-foreground capitalize">
                       {currentSection}
                     </h2>
                     <p className="text-sm text-gray-400">
-                      Item {currentIndex + 1} of {sectionResults.length}
+                      Item {currentLocalIndex + 1} of {sectionResults.length}
                     </p>
                   </div>
                 </div>
@@ -494,7 +573,7 @@ export default function AudioModerationContent({ router, searchParams, organizat
               <AssessmentResults
                 hasNoResults={hasNoResults}
                 results={sectionResults}
-                currentIndex={currentIndex}
+                currentIndex={currentLocalIndex}
                 currentResult={currentResult}
                 editMode={editMode}
                 editedTranscript={editedTranscript}
@@ -569,7 +648,7 @@ export default function AudioModerationContent({ router, searchParams, organizat
             <h3 className="font-semibold text-foreground mb-4">Navigation</h3>
             <LiteracyNavigationControls
               currentSection={currentSection}
-              currentIndex={currentIndex}
+              currentIndex={currentLocalIndex}
               currentStudentIndex={currentStudentIndex}
               assessmentData={assessmentData}
               studentIds={studentIds}
@@ -577,40 +656,7 @@ export default function AudioModerationContent({ router, searchParams, organizat
               assessmentId={assessmentId}
               studentId={studentId}
               router={router}
-              getNextUnmoderatedItem={() => {
-                // Find next unmoderated item across all sections
-                const allResults = assessmentData?.literacy_results?.reading_results || [];
-                for (let i = currentIndex + 1; i < sectionResults.length; i++) {
-                  if (!isResultModerated(sectionResults[i])) {
-                    return { section: currentSection, index: i };
-                  }
-                }
-                
-                // Check other sections
-                const sections = getAvailableSections();
-                const currentSectionIndex = sections.findIndex(s => s.id === currentSection);
-                
-                for (let s = currentSectionIndex + 1; s < sections.length; s++) {
-                  const section = sections[s];
-                  for (let i = 0; i < section.results.length; i++) {
-                    if (!isResultModerated(section.results[i])) {
-                      return { section: section.id, index: i };
-                    }
-                  }
-                }
-                
-                // Start from beginning
-                for (let s = 0; s < sections.length; s++) {
-                  const section = sections[s];
-                  for (let i = 0; i < section.results.length; i++) {
-                    if (!isResultModerated(section.results[i])) {
-                      return { section: section.id, index: i };
-                    }
-                  }
-                }
-                
-                return null;
-              }}
+              getNextUnmoderatedItem={getNextUnmoderatedItem}
               onNavigateToItem={(section, index) => {
                 router.push(
                   `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?section=${section}&index=${index}`
