@@ -30,13 +30,18 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
 
       const snapshot = await getDocs(q)
       
-      const assessmentsData = snapshot.docs.map(doc => ({
+      let assessmentsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }))
 
-      // REMOVED the filter that only kept assessments with completed students
-      // Now we show ALL assessments regardless of student completion status
+      // Sort by created_at descending (most recent first)
+      assessmentsData.sort((a, b) => {
+        const dateA = a.created_at ? new Date(a.created_at) : new Date(0);
+        const dateB = b.created_at ? new Date(b.created_at) : new Date(0);
+        return dateB - dateA; // newest first
+      })
+
       setAssessments(assessmentsData)
     } catch (err) {
       console.error(err)
@@ -46,13 +51,18 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
     }
   }
 
-  const countCompleted = (students) => {
+  // Count students who have a valid baseline (no has_done check)
+  const countDone = (students) => {
     if (!Array.isArray(students)) return 0
-    const valid = ["beginner", "letter", "word", "paragraph", "story"]
+    
+    const validBaselines = [
+      "beginner", "letter", "word", "paragraph", "story", "above",
+      "non-reader", "reading-comprehension"
+    ]
+
     return students.filter(s => 
-      s.has_done === true && 
       s.baseline && 
-      valid.includes(String(s.baseline).toLowerCase().trim())
+      validBaselines.includes(String(s.baseline).toLowerCase().trim())
     ).length
   }
 
@@ -123,8 +133,8 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {filtered.map((assessment) => {
         const total = assessment.assigned_students?.length || 0
-        const completed = countCompleted(assessment.assigned_students)
-        const remaining = total - completed
+        const done = countDone(assessment.assigned_students)
+        const remaining = total - done
 
         return (
           <div
@@ -156,15 +166,15 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
                   <span>{total} Assigned</span>
                 </div>
 
-                {/* Completed — shown when ≥1 */}
-                {completed > 0 && (
+                {/* Done students */}
+                {done > 0 && (
                   <div className="flex items-center gap-2 text-green-300 font-medium">
                     <UserCheck className="w-4 h-4" />
-                    <span>{completed} Completed</span>
+                    <span>{done} Done</span>
                   </div>
                 )}
 
-                {/* Remaining — shown when >0 */}
+                {/* Remaining */}
                 {remaining > 0 && (
                   <div className="flex items-center gap-2 text-red-300 font-medium">
                     <AlertCircle className="w-4 h-4" />
@@ -172,15 +182,15 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
                   </div>
                 )}
 
-                {/* Show message when no students have completed */}
-                {completed === 0 && total > 0 && (
+                {/* No baselines recorded yet */}
+                {done === 0 && total > 0 && (
                   <div className="flex items-center gap-2 text-yellow-300 font-medium">
                     <AlertCircle className="w-4 h-4" />
-                    <span>No students completed yet</span>
+                    <span>No students have done this assessment yet</span>
                   </div>
                 )}
 
-                {/* Show message when no students are assigned */}
+                {/* No students assigned */}
                 {total === 0 && (
                   <div className="flex items-center gap-2 text-gray-300 font-medium">
                     <AlertCircle className="w-4 h-4" />
