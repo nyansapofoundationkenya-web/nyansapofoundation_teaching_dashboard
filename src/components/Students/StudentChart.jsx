@@ -6,114 +6,153 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
-  Title,
   Tooltip,
   Legend
 } from "chart.js"
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-)
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
-// Define competence levels for both types
-const COMPETENCE_LEVELS = {
-  literacy: {
-    "beginner": 0,
-    "letter": 1,
-    "word": 2,
-    "paragraph": 3,
-    "story": 4,
-    "above_level": 5
+// ────────────────────────────────────────────────
+//   Competence level configurations
+// ────────────────────────────────────────────────
+const LEVELS = {
+  // Standard literacy (6 levels)
+  literacy_standard: {
+    levels: {
+      beginner: 0,
+      letter: 1,
+      word: 2,
+      paragraph: 3,
+      story: 4,
+      above: 5,
+    },
+    labels: {
+      beginner: "Beginner",
+      letter: "Letter",
+      word: "Word",
+      paragraph: "Paragraph",
+      story: "Story",
+      above: "Above Level",
+    },
   },
-  numeracy: {
-    "beginner": 0,
-    "number_recognition": 1,
-    "addition": 2,
-    "subtraction": 3,
-    "multiplication": 4,
-    "division": 5,
-    "above_level": 6
-  }
-};
 
-// Format labels for display
-const FORMATTED_LABELS = {
-  literacy: {
-    "beginner": "Beginner",
-    "letter": "Letter",
-    "word": "Word",
-    "paragraph": "Paragraph",
-    "story": "Story",
-    "above": "Above"
+  // Dignitas literacy variant (5 levels)
+  literacy_dignitas: {
+    levels: {
+      "non-reader": 0,
+      letter: 1,
+      word: 2,
+      paragraph: 3,
+      "reading-comprehension": 4,
+    },
+    labels: {
+      "non-reader": "Non-Reader",
+      letter: "Letter",
+      word: "Word",
+      paragraph: "Paragraph",
+      "reading-comprehension": "Reading Comprehension",
+    },
   },
-  numeracy: {
-    "beginner": "Beginner",
-    "number_recognition": "Number Recognition",
-    "addition": "Addition",
-    "subtraction": "Subtraction",
-    "multiplication": "Multiplication",
-    "division": "Division",
-    "above": "Above"
-  }
-};
 
-export default function StudentChart({ baseline, assessmentType = 'literacy' }) {
-  // Get the appropriate competence levels based on assessment type
-  const baselineLevels = COMPETENCE_LEVELS[assessmentType] || COMPETENCE_LEVELS.literacy;
-  const formattedLabels = FORMATTED_LABELS[assessmentType] || FORMATTED_LABELS.literacy;
-  
-  // Convert the baseline to lowercase to match our keys
-  const baselineKey = (baseline || 'beginner').toLowerCase();
-  
-  // Get the numeric value for the baseline
-  const baselineValue = baselineLevels[baselineKey] || 0;
-  
-  // Get the maximum level for this assessment type
-  const maxLevel = Math.max(...Object.values(baselineLevels));
+  // Numeracy (7 levels)
+  numeracy: {
+    levels: {
+      beginner: 0,
+      number_recognition: 1,
+      addition: 2,
+      subtraction: 3,
+      multiplication: 4,
+      division: 5,
+      above_level: 6,
+    },
+    labels: {
+      beginner: "Beginner",
+      number_recognition: "Number Recognition",
+      addition: "Addition",
+      subtraction: "Subtraction",
+      multiplication: "Multiplication",
+      division: "Division",
+      above_level: "Above Level",
+    },
+  },
+}
+
+export default function StudentChart({
+  baseline = "",
+  assessmentType = "literacy",
+  calculationType = "",           // new prop – pass from parent
+}) {
+  // Normalize inputs
+  const type = assessmentType.toLowerCase().trim()
+  const calc = (calculationType || "").toLowerCase().trim()
+
+  // Choose the correct config
+  let config
+  if (type === "numeracy") {
+    config = LEVELS.numeracy
+  } else if (type === "literacy") {
+    config = calc === "dignitas"
+      ? LEVELS.literacy_dignitas
+      : LEVELS.literacy_standard
+  } else {
+    // fallback
+    config = LEVELS.literacy_standard
+  }
+
+  const { levels, labels } = config
+  const maxLevel = Math.max(...Object.values(levels))
+
+  // Normalize baseline (flexible matching)
+  const normalized = baseline
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/_/g, "-")
+
+  let baselineKey = normalized || "beginner"
+
+  // Try to find exact match, or fallback
+  if (!(baselineKey in levels)) {
+    // Try common variations
+    if (normalized.includes("nonreader") || normalized.includes("non-reader")) baselineKey = "non-reader"
+    if (normalized.includes("readingcomprehension") || normalized.includes("reading-comprehension")) baselineKey = "reading-comprehension"
+    if (normalized.includes("abov")) baselineKey = type === "numeracy" ? "above_level" : "above"
+  }
+
+  const baselineValue = levels[baselineKey] ?? 0
 
   const data = {
     labels: ["Current Level"],
-    datasets: [
-      {
-        label: "Current Level",
-        data: [baselineValue],
-        backgroundColor: "#5aa2ce", // primary-2 color
-        borderColor: "#3b82c8", // darker shade of primary-2
-        borderWidth: 1,
-        borderRadius: 8,
-        barPercentage: 0.3
-      }
-    ]
+    datasets: [{
+      label: "Level",
+      data: [baselineValue],
+      backgroundColor: "#5aa2ce",
+      borderColor: "#3b82c8",
+      borderWidth: 1,
+      borderRadius: 8,
+      barPercentage: 0.35,
+    }],
   }
 
   const options = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: {
-        display: false // Hide the legend since we only have one bar
-      },
+      legend: { display: false },
       tooltip: {
-        backgroundColor: "#1e3a63", // background-light equivalent
-        titleColor: "#ffffff", // foreground
-        bodyColor: "#d1d5db", // gray-300
-        borderColor: "#4b5563", // gray-600
+        backgroundColor: "#1e3a63",
+        titleColor: "#ffffff",
+        bodyColor: "#d1d5db",
+        borderColor: "#4b5563",
         borderWidth: 1,
         callbacks: {
-          label: function(context) {
-            const value = context.raw;
-            const level = Object.keys(baselineLevels).find(
-              key => baselineLevels[key] === value
-            );
-            return `Level: ${formattedLabels[level] || level || 'Unknown'}`;
-          }
-        }
-      }
+          label: (ctx) => {
+            const val = ctx.raw
+            const key = Object.keys(levels).find(k => levels[k] === val)
+            return `Level: ${labels[key] || key || "Unknown"}`
+          },
+        },
+      },
     },
     scales: {
       y: {
@@ -122,46 +161,31 @@ export default function StudentChart({ baseline, assessmentType = 'literacy' }) 
         min: 0,
         ticks: {
           stepSize: 1,
-          color: "#d1d5db", // gray-300
-          callback: function(value) {
-            // Find the level name for this numeric value
-            const level = Object.keys(baselineLevels).find(
-              key => baselineLevels[key] === value
-            );
-            return formattedLabels[level] || "";
-          }
+          color: "#d1d5db",
+          font: { size: 13 },
+          callback: (val) => {
+            const key = Object.keys(levels).find(k => levels[k] === val)
+            return labels[key] || ""
+          },
         },
         grid: {
-          color: "#4b5563", // gray-600
-          drawBorder: false
-        }
+          color: "#4b5563",
+          drawBorder: false,
+        },
       },
       x: {
-        grid: {
-          display: false
-        },
+        grid: { display: false },
         ticks: {
-          display: true,
-          color: "#d1d5db", // gray-300
-          font: {
-            weight: 'bold'
-          }
-        }
-      }
-    }
+          color: "#d1d5db",
+          font: { weight: "bold" },
+        },
+      },
+    },
   }
 
   return (
     <div className="w-full h-[300px] p-4">
-      <Bar 
-        data={data} 
-        options={options}
-        className="w-full h-full"
-      />
-      {/* <div className="mt-4 text-sm text-gray-400">
-        <p>Assessment Type: <span className="text-white font-medium">{assessmentType.charAt(0).toUpperCase() + assessmentType.slice(1)}</span></p>
-        <p>Current Level: <span className="text-white font-medium">{formattedLabels[baselineKey] || baseline}</span></p>
-      </div> */}
+      <Bar data={data} options={options} />
     </div>
   )
 }

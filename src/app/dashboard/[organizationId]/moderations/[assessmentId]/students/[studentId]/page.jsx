@@ -3,32 +3,12 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import StudentChart from "@/components/Students/StudentChart";
+import MediaUploadProgress from "@/components/Moderations/MediaUploadProgress"; // ← new import
 import StudentAssessmentResults from "@/components/Moderations/StudentAssessmentResults";
 import DashboardLayout from "@/app/dashboard/[organizationId]/DashboardLayout";
 import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
 import { ArrowLeft } from "lucide-react";
-
-// Define competence levels for both types
-const COMPETENCE_LEVELS = {
-  literacy: {
-    "beginner": 0,
-    "letter": 1,
-    "word": 2,
-    "paragraph": 3,
-    "story": 4,
-    "above": 5
-  },
-  numeracy: {
-    "beginner": 0,
-    "number_recognition": 1,
-    "addition": 2,
-    "subtraction": 3,
-    "multiplication": 4,
-    "division": 5,
-    "above": 6
-  }
-};
 
 export default function StudentDetailsPage() {
   const { organizationId, assessmentId, studentId } = useParams();
@@ -37,14 +17,12 @@ export default function StudentDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const router = useRouter();
-  
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
 
-        // 1. Fetch assessment to get assigned_students array
         const assessmentRef = doc(db, "assessments", assessmentId);
         const assessmentSnap = await getDoc(assessmentRef);
 
@@ -52,9 +30,8 @@ export default function StudentDetailsPage() {
         const assessmentData = assessmentSnap.data();
         setAssessment(assessmentData);
 
-        // 2. Find the specific student in the assigned_students array
         const assignedStudents = assessmentData.assigned_students || [];
-        const foundStudent = assignedStudents.find(student => student.id === studentId);
+        const foundStudent = assignedStudents.find((s) => s.id === studentId);
 
         if (!foundStudent) throw new Error("Student not found in assessment");
 
@@ -67,7 +44,6 @@ export default function StudentDetailsPage() {
           baseline: foundStudent.baseline,
           has_done: foundStudent.has_done,
           group: foundStudent.group,
-          // Add any other fields you need from the assigned_students array
         });
       } catch (err) {
         setError(err.message);
@@ -81,11 +57,6 @@ export default function StudentDetailsPage() {
     }
   }, [organizationId, assessmentId, studentId]);
 
-  // console.log(student);
-
-  /* ------------------------------------------------------------------ */
-  /*  Loading State                                                     */
-  /* ------------------------------------------------------------------ */
   if (loading) {
     return (
       <DashboardLayout title="Student Details" organizationId={organizationId}>
@@ -96,9 +67,6 @@ export default function StudentDetailsPage() {
     );
   }
 
-  /* ------------------------------------------------------------------ */
-  /*  Error State                                                       */
-  /* ------------------------------------------------------------------ */
   if (error) {
     return (
       <DashboardLayout title="Student Details" organizationId={organizationId}>
@@ -109,9 +77,6 @@ export default function StudentDetailsPage() {
     );
   }
 
-  /* ------------------------------------------------------------------ */
-  /*  Not Found State                                                   */
-  /* ------------------------------------------------------------------ */
   if (!student || !assessment) {
     return (
       <DashboardLayout title="Student Details" organizationId={organizationId}>
@@ -122,22 +87,17 @@ export default function StudentDetailsPage() {
     );
   }
 
-  /* ------------------------------------------------------------------ */
-  /*  Main Content                                                      */
-  /* ------------------------------------------------------------------ */
   const pageTitle = `${student.first_name} ${student.last_name}`;
-  const assessmentType = assessment.type?.toLowerCase() || 'literacy';
+  const assessmentType = assessment.type?.toLowerCase() || "literacy";
   const baseline = student?.baseline || "";
   const backUrl = `/dashboard/${organizationId}/moderations/${assessmentId}`;
 
   return (
     <DashboardLayout title={pageTitle} organizationId={organizationId}>
-      {/* Scrollable content area */}
       <div className="h-full overflow-auto">
         <div className="p-6 space-y-6">
           {/* Student Header */}
           <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
-            {/*Back Button */}
             <div
               onClick={() => router.push(backUrl)}
               className="flex items-center text-gray-300 hover:text-white cursor-pointer w-fit mb-4"
@@ -148,32 +108,48 @@ export default function StudentDetailsPage() {
             <h1 className="text-2xl font-bold text-foreground">
               {student.first_name} {student.last_name}
             </h1>
-            <h2 className="text-lg text-gray-300 mt-1">{baseline}</h2>
-            <div className="mt-2">
+            <h2 className="text-lg text-gray-300 mt-1 font-medium">
+              Baseline: {baseline || "Not assessed"}
+            </h2>
+            <div className="mt-3 flex flex-wrap gap-2">
               <span className="inline-block bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
                 {assessmentType.charAt(0).toUpperCase() + assessmentType.slice(1)} Assessment
               </span>
-              {/* <span className="inline-block ml-2 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-                Grade {student.grade}
-              </span>
-              <span className="inline-block ml-2 bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-                {student.sex}
-              </span> */}
+              {student.grade && (
+                <span className="inline-block bg-green-600/80 text-white px-3 py-1 rounded-full text-sm font-medium">
+                  Grade {student.grade}
+                </span>
+              )}
+              {student.sex && (
+                <span className="inline-block bg-purple-600/80 text-white px-3 py-1 rounded-full text-sm font-medium capitalize">
+                  {student.sex}
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Baseline Chart */}
-          <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
-            <h2 className="text-xl font-semibold mb-4 text-foreground">
-              Assessment Results - {assessmentType.charAt(0).toUpperCase() + assessmentType.slice(1)}
-            </h2>
-            <StudentChart 
-              baseline={baseline} 
-              assessmentType={assessmentType}
+          {/* Side-by-side: Chart + Media Progress */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left - Baseline Chart */}
+            <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
+              <h2 className="text-xl font-semibold mb-4 text-foreground">
+                Baseline Progress - {assessmentType.charAt(0).toUpperCase() + assessmentType.slice(1)}
+              </h2>
+              <StudentChart
+                baseline={baseline}
+                assessmentType={assessmentType}
+                calculationType={assessment?.calculation_type || ""}
+              />
+            </div>
+
+            {/* Right - Media Upload & Completion */}
+            <MediaUploadProgress
+              assessmentId={assessmentId}
+              studentId={studentId}
             />
           </div>
 
-          {/* Assessment Results Table */}
+          {/* Bottom - Assessment Results Table */}
           <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
             <StudentAssessmentResults
               assessmentId={assessmentId}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect ,useMemo} from "react";
-import { useParams,useRouter } from "next/navigation";
+import { useState, useEffect, useMemo } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Search from "@/components/Assessments/Search";
 import GradeFilter from "@/components/Assessments/GradeFIlter";
 import StudentsList from "@/components/Assessments/StudentsList";
@@ -22,15 +22,13 @@ export default function AssessmentDetailsPage() {
   const [gradeFilter, setGradeFilter] = useState("All Grades");
   const backUrl = `/dashboard/${organizationId}/moderations`;
 
-  /* ------------------------------------------------------------------ */
-  /*  Fetch the assessment from Firestore                               */
-  /* ------------------------------------------------------------------ */
+  // Fetch the assessment from Firestore
   useEffect(() => {
     const fetchAssessment = async () => {
       try {
         const assessmentRef = doc(db, "assessments", assessmentId);
         const snap = await getDoc(assessmentRef);
-undefined
+
         if (!snap.exists()) throw new Error("Assessment not found");
 
         setAssessment({ id: snap.id, ...snap.data() });
@@ -48,36 +46,23 @@ undefined
   const handleGradeFilterChange = (g) => setGradeFilter(g);
   const assessmentType = assessment?.type || "literacy";
 
-  /* ------------------------------------------------------------------ */
-  /*  Filter students (search + grade)                                   */
-  /* ------------------------------------------------------------------ */
- // Pre-filter: Get only linked students first
-const eligibleStudents = useMemo(() => {
-  return assessment?.assigned_students?.filter((s) => {
-    const isEligible = s.linked === true || s.has_done === true;
-    // console.log(`Pre-filter check - Student ${s.first_name} ${s.last_name}: linked=${s.linked}, has_done=${s.has_done}, eligible=${isEligible}`); 
-    return isEligible;
-  }) ?? [];
-}, [assessment?.assigned_students]); // Depend only on raw data
+  // Filter students (search + grade) — showing ALL assigned students
+  const filteredStudents = useMemo(() => {
+    if (!assessment?.assigned_students) return [];
 
-// console.log('Eligible students (linked OR has_done):', eligibleStudents); 
+    return assessment.assigned_students.filter((student) => {
+      const fullName = `${student.first_name || ""} ${student.last_name || ""}`.trim().toLowerCase();
+      const matchesSearch = fullName.includes(searchQuery.toLowerCase().trim());
 
-// Now apply search + grade on the eligible list
-const filteredStudents = useMemo(() => {
-  return eligibleStudents.filter((s) => {
-    const matchesSearch = `${s.first_name} ${s.last_name}`
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    const matchesGrade =
-      gradeFilter === "All Grades" || String(s.grade) === gradeFilter;
-    const isEligible = s.linked === true || s.has_done === true; // Re-check for logging, but it's already filtered
-    // console.log(`Full filter - Student ${s.first_name} ${s.last_name}: search=${matchesSearch}, grade=${matchesGrade}, eligible=${isEligible}`); 
-    return matchesSearch && matchesGrade && isEligible; // The && isEligible is redundant here but explicit
-  });
-}, [eligibleStudents, searchQuery, gradeFilter]); // Depend on pre-filtered + vars
-  /* ------------------------------------------------------------------ */
-  /*  Loading state (inside DashboardLayout)                             */
-  /* ------------------------------------------------------------------ */
+      const matchesGrade =
+        gradeFilter === "All Grades" ||
+        String(student.grade ?? "") === gradeFilter;
+
+      return matchesSearch && matchesGrade;
+    });
+  }, [assessment?.assigned_students, searchQuery, gradeFilter]);
+
+  // Loading state
   if (loading) {
     return (
       <DashboardLayout title="Assessment Details" organizationId={organizationId}>
@@ -98,9 +83,7 @@ const filteredStudents = useMemo(() => {
     );
   }
 
-  /* ------------------------------------------------------------------ */
-  /*  Error state                                                       */
-  /* ------------------------------------------------------------------ */
+  // Error state
   if (error) {
     return (
       <DashboardLayout title="Assessment Details" organizationId={organizationId}>
@@ -111,9 +94,7 @@ const filteredStudents = useMemo(() => {
     );
   }
 
-  /* ------------------------------------------------------------------ */
-  /*  Not-found state                                                   */
-  /* ------------------------------------------------------------------ */
+  // Not-found state
   if (!assessment) {
     return (
       <DashboardLayout title="Assessment Details" organizationId={organizationId}>
@@ -124,16 +105,14 @@ const filteredStudents = useMemo(() => {
     );
   }
 
-  /* ------------------------------------------------------------------ */
-  /*  Main page content                                                 */
-  /* ------------------------------------------------------------------ */
+  // Main content
   return (
     <DashboardLayout title={assessment.name} organizationId={organizationId}>
       <div className="p-6 space-y-6">
         {/* Header row – title, grade filter & search */}
         <div className="bg-background-light border-b border-gray-600 px-6 py-4 rounded-2xl shadow-lg">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            {/* Left Section (Back + Title stacked vertically) */}
+            {/* Left Section (Back + Title) */}
             <div className="flex flex-col">
               <div
                 onClick={() => router.push(backUrl)}
@@ -162,7 +141,11 @@ const filteredStudents = useMemo(() => {
         </div>
 
         {/* Student metrics */}
-        <StudentMetrics students={filteredStudents} loading={loading} assessmentId={assessmentId} />
+        <StudentMetrics
+          students={filteredStudents}
+          loading={loading}
+          assessmentId={assessmentId}
+        />
 
         {/* Students list */}
         <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
@@ -178,7 +161,9 @@ const filteredStudents = useMemo(() => {
             />
           ) : (
             <div className="text-center py-8 text-gray-400">
-              No students match your search criteria
+              {searchQuery || gradeFilter !== "All Grades"
+                ? "No students match your search criteria"
+                : "No students assigned to this assessment yet"}
             </div>
           )}
         </div>

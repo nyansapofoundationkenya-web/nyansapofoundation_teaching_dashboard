@@ -13,18 +13,19 @@ export default function StudentMetrics({
 
   const totalStudents = students?.length || 0
 
-  let completedCount = 0
+  let doneCount = 0
   let notStartedCount = 0
 
   if (students) {
     students.forEach(student => {
-      const baselineExists =
+      // Check if baseline has a meaningful value
+      const hasBaseline =
+        student.baseline != null &&
         student.baseline !== "" &&
-        student.baseline !== null &&
-        student.baseline !== undefined
+        String(student.baseline).trim() !== ""
 
-      if (student.completed_assessment && baselineExists) {
-        completedCount++
+      if (hasBaseline) {
+        doneCount++
       } else {
         notStartedCount++
       }
@@ -63,11 +64,11 @@ export default function StudentMetrics({
           />
 
           <MetricCard
-            label="Completed"
-            value={completedCount}
+            label="Done"                      // Changed from "Completed"
+            value={doneCount}
             percentage={
               totalStudents > 0
-                ? Math.round((completedCount / totalStudents) * 100)
+                ? Math.round((doneCount / totalStudents) * 100)
                 : 0
             }
             icon={<CheckCircle className="w-6 h-6 text-secondary-2" />}

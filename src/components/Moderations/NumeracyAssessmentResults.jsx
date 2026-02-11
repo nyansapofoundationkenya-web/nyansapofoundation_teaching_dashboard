@@ -1,4 +1,3 @@
-// components/Moderations/NumeracyAssessmentResults.jsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -21,22 +20,40 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
     setLoading(false);
   }, [results]);
 
+  // Format done_time nicely (same as literacy)
+  const formatDoneTime = (timeStr) => {
+    if (!timeStr) return "—";
+    try {
+      const date = new Date(timeStr);
+      return date.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    } catch {
+      return timeStr; // fallback to raw string
+    }
+  };
+
+  // Helper function to get operation symbol
+  const getOperationSymbol = (type) => {
+    switch (type?.toLowerCase()) {
+      case "addition": return "+";
+      case "subtraction": return "−";
+      case "multiplication": return "×";
+      case "division": return "÷";
+      default: return "";
+    }
+  };
+
   if (loading) return <div className="text-foreground">Loading...</div>;
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (!results) return <div className="text-foreground">No data available</div>;
 
   const numeracyResults = results.numeracy_results || {};
-
-  // Helper function to get operation symbol
-  const getOperationSymbol = (type) => {
-    switch(type?.toLowerCase()) {
-      case 'addition': return '+';
-      case 'subtraction': return '-';
-      case 'multiplication': return '×';
-      case 'division': return '÷';
-      default: return '';
-    }
-  };
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -70,7 +87,7 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
         )}
       </div>
 
-      {/* Highest Value Results - Now below Count and Match */}
+      {/* Highest Value Results */}
       {numeracyResults.highest_value && numeracyResults.highest_value.length > 0 && (
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4 text-primary-3">Highest Value</h2>
@@ -86,12 +103,10 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
                 }`}
               >
                 <div className="text-center space-y-2">
-                  {/* Title */}
                   <div className="text-sm font-medium text-gray-400 mb-1">
                     {item.type || "Highest Value"}
                   </div>
                   
-                  {/* Expected number */}
                   <div className="flex items-center justify-center gap-2">
                     <span className="text-sm text-gray-500">Expected:</span>
                     <div className={`text-xl font-bold ${
@@ -101,7 +116,6 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
                     </div>
                   </div>
                   
-                  {/* Student number */}
                   <div className="flex items-center justify-center gap-2">
                     <span className="text-sm text-gray-500">Student:</span>
                     <div className="text-lg font-semibold text-foreground">
@@ -109,7 +123,6 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
                     </div>
                   </div>
                   
-                  {/* Values list */}
                   <div className="mt-2 pt-2 border-t border-gray-600">
                     <div className="text-xs text-gray-400 mb-1">Values:</div>
                     <div className="flex flex-wrap gap-1 justify-center">
@@ -130,7 +143,6 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
                     </div>
                   </div>
                   
-                  {/* Pass/Fail indicator */}
                   <div className={`mt-2 text-sm font-medium px-2 py-1 rounded ${
                     item.passed
                       ? "bg-green-500/20 text-green-400"
@@ -154,7 +166,7 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
               <div
                 key={index}
                 onClick={() => handleResultsClick(item, "Number Recognition", "number_recognition", index)}
-                className={`w-16 h-16 flex items-center justify-center rounded-lg border-2 cursor-pointer transition-all hover:scale-105 ${
+                className={`w-16 h-20 flex flex-col items-center justify-center rounded-lg border-2 cursor-pointer transition-all hover:scale-105 ${
                   item.metadata?.passed
                     ? "border-green-500 bg-green-500/10"
                     : "border-red-500 bg-red-500/10"
@@ -165,6 +177,12 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
                 }`}>
                   {item.content}
                 </div>
+                {/* Done time - added here */}
+                {item.metadata?.done_time && (
+                  <div className="text-[10px] text-gray-500 mt-1">
+                    {formatDoneTime(item.metadata.done_time)}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -183,27 +201,29 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
                 key={index}
                 onClick={() => handleResultsClick(operation, "Addition", "number_operations", 
                   numeracyResults.number_operations.indexOf(operation))}
-                className="rounded-lg p-4 cursor-pointer transition-all hover:scale-105 min-w-[80px] border border-gray-600"
+                className="rounded-lg p-4 cursor-pointer transition-all hover:scale-105 min-w-[80px] border border-gray-600 flex flex-col justify-between"
               >
                 <div className="text-center space-y-1">
-                  {/* First number */}
                   <div className="text-xl font-semibold text-gray-300">
                     {operation.operations_number1}
                   </div>
-                  {/* Operation symbol and second number */}
                   <div className="text-xl font-semibold text-gray-300">
                     <span className="mr-2">{getOperationSymbol('addition')}</span>
                     {operation.operations_number2}
                   </div>
-                  {/* Divider line */}
                   <div className="border-t-2 border-gray-500 my-1"></div>
-                  {/* Answer */}
                   <div className={`text-xl font-bold ${
                     operation.metadata?.passed ? "text-green-400" : "text-red-400"
                   }`}>
                     {operation.expected_answer}
                   </div>
                 </div>
+                {/* Done time - added here */}
+                {operation.metadata?.done_time && (
+                  <div className="text-xs text-gray-500 mt-2 text-center">
+                    {formatDoneTime(operation.metadata.done_time)}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -222,27 +242,28 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
                 key={index}
                 onClick={() => handleResultsClick(operation, "Subtraction", "number_operations", 
                   numeracyResults.number_operations.indexOf(operation))}
-                className="rounded-lg p-4 cursor-pointer transition-all hover:scale-105 min-w-[80px] border border-gray-600"
+                className="rounded-lg p-4 cursor-pointer transition-all hover:scale-105 min-w-[80px] border border-gray-600 flex flex-col justify-between"
               >
                 <div className="text-center space-y-1">
-                  {/* First number */}
                   <div className="text-xl font-semibold text-gray-300">
                     {operation.operations_number1}
                   </div>
-                  {/* Operation symbol and second number */}
                   <div className="text-xl font-semibold text-gray-300">
                     <span className="mr-2">{getOperationSymbol('subtraction')}</span>
                     {operation.operations_number2}
                   </div>
-                  {/* Divider line */}
                   <div className="border-t-2 border-gray-500 my-1"></div>
-                  {/* Answer */}
                   <div className={`text-xl font-bold ${
                     operation.metadata?.passed ? "text-green-400" : "text-red-400"
                   }`}>
                     {operation.expected_answer}
                   </div>
                 </div>
+                {operation.metadata?.done_time && (
+                  <div className="text-xs text-gray-500 mt-2 text-center">
+                    {formatDoneTime(operation.metadata.done_time)}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -261,27 +282,28 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
                 key={index}
                 onClick={() => handleResultsClick(operation, "Multiplication", "number_operations", 
                   numeracyResults.number_operations.indexOf(operation))}
-                className="rounded-lg p-4 cursor-pointer transition-all hover:scale-105 min-w-[80px] border border-gray-600"
+                className="rounded-lg p-4 cursor-pointer transition-all hover:scale-105 min-w-[80px] border border-gray-600 flex flex-col justify-between"
               >
                 <div className="text-center space-y-1">
-                  {/* First number */}
                   <div className="text-xl font-semibold text-gray-300">
                     {operation.operations_number1}
                   </div>
-                  {/* Operation symbol and second number */}
                   <div className="text-xl font-semibold text-gray-300">
                     <span className="mr-2">{getOperationSymbol('multiplication')}</span>
                     {operation.operations_number2}
                   </div>
-                  {/* Divider line */}
                   <div className="border-t-2 border-gray-500 my-1"></div>
-                  {/* Answer */}
                   <div className={`text-xl font-bold ${
                     operation.metadata?.passed ? "text-green-400" : "text-red-400"
                   }`}>
                     {operation.expected_answer}
                   </div>
                 </div>
+                {operation.metadata?.done_time && (
+                  <div className="text-xs text-gray-500 mt-2 text-center">
+                    {formatDoneTime(operation.metadata.done_time)}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -300,27 +322,28 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
                 key={index}
                 onClick={() => handleResultsClick(operation, "Division", "number_operations", 
                   numeracyResults.number_operations.indexOf(operation))}
-                className="rounded-lg p-4 cursor-pointer transition-all hover:scale-105 min-w-[80px] border border-gray-600"
+                className="rounded-lg p-4 cursor-pointer transition-all hover:scale-105 min-w-[80px] border border-gray-600 flex flex-col justify-between"
               >
                 <div className="text-center space-y-1">
-                  {/* First number */}
                   <div className="text-xl font-semibold text-gray-300">
                     {operation.operations_number1}
                   </div>
-                  {/* Operation symbol and second number */}
                   <div className="text-xl font-semibold text-gray-300">
                     <span className="mr-2">{getOperationSymbol('division')}</span>
                     {operation.operations_number2}
                   </div>
-                  {/* Divider line */}
                   <div className="border-t-2 border-gray-500 my-1"></div>
-                  {/* Answer */}
                   <div className={`text-xl font-bold ${
                     operation.metadata?.passed ? "text-green-400" : "text-red-400"
                   }`}>
                     {operation.expected_answer}
                   </div>
                 </div>
+                {operation.metadata?.done_time && (
+                  <div className="text-xs text-gray-500 mt-2 text-center">
+                    {formatDoneTime(operation.metadata.done_time)}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -372,6 +395,13 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
                   </div>
                 </div>
               </div>
+
+              {/* Done time - added here */}
+              {problem.metadata?.done_time && (
+                <div className="mt-3 pt-2 text-right text-sm text-gray-500 border-t border-gray-700">
+                  Done: {formatDoneTime(problem.metadata.done_time)}
+                </div>
+              )}
             </div>
           ))
         ) : (

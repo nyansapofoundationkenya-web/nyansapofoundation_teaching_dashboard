@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
@@ -11,33 +12,27 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
   const [error, setError] = useState(null);
   const router = useRouter();
 
-  // Get user data directly from Redux store
   const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
   const userRole = currentUser?.role;
 
-  // components/StudentAssessmentResults.jsx - Updated handleResultsClick
-const handleResultsClick = (result, type, filteredIndex) => {
-  // Map the type to URL-friendly format
-  const typeMap = {
-    'Letter Recognition': 'letter',
-    'Word': 'word',
-    'Paragraph': 'paragraph',
-    'Story': 'story'
+  const handleResultsClick = (result, type, filteredIndex) => {
+    const typeMap = {
+      "Letter Recognition": "letter",
+      Word: "word",
+      Paragraph: "paragraph",
+      Story: "story",
+    };
+
+    const section = typeMap[type] || type.toLowerCase();
+
+    if (userRole === "admin" || userRole === "super_admin") {
+      router.push(
+        `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?section=${section}&index=${filteredIndex}`
+      );
+    } else {
+      alert("You do not have permission to access audio moderation.");
+    }
   };
-  
-  const section = typeMap[type] || type.toLowerCase();
-  
-  // Role-based check: Only allow admin or super_admin to proceed
-  if (userRole === 'admin' || userRole === 'super_admin') {
-    console.log(`Navigating to: section=${section}, index=${filteredIndex}`);
-    
-    router.push(
-      `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?section=${section}&index=${filteredIndex}`
-    );
-  } else {
-    alert('You do not have permission to access audio moderation. Please contact an administrator if you believe this is an error.');
-  }
-};
 
   const fetchStudentResults = async () => {
     try {
@@ -69,11 +64,28 @@ const handleResultsClick = (result, type, filteredIndex) => {
     }
   }, [assessmentId, studentId]);
 
-  // Updated function based on countMistakes logic
+  // Format timestamp (e.g. "Feb 10, 2026 11:20 AM")
+  const formatDoneTime = (timeStr) => {
+    if (!timeStr) return "—";
+    try {
+      const date = new Date(timeStr);
+      return date.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    } catch {
+      return timeStr; // fallback to raw if parsing fails
+    }
+  };
+
   function normalizeText(text) {
     return text
       .toLowerCase()
-      .replace(/[^\w\s]/g, ' ') // remove punctuation
+      .replace(/[^\w\s]/g, " ")
       .split(/\s+/)
       .filter(Boolean);
   }
@@ -96,18 +108,18 @@ const handleResultsClick = (result, type, filteredIndex) => {
       }
     }
 
-    // Backtrack to find matched and mismatched words
     const matchedIndices = new Set();
-    let i = m, j = n;
+    let i = m,
+      j = n;
     while (i > 0 && j > 0) {
       if (expectedWords[i - 1] === spokenWords[j - 1]) {
         matchedIndices.add(i - 1);
         i--;
         j--;
-      } else if (dp[i - 1][j - 1] <= dp[i - 1][j] && dp[i - 1][j - 1] <= dp[i][j - 1]) {
+      } else if (dp[i - 1][j - 1] <= dp[i - 1][j] && dp[i - 1][j - 1] <= dp[i][j]) {
         i--;
         j--;
-      } else if (dp[i - 1][j] < dp[i][j - 1]) {
+      } else if (dp[i - 1][j] < dp[i][j]) {
         i--;
       } else {
         j--;
@@ -126,17 +138,14 @@ const handleResultsClick = (result, type, filteredIndex) => {
       };
     }
 
-    // Normalize both
     const expectedWords = normalizeText(content);
     const spokenWords = normalizeText(transcript || "");
 
-    // Align using Levenshtein
     const { mistakes, matchedIndices } = levenshteinAlignment(expectedWords, spokenWords);
 
     const totalWords = expectedWords.length;
     const accuracy = totalWords ? Math.max(0, ((totalWords - mistakes) / totalWords) * 100) : 0;
 
-    // Split original content (preserve punctuation for display)
     const contentWords = content.trim().split(/\s+/);
 
     const coloredWords = contentWords.map((word, index) => {
@@ -146,9 +155,7 @@ const handleResultsClick = (result, type, filteredIndex) => {
       return (
         <span
           key={index}
-          className={`mr-1 font-semibold ${
-            matched ? "text-secondary-2" : "text-red-400"
-          }`}
+          className={`mr-1 font-semibold ${matched ? "text-secondary-2" : "text-red-400"}`}
         >
           {word}
         </span>
@@ -165,29 +172,32 @@ const handleResultsClick = (result, type, filteredIndex) => {
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (!results) return <div className="text-foreground">No data available</div>;
 
-  const letterResults = results?.literacy_results?.reading_results?.filter(
-    (result) => result?.metadata?.type === "Letter" || result?.type === "Letter"
-  ) || [];
-  const wordResults = results?.literacy_results?.reading_results?.filter(
-    (result) => result?.metadata?.type === "Word"|| result?.type === "Word"
-  ) || [];
+  const letterResults =
+    results?.literacy_results?.reading_results?.filter(
+      (r) => r?.metadata?.type === "Letter" || r?.type === "Letter"
+    ) || [];
+  const wordResults =
+    results?.literacy_results?.reading_results?.filter(
+      (r) => r?.metadata?.type === "Word" || r?.type === "Word"
+    ) || [];
   const paragraphResults = Array.isArray(results?.literacy_results?.reading_results)
-    ? results.literacy_results.reading_results.filter((r) => r?.metadata?.type === "Paragraph" || r?.type === "Paragraph")
+    ? results.literacy_results.reading_results.filter(
+        (r) => r?.metadata?.type === "Paragraph" || r?.type === "Paragraph"
+      )
     : [];
   const storyResults = Array.isArray(results?.literacy_results?.reading_results)
-    ? results.literacy_results.reading_results.filter((r) => r?.metadata?.type === "Story" || r?.type === "Story")
+    ? results.literacy_results.reading_results.filter(
+        (r) => r?.metadata?.type === "Story" || r?.type === "Story"
+      )
     : [];
 
-  // Check for comprehension multiple choice questions in both formats
   const comprehensionMultipleChoice = results?.literacy_results?.comprehension_multiple_choice_questions || [];
   const flatMultipleChoice = results?.literacy_results?.multiple_choice_questions || [];
-
-  // console.log(comprehensionMultipleChoice)
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-6 text-foreground">Literacy Assessment</h1>
-      
+
       {/* Letter Results */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-2 text-primary-3">Letter Results</h2>
@@ -197,20 +207,27 @@ const handleResultsClick = (result, type, filteredIndex) => {
               <div
                 key={index}
                 onClick={() => handleResultsClick(result, "Letter Recognition", index)}
-                className={`relative px-4 py-2 rounded-xl text-lg font-semibold border-2 min-w-[48px] text-center cursor-pointer hover:opacity-80 transition-opacity shadow-md hover:shadow-lg
+                className={`relative px-4 py-3 rounded-xl text-lg font-semibold border-2 min-w-[60px] text-center cursor-pointer hover:opacity-80 transition-opacity shadow-md hover:shadow-lg
                   ${result?.metadata?.passed
                     ? "border-secondary-2 text-foreground bg-secondary-2/10"
-                    : "border-red-400 text-foreground bg-red-400/10"
-                  }`}
+                    : "border-red-400 text-foreground bg-red-400/10"}`}
               >
                 <span className="block">{result.content}</span>
-                {/* Status Badge */}
+
+                {/* Status badge */}
                 <span
                   className={`absolute -top-2 -right-2 w-5 h-5 rounded-full text-white text-xs flex items-center justify-center shadow
                     ${result?.metadata?.passed ? "bg-secondary-2" : "bg-red-400"}`}
                 >
                   {result?.metadata?.passed ? "✓" : "✕"}
                 </span>
+
+                {/* Done time */}
+                {result?.metadata?.done_time && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    {formatDoneTime(result.metadata.done_time)}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -228,20 +245,25 @@ const handleResultsClick = (result, type, filteredIndex) => {
               <div
                 key={index}
                 onClick={() => handleResultsClick(result, "Word", index)}
-                className={`relative px-4 py-2 rounded-xl text-base font-semibold border-2 min-w-[72px] text-center cursor-pointer hover:opacity-80 transition-opacity shadow-md hover:shadow-lg
+                className={`relative px-4 py-3 rounded-xl text-base font-semibold border-2 min-w-[90px] text-center cursor-pointer hover:opacity-80 transition-opacity shadow-md hover:shadow-lg
                   ${result?.metadata?.passed
                     ? "border-secondary-2 text-foreground bg-secondary-2/10"
-                    : "border-red-400 text-foreground bg-red-400/10"
-                  }`}
+                    : "border-red-400 text-foreground bg-red-400/10"}`}
               >
                 <span className="block">{result.content}</span>
-                {/* Status Badge */}
+
                 <span
                   className={`absolute -top-2 -right-2 w-5 h-5 rounded-full text-white text-xs flex items-center justify-center shadow
                     ${result?.metadata?.passed ? "bg-secondary-2" : "bg-red-400"}`}
                 >
                   {result?.metadata?.passed ? "✓" : "✕"}
                 </span>
+
+                {result?.metadata?.done_time && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    {formatDoneTime(result.metadata.done_time)}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -260,14 +282,19 @@ const handleResultsClick = (result, type, filteredIndex) => {
               <div
                 key={index}
                 onClick={() => handleResultsClick(result, "Paragraph", index)}
-                className="border-b border-gray-600 py-2 flex items-start justify-between gap-2 cursor-pointer hover:bg-background-lighter transition-colors px-2 rounded-xl"
+                className="border-b border-gray-600 py-3 px-3 rounded-xl cursor-pointer hover:bg-background-lighter transition-colors flex flex-col gap-2"
               >
-                <div className="flex-1 flex flex-wrap">
-                  {coloredWords}
-                </div>
-                <div className="text-sm text-gray-400 flex items-center gap-2">
-                  <span>{stats.mistakes}/{stats.totalWords} mistakes</span>
-                  <span>›</span>
+                <div className="flex flex-wrap gap-1">{coloredWords}</div>
+
+                <div className="flex items-center justify-between text-sm mt-1">
+                  <span className="text-gray-400">
+                    {stats.mistakes}/{stats.totalWords} mistakes • {stats.accuracy}% accuracy
+                  </span>
+                  {result?.metadata?.done_time && (
+                    <span className="text-gray-500">
+                      Done: {formatDoneTime(result.metadata.done_time)}
+                    </span>
+                  )}
                 </div>
               </div>
             );
@@ -287,14 +314,19 @@ const handleResultsClick = (result, type, filteredIndex) => {
               <div
                 key={index}
                 onClick={() => handleResultsClick(result, "Story", index)}
-                className="border-b border-gray-600 py-2 flex items-start justify-between gap-2 cursor-pointer hover:bg-background-lighter transition-colors px-2 rounded-xl"
+                className="border-b border-gray-600 py-3 px-3 rounded-xl cursor-pointer hover:bg-background-lighter transition-colors flex flex-col gap-2"
               >
-                <div className="flex-1 flex flex-wrap">
-                  {coloredWords}
-                </div>
-                <div className="text-sm text-gray-400 flex items-center gap-2">
-                  <span>{stats.mistakes}/{stats.totalWords} mistakes</span>
-                  <span>›</span>
+                <div className="flex flex-wrap gap-1">{coloredWords}</div>
+
+                <div className="flex items-center justify-between text-sm mt-1">
+                  <span className="text-gray-400">
+                    {stats.mistakes}/{stats.totalWords} mistakes • {stats.accuracy}% accuracy
+                  </span>
+                  {result?.metadata?.done_time && (
+                    <span className="text-gray-500">
+                      Done: {formatDoneTime(result.metadata.done_time)}
+                    </span>
+                  )}
                 </div>
               </div>
             );
@@ -304,21 +336,19 @@ const handleResultsClick = (result, type, filteredIndex) => {
         )}
       </div>
 
-      {/* Comprehension Questions - New Structure (Grouped by Content) */}
+      {/* Comprehension Questions (unchanged – add done_time if needed later) */}
       {comprehensionMultipleChoice.length > 0 && (
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4 text-primary-3">Comprehension Questions</h2>
           {comprehensionMultipleChoice.map((contentGroup, contentIndex) => (
             <div key={contentIndex} className="mb-6 p-4 bg-background-lighter rounded-xl border border-gray-600">
-              {/* Content/Story */}
               <div className="mb-4">
                 <h3 className="font-medium text-sm text-gray-400 mb-2">Reading Passage:</h3>
                 <div className="p-3 bg-background-light rounded-lg border border-gray-700">
                   <p className="text-foreground leading-relaxed">{contentGroup.content}</p>
                 </div>
               </div>
-              
-              {/* Questions for this content */}
+
               <div className="space-y-4">
                 {contentGroup.questions?.map((question, questionIndex) => (
                   <div key={questionIndex} className="p-4 bg-background-light rounded-lg border border-gray-700">
@@ -344,22 +374,20 @@ const handleResultsClick = (result, type, filteredIndex) => {
                         </li>
                       ))}
                     </ul>
-                    {/* Result summary for this question */}
                     <div className={`mt-2 text-sm font-medium ${question.passed ? "text-secondary-2" : "text-red-400"}`}>
                       {question.passed ? "Correct" : "Incorrect"}
                     </div>
                   </div>
                 ))}
               </div>
-              
-              {/* Summary for this content group */}
+
               <div className="mt-4 pt-3 border-t border-gray-700">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-400">
                     Total questions: {contentGroup.questions?.length || 0}
                   </span>
                   <span className="font-medium text-foreground">
-                    Score: {contentGroup.questions?.filter(q => q.passed).length || 0}/{contentGroup.questions?.length || 0}
+                    Score: {contentGroup.questions?.filter((q) => q.passed).length || 0}/{contentGroup.questions?.length || 0}
                   </span>
                 </div>
               </div>
@@ -368,7 +396,6 @@ const handleResultsClick = (result, type, filteredIndex) => {
         </div>
       )}
 
-      {/* Comprehension Questions - Old Structure (Flat Array) */}
       {flatMultipleChoice.length > 0 && comprehensionMultipleChoice.length === 0 && (
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4 text-primary-3">Comprehension Questions</h2>
@@ -401,7 +428,6 @@ const handleResultsClick = (result, type, filteredIndex) => {
         </div>
       )}
 
-      {/* Show message if no comprehension questions in either format */}
       {comprehensionMultipleChoice.length === 0 && flatMultipleChoice.length === 0 && (
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4 text-primary-3">Comprehension Questions</h2>
