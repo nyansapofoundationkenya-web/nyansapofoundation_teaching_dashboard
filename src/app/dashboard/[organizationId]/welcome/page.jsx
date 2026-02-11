@@ -1,14 +1,17 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 import { useSelector } from "react-redux"
 import { useOrganizations } from "@/hooks/useOrganization"
-import { useProjects } from "@/hooks/UseProjects"
+import { useStats } from "@/hooks/stats/useStats"
 import {
-  InformationCircleIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/outline"
+  Info,
+  X,
+  Users,
+  School,
+  GraduationCap,
+} from "lucide-react"  // ← switched to lucide-react
 import Header from "@/components/Welcome/Header"
 import DashboardLayout from "../DashboardLayout"
 import GetStarted from "@/components/Welcome/GetStarted"
@@ -19,79 +22,208 @@ import WeeklyEngagementChart from "@/components/Welcome/WeeklyEngagementChart"
 import ProgramImpact from "@/components/Welcome/ProgramImpact"
 import AssessmentHealth from "@/components/Welcome/AssessmentHealth"
 import AttendanceOverview from "@/components/Welcome/AttendanceOverview"
+import StatsCard from "@/components/ProjectDetails/StatsCard"
+
+// Chart data utilities (unchanged)
+const ChartDataFormatter = {
+  formatLevelName: (level) => {
+    if (!level) return "Unknown"
+    const special = {
+      "non-reader": "Non-Reader",
+      "reading-comprehension": "Reading Comprehension",
+      "beginner": "Beginner",
+      "letter": "Letter",
+      "word": "Word",
+      "paragraph": "Paragraph",
+      "story": "Story",
+      "above": "Above",
+      "number_recognition": "Number Recognition",
+      "addition": "Addition",
+      "subtraction": "Subtraction",
+      "multiplication": "Multiplication",
+      "division": "Division",
+    }
+    if (special[level]) return special[level]
+    return level.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+  }
+}
+
+const ChartDataParser = {
+  safeNumber: (v) => {
+    if (v == null || v === '' || v === undefined) return 0
+    const n = Number(v)
+    return isNaN(n) || !isFinite(n) || n < 0 ? 0 : n
+  }
+}
+
+const ChartDataTransformer = {
+  transformData: (data, levelType) => {
+    if (!data || typeof data !== 'object') return []
+
+    const baseKey  = levelType === "literacy" ? "baseline" : "baseline_numeracy"
+    const endKey   = levelType === "literacy" ? "endline"  : "endline_numeracy"
+
+    const baseline = data[baseKey]  || {}
+    const endline  = data[endKey]   || {}
+
+    let levels = Object.keys(baseline)
+    if (levels.length === 0) {
+      levels = levelType === "literacy"
+        ? ["beginner", "letter", "word", "paragraph", "story", "above"]
+        : ["beginner", "number_recognition", "addition", "subtraction", "multiplication", "division"]
+    }
+
+    const levelOrder = {
+      literacy: { "non-reader":0, "beginner":0, "letter":1, "word":2, "paragraph":3, "story":4, "reading-comprehension":4, "above":5 },
+      numeracy: { "beginner":0, "number_recognition":1, "addition":2, "subtraction":3, "multiplication":4, "division":5 }
+    }
+
+    const orderMap = levelOrder[levelType] || {}
+    const sorted = [...levels].sort((a,b) => (orderMap[a] ?? 99) - (orderMap[b] ?? 99))
+
+    return sorted.map(level => ({
+      level: ChartDataFormatter.formatLevelName(level),
+      baseline: ChartDataParser.safeNumber(baseline[level]),
+      current:  ChartDataParser.safeNumber(endline[level]),
+      rawLevel: level
+    })).reverse()
+  }
+}
 
 export default function WelcomePage() {
   const { organizationId } = useParams()
-  const router = useRouter()
   const { handleFetchOrganizationById } = useOrganizations()
-  const { createProject } = useProjects(organizationId)
+  const { user: currentUser } = useSelector((state) => state.auth)
+
+  const isSuperAdmin = 
+    currentUser?.role === "super_admin" || 
+    currentUser?.role === "superadmin" || 
+    currentUser?.role === "admin"
+
+  const {
+    stats: studentLevelsStats,
+    loading: levelsLoading,
+    error: levelsError,
+    fetchOrganizationStats,
+    refreshOrganizationStats,
+  } = useStats()
 
   const [organization, setOrganization] = useState(null)
   const [showGuide, setShowGuide] = useState(false)
-  const [stats, setStats] = useState({
+  const [generalStats, setGeneralStats] = useState({
     projects: "—",
     schools: "—",
     students: "—",
     teachers: "—",
-    // ratio: "—", // Commented out
   })
 
-  const { user: currentUser } = useSelector((state) => state.auth)
-  const isAdminOrSuperAdmin =
-    currentUser?.role === "admin" || currentUser?.role === "super_admin"
+  const [levelType, setLevelType] = useState("literacy")
+  const [downloadLoading, setDownloadLoading] = useState(false)
 
-  // ------------------- Fetch Organization Stats -------------------
+  // Fetch organization general info
   useEffect(() => {
-    const fetchData = async () => {
-      if (!organizationId) return
+    if (!organizationId) return
+
+    const fetchOrg = async () => {
       try {
         const org = await handleFetchOrganizationById(organizationId)
         setOrganization(org)
 
         if (org) {
-          const projects = Number(org.total_projects ?? 0)
-          const schools = Number(org.total_schools ?? 0)
-          const students = Number(org.total_students ?? 0)
-          const teachers = Number(org.total_teachers ?? 0)
-          // const ratio = teachers > 0 ? (students / teachers).toFixed(2) : "—" // Commented out
-
-          setStats({
-            projects: projects.toLocaleString(),
-            schools: schools.toLocaleString(),
-            students: students.toLocaleString(),
-            teachers: teachers.toLocaleString(),
-            // ratio, // Commented out
+          setGeneralStats({
+            projects: Number(org.total_projects ?? 0).toLocaleString(),
+            schools: Number(org.total_schools ?? 0).toLocaleString(),
+            students: Number(org.total_students ?? 0).toLocaleString(),
+            teachers: Number(org.total_teachers ?? 0).toLocaleString(),
           })
         }
       } catch (err) {
-        console.error("Failed to load organization stats:", err)
+        console.error("Failed to load organization info:", err)
       }
     }
 
-    fetchData()
+    fetchOrg()
   }, [organizationId, handleFetchOrganizationById])
 
-    const statsConfig = [
-    { 
-      label: "Learners Reached", 
-      value: stats.students,
-      color: "text-secondary-2"
-    },
-     { 
-      label: (
-        <span>
-          Schools in <span className="text-primary-3 font-bold">{stats.projects} </span>Projects
-        </span>
-      ),
-      value: stats.schools,
-      color: "text-primary-3"
-    },
-    { 
-      label: "Teachers", 
-      value: stats.teachers,
-      color: "text-primary-3"
-    },
-  ]
+  // Fetch student levels
+  useEffect(() => {
+    if (organizationId) {
+      fetchOrganizationStats(organizationId).catch(err => {
+        console.error("Failed to load student levels:", err)
+      })
+    }
+  }, [organizationId, fetchOrganizationStats])
+
+  const chartData = ChartDataTransformer.transformData(
+    levelType === "literacy" ? studentLevelsStats?.literacy : studentLevelsStats?.numeracy,
+    levelType
+  )
+
+  const handleRefresh = async () => {
+    if (!organizationId) return
+    try {
+      await refreshOrganizationStats(organizationId)
+    } catch (err) {
+      console.error("Refresh failed:", err)
+    }
+  }
+
+  const handleDownload = async () => {
+    if (!organizationId) {
+      alert("Please select an organization first")
+      return
+    }
+
+    setDownloadLoading(true)
+
+    try {
+      const response = await fetch(
+        `/api/export/student-performance?organization_id=${organizationId}`,
+        { method: "GET" }
+      )
+
+      const contentType = response.headers.get("content-type") || ""
+
+      if (contentType.includes("application/json")) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || errorData.message || "Download failed")
+      }
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status} ${response.statusText}`)
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+
+      let filename = "student_performance.xlsx"
+      const disposition = response.headers.get("Content-Disposition")
+      if (disposition) {
+        const filenameMatch = disposition.match(/filename\*?=["']?([^"']+)["']?/i)
+        if (filenameMatch?.[1]) filename = decodeURIComponent(filenameMatch[1])
+      }
+
+      link.download = filename.endsWith(".xlsx") ? filename : `${filename}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+
+      setTimeout(() => {
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+      }, 100)
+    } catch (error) {
+      console.error("Download error:", error)
+      alert(`Error downloading file: ${error.message || "Unknown error"}`)
+    } finally {
+      setDownloadLoading(false)
+    }
+  }
+
+  const handleSchoolsClick = () => {
+    console.log("Schools card clicked – add navigation/modal here if needed")
+  }
 
   return (
     <DashboardLayout title="Welcome" organizationId={organizationId}>
@@ -105,61 +237,84 @@ export default function WelcomePage() {
               onClick={() => setShowGuide(true)}
               className="flex items-center gap-2 px-4 py-2 bg-background-lighter border border-gray-600 hover:border-gray-500 rounded-xl text-sm font-medium transition-colors shadow-sm"
             >
-              <InformationCircleIcon className="h-5 w-5 text-primary-2" />
+              <Info className="h-5 w-5 text-primary-2" />
               Quick Guide
             </button>
           </div>
 
-          {/* Organization stats - Redesigned */}
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-10">
-            {statsConfig.map((item, i) => (
-              <div
-                key={i}
-                className="bg-background-lighter rounded-2xl p-6 border border-gray-700 text-center"
-              >
-                <div className={`text-3xl font-bold ${item.color}`}>
-                  {item.value}
-                </div>
-                <hr className="border-t border-gray-600 my-4" />
-                <div className="text-xl text-gray-400 tracking-wide">
-                  {item.label}
-                </div>
-              </div>
-            ))}
+          {/* Stats Cards – using StatsCard with lucide-react icons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-10">
+            <StatsCard
+              icon={<GraduationCap className="w-6 h-6" />}
+              label="Learners Reached"
+              value={generalStats.students}
+              iconColor="text-secondary-2"
+              valueColor="text-secondary-2"
+            />
+
+            <StatsCard
+              icon={<School className="w-6 h-6" />}
+              label={
+                <span>
+                  Schools in{" "}
+                  <span className="font-bold text-primary-3">
+                    {generalStats.projects}
+                  </span>{" "}
+                  {Number(generalStats.projects.replace(/,/g, "")) === 1 ? "Project" : "Projects"}
+                </span>
+              }
+              value={generalStats.schools}
+              iconColor="text-primary-3"
+              valueColor="text-primary-3"
+              onClick={handleSchoolsClick}
+              clickable={true}
+            />
+
+            <StatsCard
+              icon={<Users className="w-6 h-6" />}
+              label="Teachers"
+              value={generalStats.teachers}
+              iconColor="text-primary-3"
+              valueColor="text-primary-3"
+            />
           </div>
 
-          {/* Student Level Distribution Chart + Key Barriers */}
+          {/* Student Levels Chart + Key Barriers */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-            {/* Left side - Student Levels Chart (takes 2 columns) */}
             <div className="lg:col-span-2">
-              <StudentLevelsChart organizationId={organizationId} />
+              <StudentLevelsChart
+                levelType={levelType}
+                setLevelType={setLevelType}
+                chartData={chartData}
+                loading={levelsLoading}
+                error={levelsError}
+                onRefresh={handleRefresh}
+                onDownload={handleDownload}
+                downloadLoading={downloadLoading}
+                isSuperAdmin={isSuperAdmin}
+              />
             </div>
-
-            {/* Right side - Key Barriers (takes 1 column) */}
             <div className="lg:col-span-1">
               <KeyBarriers organizationId={organizationId} />
             </div>
           </div>
 
-          {/* Weekly Engagement Chart + Program Impact */}
+          {/* Weekly Engagement + Program Impact */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-            {/* Left side - Weekly Engagement Chart (takes 2 columns) */}
             <div className="lg:col-span-2">
               <WeeklyEngagementChart organizationId={organizationId} />
             </div>
-
-            {/* Right side - Program Impact (takes 1 column) */}
             <div className="lg:col-span-1">
               <ProgramImpact organizationId={organizationId} />
             </div>
           </div>
 
-          {/* Assessment Health - Full width */}
+          {/* Assessment Health */}
           <div className="mb-10">
             <AssessmentHealth organizationId={organizationId} />
           </div>
 
-          {/* Attendance Overview - Full width */}
+          {/* Attendance Overview */}
           <div className="mb-10">
             <AttendanceOverview organizationId={organizationId} />
           </div>
@@ -175,7 +330,7 @@ export default function WelcomePage() {
                   onClick={() => setShowGuide(false)}
                   className="p-2 rounded-full hover:bg-background transition-colors"
                 >
-                  <XMarkIcon className="h-6 w-6" />
+                  <X className="h-6 w-6" />
                 </button>
               </div>
               <div className="flex-1 p-6 md:p-8 overflow-y-auto">
