@@ -2,48 +2,18 @@
 
 import { useEffect, useState } from "react"
 
-export default function KeyBarriers({ organizationId }) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [barriersData, setBarriersData] = useState(null)
-  const [assessmentType, setAssessmentType] = useState("Literacy") // default
-
+export default function KeyBarriers({
+  organizationId,
+  loading,
+  error,
+  barriersData,
+  assessmentType,
+  onAssessmentTypeChange,
+  onFetchData,
+}) {
   useEffect(() => {
-    const fetchData = async () => {
-      if (!organizationId) return
-
-      setLoading(true)
-      setError(null)
-
-      try {
-        const endpoint =
-          assessmentType === "Literacy"
-            ? "/api/literacy/missed-letters"
-            : "/api/numeracy/missed-numbers"
-
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ organization_id: organizationId }),
-        })
-
-        const result = await response.json()
-
-        if (!result.success) {
-          setError(result.message || result.error)
-          return
-        }
-
-        setBarriersData(result.data)
-      } catch (err) {
-        setError(err.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [organizationId, assessmentType]) // refetch when dropdown changes
+    onFetchData(assessmentType)
+  }, [organizationId, assessmentType])
 
   // --- UI States ---
   if (loading) {
@@ -82,7 +52,7 @@ export default function KeyBarriers({ organizationId }) {
 
         <select
           value={assessmentType}
-          onChange={(e) => setAssessmentType(e.target.value)}
+          onChange={(e) => onAssessmentTypeChange(e.target.value)}
           className="bg-background-lighter border border-gray-700 text-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-3"
         >
           <option value="Literacy">Literacy</option>

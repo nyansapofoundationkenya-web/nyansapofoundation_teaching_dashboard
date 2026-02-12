@@ -21,6 +21,11 @@ import SchoolsListModal from "@/components/ui/SchoolsListModal";
 import InstructorModal from "@/components/ui/InstructorModal";
 import MultiSheetUploadModal from "@/components/ui/MultipleSheetUploadModal";
 import StudentLevelsChart from "@/components/Welcome/StudentLevelChart";
+import KeyBarriers from "@/components/Welcome/KeyBarriers";
+import WeeklyEngagementChart from "@/components/Welcome/WeeklyEngagementChart";
+import ProgramImpact from "@/components/Welcome/ProgramImpact";
+import AssessmentHealth from "@/components/Welcome/AssessmentHealth";
+import AttendanceOverview from "@/components/Welcome/AttendanceOverview";
 
 import DashboardLayout from "@/app/dashboard/[organizationId]/DashboardLayout";
 
@@ -68,6 +73,47 @@ export default function ProjectDetails() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [levelType, setLevelType] = useState("literacy");
   const dropdownRef = useRef(null);
+
+  // Dummy state for Key Barriers
+  const [barrierLoading] = useState(false);
+  const [barrierError] = useState(null);
+  const [barriersData] = useState({
+    top_3_missed: [
+      { letter: "A", number: 1 },
+      { letter: "B", number: 2 },
+      { letter: "C", number: 3 },
+    ],
+    stats: { success_rate: 85 },
+  });
+  const [assessmentType, setAssessmentType] = useState("Literacy");
+
+  // Dummy state for Assessment Health
+  const [healthLoading] = useState(false);
+  const [healthError] = useState(null);
+  const [healthData] = useState({
+    literacy: { completion_rate: 85, total_assessed: 450, total_students: 500 },
+    numeracy: { completion_rate: 78, total_assessed: 390, total_students: 500 },
+  });
+
+  // Dummy state for Attendance Overview
+  const [attendanceLoading] = useState(false);
+  const [attendanceError] = useState(null);
+  const [attendanceData] = useState({
+    overall_rate: 88,
+    trend: "up",
+    chart_data_7days: [],
+    chart_data_30days: [],
+  });
+
+  // Dummy state for Program Impact
+  const [impactLoading] = useState(false);
+  const [impactError] = useState(null);
+  const [impactData] = useState({
+    students_improved: 125,
+    improvement_percentage: 75,
+    students_assessed: 450,
+    total_students: 500,
+  });
 
   // -------------------------------------------------------------------------
   // Load data
@@ -268,18 +314,76 @@ export default function ProjectDetails() {
               />
             </div>
 
-            {/* Student Levels Distribution Chart */}
-            <StudentLevelsChart
-              levelType={levelType}
-              setLevelType={setLevelType}
-              chartData={chartData}
-              loading={levelsLoading}
-              error={levelsError}
-              onRefresh={handleRefreshLevels}
-              onDownload={() => console.log("Export student levels for project")}
-              downloadLoading={false}
-              isSuperAdmin={isAdminOrSuperAdmin}
-            />
+            {/* Key Barriers + Student Levels Distribution Chart */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-1">
+                <KeyBarriers
+                  organizationId={organizationId}
+                  loading={barrierLoading}
+                  error={barrierError}
+                  barriersData={barriersData}
+                  assessmentType={assessmentType}
+                  onAssessmentTypeChange={setAssessmentType}
+                  onFetchData={() => console.log("Fetching barriers data for project")}
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <StudentLevelsChart
+                  levelType={levelType}
+                  setLevelType={setLevelType}
+                  chartData={chartData}
+                  loading={levelsLoading}
+                  error={levelsError}
+                  onRefresh={handleRefreshLevels}
+                  onDownload={() => console.log("Export student levels for project")}
+                  downloadLoading={false}
+                  isSuperAdmin={isAdminOrSuperAdmin}
+                />
+              </div>
+            </div>
+
+            {/* Weekly Engagement */}
+            <div className="grid grid-cols-1">
+              <WeeklyEngagementChart organizationId={organizationId} />
+            </div>
+
+            {/* Assessment Health */}
+            <div className="grid grid-cols-1">
+              <AssessmentHealth
+                organizationId={organizationId}
+                loading={healthLoading}
+                error={healthError}
+                data={healthData}
+                onFetchData={() => console.log("Fetching health data for project")}
+              />
+            </div>
+
+            {/* Attendance Overview */}
+            <div className="grid grid-cols-1">
+              <AttendanceOverview
+                organizationId={organizationId}
+                loading={attendanceLoading}
+                error={attendanceError}
+                data={attendanceData}
+                onFetchData={() => console.log("Fetching attendance data for project")}
+              />
+            </div>
+
+            {/* Program Impact */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                {/* Empty space for consistency */}
+              </div>
+              <div className="lg:col-span-1">
+                <ProgramImpact
+                  organizationId={organizationId}
+                  loading={impactLoading}
+                  error={impactError}
+                  impactData={impactData}
+                  onFetchData={() => console.log("Fetching impact data for project")}
+                />
+              </div>
+            </div>
           </div>
         )}
       </div>

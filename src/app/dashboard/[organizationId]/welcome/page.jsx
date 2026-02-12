@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useParams } from "next/navigation"
 import { useSelector } from "react-redux"
 import { useOrganizations } from "@/hooks/useOrganization"
@@ -120,6 +120,27 @@ export default function WelcomePage() {
   const [levelType, setLevelType] = useState("literacy")
   const [downloadLoading, setDownloadLoading] = useState(false)
 
+  // Key Barriers state
+  const [barrierLoading, setBarrierLoading] = useState(false)
+  const [barrierError, setBarrierError] = useState(null)
+  const [barriersData, setBarriersData] = useState(null)
+  const [assessmentType, setAssessmentType] = useState("Literacy")
+
+  // Assessment Health state
+  const [healthLoading, setHealthLoading] = useState(false)
+  const [healthError, setHealthError] = useState(null)
+  const [healthData, setHealthData] = useState(null)
+
+  // Attendance Overview state
+  const [attendanceLoading, setAttendanceLoading] = useState(false)
+  const [attendanceError, setAttendanceError] = useState(null)
+  const [attendanceData, setAttendanceData] = useState(null)
+
+  // Program Impact state
+  const [impactLoading, setImpactLoading] = useState(false)
+  const [impactError, setImpactError] = useState(null)
+  const [impactData, setImpactData] = useState(null)
+
   // Fetch organization general info
   useEffect(() => {
     if (!organizationId) return
@@ -153,6 +174,127 @@ export default function WelcomePage() {
       })
     }
   }, [organizationId, fetchOrganizationStats])
+
+  // ------------------- Fetch Key Barriers Data -------------------
+  const fetchBarriersData = useCallback(async (type) => {
+    if (!organizationId) return
+
+    setBarrierLoading(true)
+    setBarrierError(null)
+
+    try {
+      const endpoint =
+        type === "Literacy"
+          ? "/api/literacy/missed-letters"
+          : "/api/numeracy/missed-numbers"
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organization_id: organizationId }),
+      })
+
+      const result = await response.json()
+
+      if (!result.success) {
+        setBarrierError(result.message || result.error)
+        return
+      }
+
+      setBarriersData(result.data)
+    } catch (err) {
+      setBarrierError(err.message)
+    } finally {
+      setBarrierLoading(false)
+    }
+  }, [organizationId])
+
+  // ------------------- Fetch Assessment Health Data -------------------
+  const fetchHealthData = useCallback(async () => {
+    if (!organizationId) return
+
+    setHealthLoading(true)
+    setHealthError(null)
+
+    try {
+      const response = await fetch("/api/literacy/assessment-health", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organization_id: organizationId }),
+      })
+
+      const result = await response.json()
+
+      if (!result.success) {
+        setHealthError(result.message || result.error)
+        return
+      }
+
+      setHealthData(result.data)
+    } catch (err) {
+      setHealthError(err.message)
+    } finally {
+      setHealthLoading(false)
+    }
+  }, [organizationId])
+
+  // ------------------- Fetch Attendance Data -------------------
+  const fetchAttendanceData = useCallback(async () => {
+    if (!organizationId) return
+
+    setAttendanceLoading(true)
+    setAttendanceError(null)
+
+    try {
+      const response = await fetch("/api/literacy/attendance-overview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organization_id: organizationId }),
+      })
+
+      const result = await response.json()
+
+      if (!result.success) {
+        setAttendanceError(result.message || result.error)
+        return
+      }
+
+      setAttendanceData(result.data)
+    } catch (err) {
+      setAttendanceError(err.message)
+    } finally {
+      setAttendanceLoading(false)
+    }
+  }, [organizationId])
+
+  // ------------------- Fetch Program Impact Data -------------------
+  const fetchImpactData = useCallback(async () => {
+    if (!organizationId) return
+
+    setImpactLoading(true)
+    setImpactError(null)
+
+    try {
+      const response = await fetch("/api/literacy/student-improvement", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organization_id: organizationId }),
+      })
+
+      const result = await response.json()
+
+      if (!result.success) {
+        setImpactError(result.message || result.error)
+        return
+      }
+
+      setImpactData(result.data)
+    } catch (err) {
+      setImpactError(err.message)
+    } finally {
+      setImpactLoading(false)
+    }
+  }, [organizationId])
 
   const chartData = ChartDataTransformer.transformData(
     levelType === "literacy" ? studentLevelsStats?.literacy : studentLevelsStats?.numeracy,
@@ -295,7 +437,15 @@ export default function WelcomePage() {
               />
             </div>
             <div className="lg:col-span-1">
-              <KeyBarriers organizationId={organizationId} />
+              <KeyBarriers
+                organizationId={organizationId}
+                loading={barrierLoading}
+                error={barrierError}
+                barriersData={barriersData}
+                assessmentType={assessmentType}
+                onAssessmentTypeChange={setAssessmentType}
+                onFetchData={fetchBarriersData}
+              />
             </div>
           </div>
 
@@ -305,18 +455,36 @@ export default function WelcomePage() {
               <WeeklyEngagementChart organizationId={organizationId} />
             </div>
             <div className="lg:col-span-1">
-              <ProgramImpact organizationId={organizationId} />
+              <ProgramImpact
+                organizationId={organizationId}
+                loading={impactLoading}
+                error={impactError}
+                impactData={impactData}
+                onFetchData={fetchImpactData}
+              />
             </div>
           </div>
 
           {/* Assessment Health */}
           <div className="mb-10">
-            <AssessmentHealth organizationId={organizationId} />
+            <AssessmentHealth
+              organizationId={organizationId}
+              loading={healthLoading}
+              error={healthError}
+              data={healthData}
+              onFetchData={fetchHealthData}
+            />
           </div>
 
           {/* Attendance Overview */}
           <div className="mb-10">
-            <AttendanceOverview organizationId={organizationId} />
+            <AttendanceOverview
+              organizationId={organizationId}
+              loading={attendanceLoading}
+              error={attendanceError}
+              data={attendanceData}
+              onFetchData={fetchAttendanceData}
+            />
           </div>
         </main>
 

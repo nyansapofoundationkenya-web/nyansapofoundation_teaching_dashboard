@@ -5,6 +5,11 @@ import { ChevronDown, Upload, RefreshCw } from "lucide-react"
 import SchoolDetailStats from "./SchoolDetailStats"
 import StudentUploadModal from "@/components/ui/StudentUploadModal"
 import StudentLevelsChart from "@/components/Welcome/StudentLevelChart"
+import KeyBarriers from "@/components/Welcome/KeyBarriers"
+import WeeklyEngagementChart from "@/components/Welcome/WeeklyEngagementChart"
+import ProgramImpact from "@/components/Welcome/ProgramImpact"
+import AssessmentHealth from "@/components/Welcome/AssessmentHealth"
+import AttendanceOverview from "@/components/Welcome/AttendanceOverview"
 import { useStats } from "@/hooks/stats/useStats"
 import { useSelector } from "react-redux"
 
@@ -31,6 +36,47 @@ export default function SchoolDetailContent({
   const [showStudentUploadModal, setShowStudentUploadModal] = useState(false)
   const [levelType, setLevelType] = useState("literacy")
   const dropdownRef = useRef(null)
+
+  // Dummy state for Key Barriers
+  const [barrierLoading] = useState(false)
+  const [barrierError] = useState(null)
+  const [barriersData] = useState({
+    top_3_missed: [
+      { letter: "E", number: 5 },
+      { letter: "F", number: 6 },
+      { letter: "G", number: 7 },
+    ],
+    stats: { success_rate: 78 },
+  })
+  const [assessmentType, setAssessmentType] = useState("Literacy")
+
+  // Dummy state for Assessment Health
+  const [healthLoading] = useState(false)
+  const [healthError] = useState(null)
+  const [healthData] = useState({
+    literacy: { completion_rate: 82, total_assessed: 145, total_students: 160 },
+    numeracy: { completion_rate: 75, total_assessed: 120, total_students: 160 },
+  })
+
+  // Dummy state for Attendance Overview
+  const [attendanceLoading] = useState(false)
+  const [attendanceError] = useState(null)
+  const [attendanceData] = useState({
+    overall_rate: 86,
+    trend: "up",
+    chart_data_7days: [],
+    chart_data_30days: [],
+  })
+
+  // Dummy state for Program Impact
+  const [impactLoading] = useState(false)
+  const [impactError] = useState(null)
+  const [impactData] = useState({
+    students_improved: 42,
+    improvement_percentage: 72,
+    students_assessed: 145,
+    total_students: 160,
+  })
 
   // Fetch school-level student stats when school loads
   useEffect(() => {
@@ -151,19 +197,75 @@ export default function SchoolDetailContent({
       {/* Stats Cards */}
       <SchoolDetailStats school={school} />
 
-      {/* Student Levels Chart */}
+      {/* Key Barriers + Student Levels Chart */}
+      <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <KeyBarriers
+            organizationId={organizationId}
+            loading={barrierLoading}
+            error={barrierError}
+            barriersData={barriersData}
+            assessmentType={assessmentType}
+            onAssessmentTypeChange={setAssessmentType}
+            onFetchData={() => console.log("Fetching barriers data for school")}
+          />
+        </div>
+        <div className="lg:col-span-2">
+          <StudentLevelsChart
+            levelType={levelType}
+            setLevelType={setLevelType}
+            chartData={chartData}
+            loading={levelsLoading}
+            error={levelsError}
+            onRefresh={handleRefresh}
+            onDownload={() => console.log("Export school student levels")} // placeholder
+            downloadLoading={false}
+            isSuperAdmin={isSuperAdmin}
+          />
+        </div>
+      </div>
+
+      {/* Weekly Engagement */}
       <div className="mt-8">
-        <StudentLevelsChart
-          levelType={levelType}
-          setLevelType={setLevelType}
-          chartData={chartData}
-          loading={levelsLoading}
-          error={levelsError}
-          onRefresh={handleRefresh}
-          onDownload={() => console.log("Export school student levels")} // placeholder
-          downloadLoading={false}
-          isSuperAdmin={isSuperAdmin}
+        <WeeklyEngagementChart organizationId={organizationId} />
+      </div>
+
+      {/* Assessment Health */}
+      <div className="mt-8">
+        <AssessmentHealth
+          organizationId={organizationId}
+          loading={healthLoading}
+          error={healthError}
+          data={healthData}
+          onFetchData={() => console.log("Fetching health data for school")}
         />
+      </div>
+
+      {/* Attendance Overview */}
+      <div className="mt-8">
+        <AttendanceOverview
+          organizationId={organizationId}
+          loading={attendanceLoading}
+          error={attendanceError}
+          data={attendanceData}
+          onFetchData={() => console.log("Fetching attendance data for school")}
+        />
+      </div>
+
+      {/* Program Impact */}
+      <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          {/* Empty space for consistency */}
+        </div>
+        <div className="lg:col-span-1">
+          <ProgramImpact
+            organizationId={organizationId}
+            loading={impactLoading}
+            error={impactError}
+            impactData={impactData}
+            onFetchData={() => console.log("Fetching impact data for school")}
+          />
+        </div>
       </div>
 
       {/* Student Upload Modal */}
