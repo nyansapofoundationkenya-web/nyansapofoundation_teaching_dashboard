@@ -18,20 +18,18 @@ const ChatHeader = ({
           </div>
           <div>
             <h3 className="text-xl font-semibold">AI Education Analyst</h3>
-            {conversationId && (
-              <p className="text-xs opacity-60">Conversation saved automatically</p>
-            )}
           </div>
         </div>
         <div className="flex gap-3">
-          <button
-            onClick={onNewConversation}
-            className="p-2.5 rounded-lg bg-[var(--primary-2)]/20 hover:bg-[var(--primary-2)]/30 transition flex items-center gap-2 px-4"
-            title="Start new conversation"
-          >
-            <FiPlus className="w-5 h-5" />
-            <span className="text-sm">New</span>
-          </button>
+          {conversationId && (
+            <button
+              onClick={onNewConversation}
+              className="p-2.5 rounded-lg bg-[var(--background-lighter)]/50 hover:bg-[var(--background-lighter)]/80 transition"
+              title="Start new conversation"
+            >
+              <FiPlus className="w-5 h-5" />
+            </button>
+          )}
           <button
             onClick={() => setShowContextInfo(!showContextInfo)}
             className="p-2.5 rounded-lg bg-[var(--background-lighter)]/50 hover:bg-[var(--background-lighter)]/80 transition"
@@ -57,9 +55,6 @@ const ChatHeader = ({
           </div>
           <p className="text-lg font-semibold">{organizationName}</p>
           <p className="text-xs opacity-70 mt-1">ID: {organizationId?.slice(0, 10)}...</p>
-          {conversationId && (
-            <p className="text-xs opacity-70 mt-1">Conversation: {conversationId.slice(0, 10)}...</p>
-          )}
         </div>
       )}
     </div>
