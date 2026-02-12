@@ -83,31 +83,6 @@ export default function AIAssistantPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column: Stats and Info */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Stats Card */}
-            <div className="bg-background-light rounded-2xl p-6 border border-gray-600">
-              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <FiDatabase />
-                Your Dashboard Data
-              </h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 rounded-xl bg-background-lighter">
-                  <span className="text-gray-300">Total Students</span>
-                  <span className="text-primary-2 font-bold">{dashboardStats.totalStudents}</span>
-                </div>
-                <div className="flex justify-between items-center p-3 rounded-xl bg-background-lighter">
-                  <span className="text-gray-300">Total Assessments</span>
-                  <span className="text-primary-2 font-bold">{dashboardStats.totalAssessments}</span>
-                </div>
-                <div className="flex justify-between items-center p-3 rounded-xl bg-background-lighter">
-                  <span className="text-gray-300">Active Projects</span>
-                  <span className="text-primary-2 font-bold">{dashboardStats.activeProjects}</span>
-                </div>
-                <div className="flex justify-between items-center p-3 rounded-xl bg-background-lighter">
-                  <span className="text-gray-300">Schools</span>
-                  <span className="text-primary-2 font-bold">{dashboardStats.schoolsCount}</span>
-                </div>
-              </div>
-            </div>
             
             {/* Example Questions */}
             <div className="bg-background-light rounded-2xl p-6 border border-gray-600">
