@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, addDoc, serverTimestamp, updateDoc, arrayUnion, increment } from "firebase/firestore";
 import { db } from "../firebase/config";
 
 export function useOrganizations() {
@@ -52,7 +52,7 @@ export function useOrganizations() {
   };
 
   // 🔹 Add new organization
-  const handleAddOrganization = async (orgName) => {
+  const handleAddOrganization = async (orgName, createSandbox = false) => {
     if (!orgName) throw new Error("Organization name is required");
 
     setLoading(true);
@@ -60,16 +60,35 @@ export function useOrganizations() {
 
     try {
       const orgsRef = collection(db, "organization");
+      
+      // Create main organization
       const newOrg = {
         name: orgName,
         createdAt: serverTimestamp(),
       };
       const docRef = await addDoc(orgsRef, newOrg);
+      const mainOrgId = docRef.id;
 
       // Update local state optimistically
-      setOrganizations((prev) => [...prev, { id: docRef.id, ...newOrg }]);
+      setOrganizations((prev) => [...prev, { id: mainOrgId, ...newOrg }]);
 
-      return { id: docRef.id, ...newOrg };
+      // Create sandbox if requested
+      if (createSandbox) {
+        const sandboxName = `${orgName}-sandbox`;
+        const sandboxOrg = {
+          name: sandboxName,
+          createdAt: serverTimestamp(),
+          isSandbox: true,
+          parentOrganization: mainOrgId,
+        };
+        const sandboxRef = await addDoc(orgsRef, sandboxOrg);
+        const sandboxOrgId = sandboxRef.id;
+
+        // Update local state
+        setOrganizations((prev) => [...prev, { id: sandboxOrgId, ...sandboxOrg }]);
+      }
+
+      return { id: mainOrgId, ...newOrg };
     } catch (err) {
       setError(err.message);
       throw err;

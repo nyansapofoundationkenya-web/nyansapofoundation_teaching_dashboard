@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FiClock, FiMessageSquare, FiTrash2, FiChevronRight } from "react-icons/fi";
-import { getUserConversations, deleteConversation } from "@/utils/aiConversationUtils";
+import { FiClock, FiMessageSquare, FiTrash2, FiChevronRight, FiPlus } from "react-icons/fi";
+import { getUserConversations, deleteConversation, startNewConversation } from "@/utils/aiConversationUtils";
 
 const ConversationHistory = ({ 
   userId, 
@@ -13,10 +13,29 @@ const ConversationHistory = ({
   const [conversations, setConversations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     loadConversations();
   }, [userId]);
+
+  const handleStartNew = async () => {
+    if (!userId || isCreating) return;
+
+    try {
+      setIsCreating(true);
+      setIsLoading(true);
+      const newId = await startNewConversation(userId, organizationId, "");
+      await loadConversations();
+      onSelectConversation(newId);
+    } catch (err) {
+      console.error("Error starting new conversation:", err);
+      alert("Failed to start new conversation");
+    } finally {
+      setIsLoading(false);
+      setIsCreating(false);
+    }
+  };
 
   const loadConversations = async () => {
     if (!userId) return;
@@ -90,9 +109,21 @@ const ConversationHistory = ({
           <FiClock />
           Recent Conversations
         </h3>
-        <span className="text-sm text-gray-400">
-          {conversations.length} total
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-400">{conversations.length} total</span>
+          {/* <button
+            onClick={handleStartNew}
+            title="Start new conversation"
+            disabled={isCreating}
+            className={`p-2 rounded-md ${isCreating ? 'opacity-60 cursor-not-allowed' : 'bg-[var(--background-lighter)]/50 hover:bg-[var(--background-lighter)]'} transition`}
+          >
+            {isCreating ? (
+              <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <FiPlus className="w-4 h-4" />
+            )}
+          </button> */}
+        </div>
       </div>
 
       {conversations.length === 0 ? (

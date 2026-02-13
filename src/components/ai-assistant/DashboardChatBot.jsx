@@ -38,6 +38,14 @@ const DashboardChatBot = ({
   const [conversationId, setConversationId] = useState(initialConversationId);
   const [isSavingConversation, setIsSavingConversation] = useState(false);
   const [conversationLoaded, setConversationLoaded] = useState(false);
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+
+  // Sync internal conversationId with prop when parent selects a conversation
+  useEffect(() => {
+    setConversationId(initialConversationId);
+    // mark as not loaded so loadExistingConversation effect will run
+    setConversationLoaded(false);
+  }, [initialConversationId]);
 
   const messagesEndRef = useRef(null);
 
@@ -57,7 +65,8 @@ const DashboardChatBot = ({
           
           if (!conversationLoaded) {
             setMessages((prev) => {
-              const filtered = prev.filter((m) => m.id !== "welcome");
+              // Remove any existing welcome messages (welcome, welcome-personalized, cleared/new placeholders)
+              const filtered = prev.filter((m) => !m.id?.toString().startsWith("welcome") && !m.id?.toString().startsWith("new-") && !m.id?.toString().startsWith("cleared-"));
               return [
                 {
                   text: `Hello! I'm your AI Education Analyst for **${name}**.\n\nWhat would you like to know?`,
@@ -227,8 +236,8 @@ const DashboardChatBot = ({
 
   const handleNewConversation = async () => {
     if (!userId) return;
-    
     try {
+      setIsCreatingConversation(true);
       const newConvId = await startNewConversation(userId, organizationId, organizationName);
       setConversationId(newConvId);
       setMessages([
@@ -242,6 +251,8 @@ const DashboardChatBot = ({
       setConversationLoaded(false);
     } catch (error) {
       console.error("Error starting new conversation:", error);
+    } finally {
+      setIsCreatingConversation(false);
     }
   };
 
@@ -266,6 +277,7 @@ const DashboardChatBot = ({
         setShowContextInfo={setShowContextInfo}
         onClearChat={handleClearChat}
         onNewConversation={handleNewConversation}
+        isCreatingNewConversation={isCreatingConversation}
         organizationId={organizationId}
       />
 

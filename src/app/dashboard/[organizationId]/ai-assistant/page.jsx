@@ -218,7 +218,7 @@ export default function AIAssistantPage() {
                 </div>
                 
                 {/* Chat Container */}
-                <div className="flex-grow overflow-hidden">
+                <div className="flex-grow overflow-hidden h-[calc(100vh-120px)]">
                   <DashboardChatBot 
                     organizationId={organizationId} 
                     userId={currentUser?.uid}

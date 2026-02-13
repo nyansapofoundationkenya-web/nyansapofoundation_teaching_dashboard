@@ -27,6 +27,7 @@ export default function OrganizationPage({
   const [newOrgName, setNewOrgName] = useState("");
   const [addingOrg, setAddingOrg] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
+  const [createSandbox, setCreateSandbox] = useState(false);
 
   // Fetch organizations when user is available
   useEffect(() => {
@@ -81,8 +82,9 @@ export default function OrganizationPage({
 
     try {
       setAddingOrg(true);
-      await handleAddOrganization(newOrgName.trim());
+      await handleAddOrganization(newOrgName.trim(), createSandbox);
       setNewOrgName("");
+      setCreateSandbox(false);
       setShowAddModal(false);
       // Reset data fetched flag to refresh data
       setDataFetched(false);
@@ -189,11 +191,30 @@ export default function OrganizationPage({
               />
             </div>
 
+            {/* Sandbox Checkbox */}
+            <div className="mb-6 p-4 bg-background-lighter rounded-xl border border-gray-500">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={createSandbox}
+                  onChange={(e) => setCreateSandbox(e.target.checked)}
+                  className="mt-1 w-4 h-4 rounded accent-primary-3"
+                />
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-foreground">Create Sandbox Organization</div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Creates a test environment (e.g., "{newOrgName.trim() || 'your-org'}-sandbox") where you can practice assessments before conducting real evaluations.
+                  </p>
+                </div>
+              </label>
+            </div>
+
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowAddModal(false);
                   setNewOrgName("");
+                  setCreateSandbox(false);
                 }}
                 className="px-4 py-2 text-gray-300 hover:text-foreground hover:bg-background-lighter rounded-xl transition-colors"
                 disabled={addingOrg}
@@ -205,7 +226,7 @@ export default function OrganizationPage({
                 disabled={addingOrg || !newOrgName.trim()}
                 className="px-4 py-2 bg-primary-3 text-primary-1 font-semibold rounded-xl hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {addingOrg ? "Adding..." : "Add Organization"}
+                {addingOrg ? "Creating..." : "Create Organization"}
               </button>
             </div>
           </div>

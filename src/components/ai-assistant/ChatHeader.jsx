@@ -7,7 +7,8 @@ const ChatHeader = ({
   setShowContextInfo, 
   onClearChat,
   onNewConversation,
-  organizationId 
+  organizationId,
+  isCreatingNewConversation = false,
 }) => {
   return (
     <div className="p-5 border-b border-[var(--background-lighter)] bg-[var(--background-light)]">
@@ -21,15 +22,18 @@ const ChatHeader = ({
           </div>
         </div>
         <div className="flex gap-3">
-          {conversationId && (
-            <button
-              onClick={onNewConversation}
-              className="p-2.5 rounded-lg bg-[var(--background-lighter)]/50 hover:bg-[var(--background-lighter)]/80 transition"
-              title="Start new conversation"
-            >
+          <button
+            onClick={onNewConversation}
+            disabled={isCreatingNewConversation}
+            title="Start new conversation"
+            className={`p-2.5 rounded-lg transition ${isCreatingNewConversation ? 'opacity-60 cursor-not-allowed bg-[var(--background-lighter)]/30' : 'bg-[var(--background-lighter)]/50 hover:bg-[var(--background-lighter)]/80'}`}
+          >
+            {isCreatingNewConversation ? (
+              <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+            ) : (
               <FiPlus className="w-5 h-5" />
-            </button>
-          )}
+            )}
+          </button>
           <button
             onClick={() => setShowContextInfo(!showContextInfo)}
             className="p-2.5 rounded-lg bg-[var(--background-lighter)]/50 hover:bg-[var(--background-lighter)]/80 transition"
