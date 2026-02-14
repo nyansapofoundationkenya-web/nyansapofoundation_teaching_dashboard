@@ -40,64 +40,7 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
       level: level === "all" ? null : level // Send null when "all" is selected
     })
   }, [selectedProject, selectedSchool, type, level])
-
-  // Helper function to check if a student's baseline data is not empty
-const hasValidBaselineData = async (studentId, assessmentId) => {
-  try {
-    // First, get the assessment document
-    const assessmentRef = doc(db, `assessments/${assessmentId}`);
-    const assessmentDoc = await getDoc(assessmentRef);
-    
-    if (!assessmentDoc.exists()) {
-      console.log("Assessment not found");
-      return false;
-    }
-    
-    const assessmentData = assessmentDoc.data();
-    
-    // Get the assigned_students array from the assessment
-    const assignedStudents = assessmentData.assigned_students || [];
-    
-    // Find the specific student by their ID
-    const student = assignedStudents.find(s => s.id === studentId);
-    
-    if (!student) {
-      console.log("Student not found in assigned_students");
-      return false;
-    }
-    
-    // Check if the student has a baseline field with content
-    if (student.baseline === undefined || student.baseline === null) {
-      return false;
-    }
-    
-    // If baseline is stored as a string
-    if (typeof student.baseline === 'string') {
-      return student.baseline.trim().length > 0;
-    }
-    
-    // If baseline is stored as an object
-    if (typeof student.baseline === 'object') {
-      const baselineData = student.baseline;
-      
-      // Check if baseline data has actual content
-      const hasContent = 
-        (baselineData.score !== undefined && baselineData.score !== null) ||
-        (baselineData.responses && Object.keys(baselineData.responses).length > 0) ||
-        (baselineData.data && Object.keys(baselineData.data).length > 0) ||
-        (baselineData.completed === true) ||
-        (baselineData.status && baselineData.status !== 'empty');
-      
-      return hasContent;
-    }
-    
-    return false;
-  } catch (error) {
-    console.error("Error checking baseline data:", error);
-    return false;
-  }
-};
-  // Real-time listener for assessment data grouped by date
+  // Real-time listener for daily assessment counts from cloud function
   useEffect(() => {
     if (!organizationId) {
       setAssessmentData([])
@@ -114,69 +57,46 @@ const hasValidBaselineData = async (studentId, assessmentId) => {
     const unsubscribe = onSnapshot(assessmentsQuery, async (snapshot) => {
       const assessmentsByDate = {}
       
-      // Process assessments in batches to avoid too many concurrent requests
-      const assessmentsToProcess = []
-      
-      snapshot.docs.forEach(doc => {
-        const data = doc.data()
-        const assessmentId = doc.id
-        
-        // Get creation date
-        if (data.created_at) {
-          let dateStr
-          if (data.created_at.includes('T')) {
-            dateStr = data.created_at.split('T')[0]
-          } else {
-            dateStr = data.created_at
-          }
-          
-          // Check if assessment has assigned students with has_done: true
-          if (Array.isArray(data.assigned_students)) {
-            const studentsWithHasDone = data.assigned_students.filter(student => 
-              student.has_done === true
-            )
-            
-            // Only process if at least one student has has_done: true
-            if (studentsWithHasDone.length > 0) {
-              assessmentsToProcess.push({
-                assessmentId,
-                data,
-                dateStr,
-                studentsWithHasDone
+      // Get all assessments
+      const assessments = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+
+      // For each assessment, fetch daily_assessment_counts subcollection
+      for (const assessment of assessments) {
+        try {
+          const dailyCountsRef = collection(db, `assessments/${assessment.id}/daily_assessment_counts`)
+          const dailyCountsSnapshot = await getDocs(dailyCountsRef)
+
+          // Process each daily count
+          dailyCountsSnapshot.docs.forEach(doc => {
+            const dailyData = doc.to_dict ? doc.to_dict() : doc.data()
+            const date = dailyData.date || doc.id // date should be YYYY-MM-DD format
+
+            // Determine which count field to use based on assessment type
+            const assessmentType = (assessment.type || "Literacy").toLowerCase()
+            const countField = `${assessmentType}_student_count`
+            const count = dailyData[countField] || 0
+
+            if (count > 0) {
+              if (!assessmentsByDate[date]) {
+                assessmentsByDate[date] = []
+              }
+
+              assessmentsByDate[date].push({
+                id: assessment.id,
+                completedCount: count,
+                name: assessment.name || "Unnamed Assessment",
+                created_at: assessment.created_at,
+                date: date,
+                type: assessment.type || "Literacy",
+                level: assessment.level || "Baseline"
               })
             }
-          }
-        }
-      })
-
-      // Process each assessment to check baseline data
-      for (const { assessmentId, data, dateStr, studentsWithHasDone } of assessmentsToProcess) {
-        let validCompletedCount = 0
-        
-        // Check each student who has has_done: true
-        for (const student of studentsWithHasDone) {
-          const hasBaselineData = await hasValidBaselineData(student.id || student.student_id, assessmentId)
-          
-          if (hasBaselineData) {
-            validCompletedCount++
-          }
-        }
-        
-        // Only include assessment if at least one student has valid baseline data
-        if (validCompletedCount > 0) {
-          if (!assessmentsByDate[dateStr]) {
-            assessmentsByDate[dateStr] = []
-          }
-          
-          assessmentsByDate[dateStr].push({
-            id: assessmentId,
-            completedCount: validCompletedCount,
-            name: data.name || "Unnamed Assessment",
-            created_at: data.created_at,
-            date: dateStr,
-            type: data.type || "Literacy",
-            level: data.level || "Baseline"
           })
+        } catch (error) {
+          console.error(`Error fetching daily counts for assessment ${assessment.id}:`, error)
         }
       }
 

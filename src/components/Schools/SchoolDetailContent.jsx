@@ -54,19 +54,63 @@ export default function SchoolDetailContent({
   const [healthLoading] = useState(false)
   const [healthError] = useState(null)
   const [healthData] = useState({
-    literacy: { completion_rate: 82, total_assessed: 145, total_students: 160 },
-    numeracy: { completion_rate: 75, total_assessed: 120, total_students: 160 },
-  })
+  literacy: {
+    completion_rate: 85,
+    total_assessments: 450,
+    total_students_completed: 450,
+    total_students_assigned: 500,
+  },
+  numeracy: {
+    completion_rate: 78,
+    total_assessments: 390,
+    total_students_completed: 390,
+    total_students_assigned: 500,
+  },
+});
+
 
   // Dummy state for Attendance Overview
   const [attendanceLoading] = useState(false)
   const [attendanceError] = useState(null)
   const [attendanceData] = useState({
-    overall_rate: 86,
+  today: {
+    attendance_rate: 88,
+    total_present: 440,
+    total_students: 500,
+    date: new Date().toISOString(),
+    schools_took_attendance: 8,
+    schools_pending_attendance: 2,
+    total_schools: 10,
+  },
+  last_7_days: [
+    { day: "Mon", attendance_rate: 85, total_present: 425, total_students: 500 },
+    { day: "Tue", attendance_rate: 87, total_present: 435, total_students: 500 },
+    { day: "Wed", attendance_rate: 90, total_present: 450, total_students: 500 },
+    { day: "Thu", attendance_rate: 88, total_present: 440, total_students: 500 },
+    { day: "Fri", attendance_rate: 86, total_present: 430, total_students: 500 },
+    { day: "Sat", attendance_rate: 84, total_present: 420, total_students: 500 },
+    { day: "Sun", attendance_rate: 89, total_present: 445, total_students: 500 },
+  ],
+  last_30_days: Array.from({ length: 30 }, (_, i) => ({
+    date: new Date(Date.now() - i * 86400000).toISOString(),
+    attendance_rate: 80 + Math.random() * 10,
+    total_present: 400 + Math.floor(Math.random() * 100),
+    total_students: 500,
+  })).reverse(),
+  weekly_comparison: {
+    this_week_avg: 87,
+    last_week_avg: 84,
+    change: 3,
     trend: "up",
-    chart_data_7days: [],
-    chart_data_30days: [],
-  })
+  },
+  monthly_comparison: {
+    this_month_avg: 86,
+    last_month_avg: 82,
+    change: 4,
+    trend: "up",
+  },
+});
+
 
   // Dummy state for Program Impact
   const [impactLoading] = useState(false)
@@ -225,9 +269,20 @@ export default function SchoolDetailContent({
         </div>
       </div>
 
-      {/* Weekly Engagement */}
-      <div className="mt-8">
-        <WeeklyEngagementChart organizationId={organizationId} />
+      {/* Weekly Engagement + Program Impact */}
+      <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <WeeklyEngagementChart organizationId={organizationId} />
+        </div>
+        <div className="lg:col-span-1">
+          <ProgramImpact
+            organizationId={organizationId}
+            loading={impactLoading}
+            error={impactError}
+            impactData={impactData}
+            onFetchData={() => console.log("Fetching impact data for school")}
+          />
+        </div>
       </div>
 
       {/* Assessment Health */}
@@ -250,22 +305,6 @@ export default function SchoolDetailContent({
           data={attendanceData}
           onFetchData={() => console.log("Fetching attendance data for school")}
         />
-      </div>
-
-      {/* Program Impact */}
-      <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          {/* Empty space for consistency */}
-        </div>
-        <div className="lg:col-span-1">
-          <ProgramImpact
-            organizationId={organizationId}
-            loading={impactLoading}
-            error={impactError}
-            impactData={impactData}
-            onFetchData={() => console.log("Fetching impact data for school")}
-          />
-        </div>
       </div>
 
       {/* Student Upload Modal */}

@@ -135,6 +135,15 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
         const total = assessment.assigned_students?.length || 0
         const done = countDone(assessment.assigned_students)
         const remaining = total - done
+        const status = assessment.status || "not_started" // Get status from cloud function
+
+        // Map status to badge styling
+        const statusConfig = {
+          not_started: { color: "bg-gray-500/20 text-gray-300 border-gray-500/30", label: "Not Started" },
+          ongoing: { color: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30", label: "Ongoing" },
+          completed: { color: "bg-green-500/20 text-green-300 border-green-500/30", label: "Completed" }
+        }
+        const currentStatus = statusConfig[status] || statusConfig.not_started
 
         return (
           <div
@@ -143,9 +152,15 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
             className="bg-background-light rounded-2xl shadow-lg border border-gray-600 overflow-hidden hover:shadow-xl transition-all cursor-pointer group"
           >
             <div className="bg-gradient-to-br from-primary-1 to-primary-2 text-white p-6">
-              <h3 className="text-xl font-semibold mb-3 line-clamp-2">
-                {safe(assessment.name) || "Untitled Assessment"}
-              </h3>
+              <div className="flex justify-between items-start mb-3">
+                <h3 className="text-xl font-semibold line-clamp-2 flex-1">
+                  {safe(assessment.name) || "Untitled Assessment"}
+                </h3>
+                {/* Status Badge */}
+                <span className={`px-2.5 py-1 rounded-lg text-xs font-medium border whitespace-nowrap ml-2 ${currentStatus.color}`}>
+                  {currentStatus.label}
+                </span>
+              </div>
 
               <div className="flex flex-wrap gap-2 mb-5">
                 {assessment.type && (
