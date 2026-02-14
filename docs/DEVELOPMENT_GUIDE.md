@@ -1,1 +1,573 @@
-# Development Guide\n\n## Welcome to the Nyansapo Teaching Dashboard Development Guide\n\nThis guide provides comprehensive information for developers working on the Nyansapo Teaching Dashboard.\n\n---\n\n## 📖 Documentation Structure\n\nThe documentation is organized into the following files:\n\n| File | Purpose | Best For |\n|------|---------|----------|\n| [README.md](README.md) | 📚 **Documentation Index** | Quick navigation and overview |\n| [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | 🏗️ **Architecture & Tech Stack** | Understanding project layout |\n| [components.md](components.md) | 🎨 **React Components** | Finding and using components |\n| [hooks.md](hooks.md) | 🪝 **Custom Hooks** | Data management & logic |\n| [pages.md](pages.md) | 📄 **Pages & Routes** | Understanding routing |\n| [API.md](API.md) | 🌐 **API Endpoints** | Backend integration |\n| [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) | 🛠️ **This File** | Development workflows |\n\n---\n\n## 🚀 Quick Start\n\n### Installation\n\n```bash\n# Clone the repository\ngit clone <repository-url>\ncd nyansapo_teaching_dashboard\n\n# Install dependencies\nnpm install\n\n# Set up environment variables\ncp .env.local.example .env.local\n# Edit .env.local with your Firebase credentials\n\n# Start development server\nnpm run dev\n```\n\nThe app will be available at `http://localhost:3000`\n\n### Build for Production\n\n```bash\n# Build the project\nnpm run build\n\n# Start production server\nnpm run start\n```\n\n### Linting\n\n```bash\n# Run ESLint\nnpm run lint\n```\n\n---\n\n## 📁 Project Structure\n\n```\nsrc/\n├── app/                    # Next.js app directory\n│   ├── api/               # API routes\n│   ├── dashboard/         # Main dashboard pages\n│   ├── auth-pages/        # Authentication pages\n│   └── layout.js          # Root layout\n│\n├── components/            # React components\n│   ├── ai-assistant/      # AI chat bot\n│   ├── Assessments/       # Assessment UI\n│   ├── Attendance/        # Attendance tracking\n│   ├── Dashboard/         # Layout components\n│   └── ...                # Other feature components\n│\n├── hooks/                 # Custom React hooks\n│   ├── useAuth.js         # Authentication\n│   ├── useOrganization.js # Organization management\n│   └── ...                # Other hooks\n│\n├── firebase/              # Firebase configuration\n├── redux/                 # Redux state management\n├── utils/                 # Utility functions\n└── icons/                 # Icon components\n```\n\nFor detailed structure, see [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md#directory-structure)\n\n---\n\n## 🔨 Development Workflows\n\n### Creating a New Component\n\n1. **Create component file** in appropriate folder under `src/components/`\n\n```jsx\n// src/components/MyFeature/MyComponent.jsx\n'use client'; // For client-side components\n\nimport { useState, useEffect } from 'react';\nimport { useMyHook } from '@/hooks/useMyHook';\n\nexport default function MyComponent({ prop1, prop2 }) {\n  const [state, setState] = useState(null);\n  const { data, loading } = useMyHook();\n\n  return (\n    <div>\n      {loading ? <p>Loading...</p> : <p>{data}</p>}\n    </div>\n  );\n}\n```\n\n2. **Add to documentation** in [components.md](components.md)\n\n3. **Export** from appropriate index file if needed\n\n4. **Use in pages or other components**\n\n### Creating a New Hook\n\n1. **Create hook file** in `src/hooks/`\n\n```javascript\n// src/hooks/useMyHook.js\nimport { useState, useEffect } from 'react';\nimport { useDispatch, useSelector } from 'react-redux';\nimport { db } from '@/firebase/config';\n\nexport function useMyHook() {\n  const [data, setData] = useState(null);\n  const [loading, setLoading] = useState(false);\n  const [error, setError] = useState(null);\n\n  useEffect(() => {\n    // Fetch data logic\n    fetchData();\n  }, []);\n\n  const fetchData = async () => {\n    try {\n      setLoading(true);\n      // Fetch from Firebase or API\n      setData(result);\n    } catch (err) {\n      setError(err);\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  return { data, loading, error, refetch: fetchData };\n}\n```\n\n2. **Document** in [hooks.md](hooks.md)\n\n3. **Use in components**\n\n### Creating a New Page\n\n1. **Create file** in appropriate location under `src/app/`\n\n```javascript\n// src/app/myfeature/page.js\nimport { Metadata } from 'next';\nimport MyComponent from '@/components/MyFeature/MyComponent';\n\nexport const metadata = {\n  title: 'My Feature | Nyansapo',\n  description: 'Feature description',\n};\n\nexport default function MyFeaturePage() {\n  return (\n    <div>\n      <MyComponent />\n    </div>\n  );\n}\n```\n\n2. **Add routing documentation** in [pages.md](pages.md)\n\n3. **Add navigation links** in SideBar component\n\n### Creating an API Route\n\n1. **Create file** in `src/app/api/`\n\n```javascript\n// src/app/api/myendpoint/route.js\nexport async function GET(request) {\n  try {\n    // API logic\n    return Response.json({ success: true, data });\n  } catch (error) {\n    return Response.json({ success: false, error: error.message }, { status: 500 });\n  }\n}\n\nexport async function POST(request) {\n  const body = await request.json();\n  // Handle POST request\n  return Response.json({ success: true });\n}\n```\n\n2. **Document** in [API.md](API.md)\n\n3. **Add authentication** if needed using Firebase tokens\n\n---\n\n## 🎨 Styling Guidelines\n\n### Tailwind CSS\n\nThe project uses Tailwind CSS for styling. Follow these patterns:\n\n```jsx\n// Responsive design\n<div className=\"w-full md:w-1/2 lg:w-1/3\"></div>\n\n// Utility classes\n<button className=\"px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors\"></button>\n\n// Dark mode\n<div className=\"bg-white dark:bg-gray-900 text-black dark:text-white\"></div>\n```\n\n### Component Structure\n\n```jsx\nexport default function Component() {\n  return (\n    <div className=\"container mx-auto px-4 py-8\">\n      <div className=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4\">\n        {/* Content */}\n      </div>\n    </div>\n  );\n}\n```\n\n---\n\n## 🗄️ Firebase Integration\n\n### Configuration\n\n```javascript\n// src/firebase/config.js\nimport { initializeApp } from 'firebase/app';\nimport { getAuth } from 'firebase/auth';\nimport { getFirestore } from 'firebase/firestore';\n\nconst firebaseConfig = {\n  // Your config\n};\n\nconst app = initializeApp(firebaseConfig);\nexport const auth = getAuth(app);\nexport const db = getFirestore(app);\n```\n\n### Reading Data\n\n```javascript\nimport { collection, getDocs, query, where } from 'firebase/firestore';\nimport { db } from '@/firebase/config';\n\nconst q = query(collection(db, 'users'), where('status', '==', 'active'));\nconst snapshot = await getDocs(q);\nconst data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));\n```\n\n### Writing Data\n\n```javascript\nimport { doc, setDoc, updateDoc } from 'firebase/firestore';\nimport { db } from '@/firebase/config';\n\n// Create\nawait setDoc(doc(db, 'users', userId), userData);\n\n// Update\nawait updateDoc(doc(db, 'users', userId), { status: 'inactive' });\n```\n\n---\n\n## 🔐 Authentication\n\n### Check Authentication Status\n\n```javascript\nimport { useAuth } from '@/hooks/useAuth';\n\nfunction MyComponent() {\n  const { user, loading } = useAuth();\n\n  if (loading) return <div>Loading...</div>;\n  if (!user) return <div>Not authenticated</div>;\n\n  return <div>Welcome, {user.name}</div>;\n}\n```\n\n### Protect Routes\n\nUse middleware or useAuth hook to protect routes:\n\n```javascript\nimport { useRouter } from 'next/navigation';\nimport { useAuth } from '@/hooks/useAuth';\n\nexport default function ProtectedPage() {\n  const router = useRouter();\n  const { user, loading } = useAuth();\n\n  if (!loading && !user) {\n    router.push('/login');\n    return null;\n  }\n\n  return <div>Protected content</div>;\n}\n```\n\n---\n\n## 📊 State Management with Redux\n\n### Redux Slices\n\n```javascript\n// src/redux/slices/mySlice.js\nimport { createSlice } from '@reduxjs/toolkit';\n\nconst mySlice = createSlice({\n  name: 'myFeature',\n  initialState: {\n    data: null,\n    loading: false,\n  },\n  reducers: {\n    setData: (state, action) => {\n      state.data = action.payload;\n    },\n    setLoading: (state, action) => {\n      state.loading = action.payload;\n    },\n  },\n});\n\nexport const { setData, setLoading } = mySlice.actions;\nexport default mySlice.reducer;\n```\n\n### Using Redux in Components\n\n```javascript\nimport { useDispatch, useSelector } from 'react-redux';\nimport { setData } from '@/redux/slices/mySlice';\n\nfunction MyComponent() {\n  const dispatch = useDispatch();\n  const data = useSelector(state => state.myFeature.data);\n\n  const handleUpdate = (newData) => {\n    dispatch(setData(newData));\n  };\n\n  return <div>{data}</div>;\n}\n```\n\n---\n\n## 🧪 Testing\n\n### Unit Testing\n\nCreate test files with `.test.js` or `.spec.js` extension:\n\n```javascript\n// src/components/Button.test.js\nimport { render, screen } from '@testing-library/react';\nimport Button from './Button';\n\ndescribe('Button Component', () => {\n  it('renders button with text', () => {\n    render(<Button>Click me</Button>);\n    expect(screen.getByText('Click me')).toBeInTheDocument();\n  });\n});\n```\n\n---\n\n## 🔄 Git Workflow\n\n### Branch Naming\n\n```\nfeature/component-name        # New feature\nfix/bug-description          # Bug fix\ndocs/update-documentation    # Documentation\nrefactor/component-name      # Code refactor\n```\n\n### Commit Messages\n\n```\nfeat: add new component\nfix: resolve authentication issue\ndocs: update hooks documentation\nrefactor: improve component structure\n```\n\n### Pull Request Process\n\n1. Create feature branch from main\n2. Make changes and commit\n3. Push to remote\n4. Create pull request\n5. Request review\n6. Update documentation if needed\n7. Merge to main\n\n---\n\n## 📝 Code Style\n\n### Naming Conventions\n\n```javascript\n// Components (PascalCase)\nMyComponent.jsx\n\n// Files (kebab-case)\nmy-component.jsx\nmy-hook.js\n\n// Functions/Variables (camelCase)\nfunction myFunction() {}\nconst myVariable = 'value';\n\n// Constants (UPPER_SNAKE_CASE)\nconst API_BASE_URL = 'https://api.example.com';\n```\n\n### Component Template\n\n```jsx\n'use client';\n\nimport { useState, useEffect } from 'react';\nimport { useMyHook } from '@/hooks/useMyHook';\nimport MySubComponent from './MySubComponent';\n\n/**\n * MyComponent\n * @description Component description\n * @param {Object} props\n * @param {string} props.title - Component title\n * @returns {JSX.Element}\n */\nexport default function MyComponent({ title, children }) {\n  const [state, setState] = useState(null);\n  const { data } = useMyHook();\n\n  useEffect(() => {\n    // Side effects\n  }, []);\n\n  const handleAction = () => {\n    // Action handler\n  };\n\n  return (\n    <div className=\"container\">\n      <h1>{title}</h1>\n      <MySubComponent onClick={handleAction} />\n      {children}\n    </div>\n  );\n}\n```\n\n---\n\n## 🐛 Debugging\n\n### Console Logging\n\n```javascript\n// In development\nif (process.env.NODE_ENV === 'development') {\n  console.log('Debug info', data);\n}\n\n// Conditional logging\nconst DEBUG = process.env.REACT_APP_DEBUG === 'true';\nif (DEBUG) console.log('Debug message');\n```\n\n### React DevTools\n\n1. Install React DevTools browser extension\n2. Open DevTools (F12)\n3. Go to React tab\n4. Inspect components and props\n\n### Firebase Debugging\n\n```javascript\n// Enable Firebase logging\nimport { enableLogging } from 'firebase/database';\nenableLogging(true);\n```\n\n---\n\n## 📚 Additional Resources\n\n- [Next.js Documentation](https://nextjs.org/docs)\n- [React Documentation](https://react.dev)\n- [Firebase Documentation](https://firebase.google.com/docs)\n- [Tailwind CSS Documentation](https://tailwindcss.com/docs)\n- [Redux Toolkit Documentation](https://redux-toolkit.js.org/)\n\n---\n\n## ❓ Common Issues\n\n### Issue: Cannot find module '@/hooks/useAuth'\n**Solution**: Check that the hook exists and path is correct. Verify jsconfig.json has correct path alias.\n\n### Issue: Firebase Authentication Error\n**Solution**: Ensure Firebase config is properly initialized. Check environment variables and API keys.\n\n### Issue: Styling not applied\n**Solution**: Verify Tailwind CSS is configured. Check that className syntax is correct.\n\n### Issue: Redux state not updating\n**Solution**: Ensure you're using dispatch correctly. Check reducer logic and initial state.\n\n---\n\n## 📞 Support\n\nFor detailed documentation:\n- Components: [components.md](components.md)\n- Hooks: [hooks.md](hooks.md)\n- Pages: [pages.md](pages.md)\n- API: [API.md](API.md)\n- Architecture: [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)\n\n---\n\n**Last Updated**: February 2026\n**Version**: 1.0"
+# Development Guide
+
+## Welcome to the Nyansapo Teaching Dashboard Development Guide
+
+This guide provides comprehensive information for developers working on the Nyansapo Teaching Dashboard.
+
+---
+
+## 📖 Documentation Structure
+
+The documentation is organized into the following files:
+
+| File | Purpose | Best For |
+|------|---------|----------|
+| [README.md](README.md) | 📚 **Documentation Index** | Quick navigation and overview |
+| [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | 🏗️ **Architecture & Tech Stack** | Understanding project layout |
+| [components.md](components.md) | 🎨 **React Components** | Finding and using components |
+| [hooks.md](hooks.md) | 🪝 **Custom Hooks** | Data management & logic |
+| [pages.md](pages.md) | 📄 **Pages & Routes** | Understanding routing |
+| [API.md](API.md) | 🌐 **API Endpoints** | Backend integration |
+| [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) | 🛠️ **This File** | Development workflows |
+
+---
+
+## 🚀 Quick Start
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd nyansapo_teaching_dashboard
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.local.example .env.local
+# Edit .env.local with your Firebase credentials
+
+# Start development server
+npm run dev
+```
+
+The app will be available at `http://localhost:3000`
+
+### Build for Production
+
+```bash
+# Build the project
+npm run build
+
+# Start production server
+npm run start
+```
+
+### Linting
+
+```bash
+# Run ESLint
+npm run lint
+```
+
+---
+
+## 📁 Project Structure
+
+```
+src/
+├── app/                    # Next.js app directory
+│   ├── api/               # API routes
+│   ├── dashboard/         # Main dashboard pages
+│   ├── auth-pages/        # Authentication pages
+│   └── layout.js          # Root layout
+│
+├── components/            # React components
+│   ├── ai-assistant/      # AI chat bot
+│   ├── Assessments/       # Assessment UI
+│   ├── Attendance/        # Attendance tracking
+│   ├── Dashboard/         # Layout components
+│   └── ...                # Other feature components
+│
+├── hooks/                 # Custom React hooks
+│   ├── useAuth.js         # Authentication
+│   ├── useOrganization.js # Organization management
+│   └── ...                # Other hooks
+│
+├── firebase/              # Firebase configuration
+├── redux/                 # Redux state management
+├── utils/                 # Utility functions
+└── icons/                 # Icon components
+```
+
+For detailed structure, see [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md#directory-structure)
+
+---
+
+## 🔨 Development Workflows
+
+### Creating a New Component
+
+1. **Create component file** in appropriate folder under `src/components/`
+
+```jsx
+// src/components/MyFeature/MyComponent.jsx
+'use client'; // For client-side components
+
+import { useState, useEffect } from 'react';
+import { useMyHook } from '@/hooks/useMyHook';
+
+export default function MyComponent({ prop1, prop2 }) {
+  const [state, setState] = useState(null);
+  const { data, loading } = useMyHook();
+
+  return (
+    <div>
+      {loading ? <p>Loading...</p> : <p>{data}</p>}
+    </div>
+  );
+}
+```
+
+2. **Add to documentation** in [components.md](components.md)
+
+3. **Export** from appropriate index file if needed
+
+4. **Use in pages or other components**
+
+### Creating a New Hook
+
+1. **Create hook file** in `src/hooks/`
+
+```javascript
+// src/hooks/useMyHook.js
+import { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { db } from '@/firebase/config';
+
+export function useMyHook() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    // Fetch data logic
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      // Fetch from Firebase or API
+      setData(result);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { data, loading, error, refetch: fetchData };
+}
+```
+
+2. **Document** in [hooks.md](hooks.md)
+
+3. **Use in components**
+
+### Creating a New Page
+
+1. **Create file** in appropriate location under `src/app/`
+
+```javascript
+// src/app/myfeature/page.js
+import { Metadata } from 'next';
+import MyComponent from '@/components/MyFeature/MyComponent';
+
+export const metadata = {
+  title: 'My Feature | Nyansapo',
+  description: 'Feature description',
+};
+
+export default function MyFeaturePage() {
+  return (
+    <div>
+      <MyComponent />
+    </div>
+  );
+}
+```
+
+2. **Add routing documentation** in [pages.md](pages.md)
+
+3. **Add navigation links** in SideBar component
+
+### Creating an API Route
+
+1. **Create file** in `src/app/api/`
+
+```javascript
+// src/app/api/myendpoint/route.js
+export async function GET(request) {
+  try {
+    // API logic
+    return Response.json({ success: true, data });
+  } catch (error) {
+    return Response.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+export async function POST(request) {
+  const body = await request.json();
+  // Handle POST request
+  return Response.json({ success: true });
+}
+```
+
+2. **Document** in [API.md](API.md)
+
+3. **Add authentication** if needed using Firebase tokens
+
+---
+
+## 🎨 Styling Guidelines
+
+### Tailwind CSS
+
+The project uses Tailwind CSS for styling. Follow these patterns:
+
+```jsx
+// Responsive design
+<div className="w-full md:w-1/2 lg:w-1/3"></div>
+
+// Utility classes
+<button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"></button>
+
+// Dark mode
+<div className="bg-white dark:bg-gray-900 text-black dark:text-white"></div>
+```
+
+### Component Structure
+
+```jsx
+export default function Component() {
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Content */}
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## 🗄️ Firebase Integration
+
+### Configuration
+
+```javascript
+// src/firebase/config.js
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+
+const firebaseConfig = {
+  // Your config
+};
+
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+```
+
+### Reading Data
+
+```javascript
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '@/firebase/config';
+
+const q = query(collection(db, 'users'), where('status', '==', 'active'));
+const snapshot = await getDocs(q);
+const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+```
+
+### Writing Data
+
+```javascript
+import { doc, setDoc, updateDoc } from 'firebase/firestore';
+import { db } from '@/firebase/config';
+
+// Create
+await setDoc(doc(db, 'users', userId), userData);
+
+// Update
+await updateDoc(doc(db, 'users', userId), { status: 'inactive' });
+```
+
+---
+
+## 🔐 Authentication
+
+### Check Authentication Status
+
+```javascript
+import { useAuth } from '@/hooks/useAuth';
+
+function MyComponent() {
+  const { user, loading } = useAuth();
+
+  if (loading) return <div>Loading...</div>;
+  if (!user) return <div>Not authenticated</div>;
+
+  return <div>Welcome, {user.name}</div>;
+}
+```
+
+### Protect Routes
+
+Use middleware or useAuth hook to protect routes:
+
+```javascript
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+
+export default function ProtectedPage() {
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  if (!loading && !user) {
+    router.push('/login');
+    return null;
+  }
+
+  return <div>Protected content</div>;
+}
+```
+
+---
+
+## 📊 State Management with Redux
+
+### Redux Slices
+
+```javascript
+// src/redux/slices/mySlice.js
+import { createSlice } from '@reduxjs/toolkit';
+
+const mySlice = createSlice({
+  name: 'myFeature',
+  initialState: {
+    data: null,
+    loading: false,
+  },
+  reducers: {
+    setData: (state, action) => {
+      state.data = action.payload;
+    },
+    setLoading: (state, action) => {
+      state.loading = action.payload;
+    },
+  },
+});
+
+export const { setData, setLoading } = mySlice.actions;
+export default mySlice.reducer;
+```
+
+### Using Redux in Components
+
+```javascript
+import { useDispatch, useSelector } from 'react-redux';
+import { setData } from '@/redux/slices/mySlice';
+
+function MyComponent() {
+  const dispatch = useDispatch();
+  const data = useSelector(state => state.myFeature.data);
+
+  const handleUpdate = (newData) => {
+    dispatch(setData(newData));
+  };
+
+  return <div>{data}</div>;
+}
+```
+
+---
+
+## 🧪 Testing
+
+### Unit Testing
+
+Create test files with `.test.js` or `.spec.js` extension:
+
+```javascript
+// src/components/Button.test.js
+import { render, screen } from '@testing-library/react';
+import Button from './Button';
+
+describe('Button Component', () => {
+  it('renders button with text', () => {
+    render(<Button>Click me</Button>);
+    expect(screen.getByText('Click me')).toBeInTheDocument();
+  });
+});
+```
+
+---
+
+## 🔄 Git Workflow
+
+### Branch Naming
+
+```
+feature/component-name        # New feature
+fix/bug-description          # Bug fix
+docs/update-documentation    # Documentation
+refactor/component-name      # Code refactor
+```
+
+### Commit Messages
+
+```
+feat: add new component
+fix: resolve authentication issue
+docs: update hooks documentation
+refactor: improve component structure
+```
+
+### Pull Request Process
+
+1. Create feature branch from main
+2. Make changes and commit
+3. Push to remote
+4. Create pull request
+5. Request review
+6. Update documentation if needed
+7. Merge to main
+
+---
+
+## 📝 Code Style
+
+### Naming Conventions
+
+```javascript
+// Components (PascalCase)
+MyComponent.jsx
+
+// Files (kebab-case)
+my-component.jsx
+my-hook.js
+
+// Functions/Variables (camelCase)
+function myFunction() {}
+const myVariable = 'value';
+
+// Constants (UPPER_SNAKE_CASE)
+const API_BASE_URL = 'https://api.example.com';
+```
+
+### Component Template
+
+```jsx
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useMyHook } from '@/hooks/useMyHook';
+import MySubComponent from './MySubComponent';
+
+/**
+ * MyComponent
+ * @description Component description
+ * @param {Object} props
+ * @param {string} props.title - Component title
+ * @returns {JSX.Element}
+ */
+export default function MyComponent({ title, children }) {
+  const [state, setState] = useState(null);
+  const { data } = useMyHook();
+
+  useEffect(() => {
+    // Side effects
+  }, []);
+
+  const handleAction = () => {
+    // Action handler
+  };
+
+  return (
+    <div className="container">
+      <h1>{title}</h1>
+      <MySubComponent onClick={handleAction} />
+      {children}
+    </div>
+  );
+}
+```
+
+---
+
+## 🐛 Debugging
+
+### Console Logging
+
+```javascript
+// In development
+if (process.env.NODE_ENV === 'development') {
+  console.log('Debug info', data);
+}
+
+// Conditional logging
+const DEBUG = process.env.REACT_APP_DEBUG === 'true';
+if (DEBUG) console.log('Debug message');
+```
+
+### React DevTools
+
+1. Install React DevTools browser extension
+2. Open DevTools (F12)
+3. Go to React tab
+4. Inspect components and props
+
+### Firebase Debugging
+
+```javascript
+// Enable Firebase logging
+import { enableLogging } from 'firebase/database';
+enableLogging(true);
+```
+
+---
+
+## 📚 Additional Resources
+
+- [Next.js Documentation](https://nextjs.org/docs)
+- [React Documentation](https://react.dev)
+- [Firebase Documentation](https://firebase.google.com/docs)
+- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
+- [Redux Toolkit Documentation](https://redux-toolkit.js.org/)
+
+---
+
+## ❓ Common Issues
+
+### Issue: Cannot find module '@/hooks/useAuth'
+**Solution**: Check that the hook exists and path is correct. Verify jsconfig.json has correct path alias.
+
+### Issue: Firebase Authentication Error
+**Solution**: Ensure Firebase config is properly initialized. Check environment variables and API keys.
+
+### Issue: Styling not applied
+**Solution**: Verify Tailwind CSS is configured. Check that className syntax is correct.
+
+### Issue: Redux state not updating
+**Solution**: Ensure you're using dispatch correctly. Check reducer logic and initial state.
+
+---
+
+## 📞 Support
+
+For detailed documentation:
+- Components: [components.md](components.md)
+- Hooks: [hooks.md](hooks.md)
+- Pages: [pages.md](pages.md)
+- API: [API.md](API.md)
+- Architecture: [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+
+---
+
+**Last Updated**: February 2026
+**Version**: 1.0
