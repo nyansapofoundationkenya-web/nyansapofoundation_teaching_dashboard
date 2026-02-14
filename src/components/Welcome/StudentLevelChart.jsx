@@ -10,54 +10,56 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-} from "recharts"
+        <button
+          onClick={onDownload}
+          disabled={downloadLoading || loading}
+          className={`
+            px-4 py-2 rounded-md text-sm font-bold flex items-center gap-2 transition-colors bg-gradient-to-r from-green-400 to-green-600 text-white shadow-lg
+            ${downloadLoading || loading ? "opacity-60 cursor-not-allowed" : "hover:scale-105"}
+          `}
+        >
+          {downloadLoading ? (
+            <>
+              <svg
+                className="animate-spin h-4 w-4 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              Downloading...
+            </>
+          ) : (
+            <>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Download
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  )
 
-export default function StudentLevelsChart({
-  levelType,
-  setLevelType,
-  chartData,
-  loading,
-  error,
-  onRefresh,
-  onDownload,
-  downloadLoading,
-  isSuperAdmin,
-}) {
-  const CustomTooltip = ({ active, payload }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-background-lighter border border-gray-600 rounded-lg p-3 shadow-lg">
-          <p className="text-sm font-semibold mb-2">{payload[0].payload.level}</p>
-          <p className="text-xs text-gray-400">
-            Baseline: <span className="text-white font-medium">{payload[0].value}</span>
-          </p>
-          <p className="text-xs text-gray-400">
-            Current: <span className="text-white font-medium">{payload[1].value}</span>
-          </p>
-        </div>
-      )
-    }
-    return null
-  }
-
-  const renderHeader = () => (
-    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-      <h2 className="text-xl font-semibold text-primary-2">
-        STUDENT LEVEL DISTRIBUTION
-      </h2>
-
-      <div className="flex flex-wrap items-center gap-3">
-        {isSuperAdmin && (
-          <button
-            onClick={onRefresh}
-            disabled={loading}
-            className={`
-              px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 min-w-[110px]
-              ${loading
-                ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                : "bg-secondary-1 hover:bg-secondary-1/90 text-white"
-              }
-            `}
+// ...existing code...
           >
             {loading ? (
               <>
@@ -85,126 +87,134 @@ export default function StudentLevelsChart({
 
         <button
           onClick={onDownload}
-          disabled={downloadLoading || loading}
-          className={`
-            px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors
-            ${downloadLoading || loading
-              ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-              : "bg-green-600 hover:bg-green-700 text-white"
-            }
-          `}
-        >
-          {downloadLoading ? (
-            <>
-              <svg
-                className="animate-spin h-4 w-4 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-              Downloading...
-            </>
-          ) : (
-            <>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              Export
-            </>
-          )}
-        </button>
+          const renderHeader = () => (
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+              <h2 className="text-xl font-bold text-white drop-shadow-lg">
+                STUDENT LEVEL DISTRIBUTION
+              </h2>
 
-        <select
-          value={levelType}
-          onChange={(e) => setLevelType(e.target.value)}
-          disabled={loading}
-          className="bg-gray-800 border border-gray-600 text-gray-200 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-2/50"
+              <div className="flex flex-wrap items-center gap-3">
+                {isSuperAdmin && (
+                  <button
+                    onClick={onRefresh}
+                    disabled={loading}
+                    className={`
+                      px-4 py-2 rounded-md text-sm font-bold transition-colors flex items-center gap-2 min-w-[110px] bg-gradient-to-r from-[var(--primary-2)] to-[var(--secondary-2)] text-white shadow-lg
+                      ${loading ? "opacity-60 cursor-not-allowed" : "hover:scale-105"}
+                    `}
+                  >
+                    {loading ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </svg>
+                        Refreshing...
+                      </>
+                    ) : (
+                      "Refresh Data"
+                    )}
+                  </button>
+                )}
+
+                <button
+                  onClick={onDownload}
+                  disabled={downloadLoading || loading}
+                  className={`
+                    px-4 py-2 rounded-md text-sm font-bold flex items-center gap-2 transition-colors bg-gradient-to-r from-green-400 to-green-600 text-white shadow-lg
+                    ${downloadLoading || loading ? "opacity-60 cursor-not-allowed" : "hover:scale-105"}
+                  `}
+                >
+                  {downloadLoading ? (
+                    <>
+                      <svg
+                        className="animate-spin h-4 w-4 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 4v16m8-8H4"
+                        />
+                      </svg>
+                      Download
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+  // ...existing code...
+
+  return (
+    <div className="rounded-2xl p-6 border-0 shadow-xl bg-gradient-to-br from-[var(--primary-2)] to-[var(--secondary-2)]">
+      {renderHeader()}
+
+      <ResponsiveContainer width="100%" height={340}>
+        <BarChart
+          data={chartData}
+          margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
         >
-          <option value="literacy">Literacy</option>
-          <option value="numeracy">Numeracy</option>
-        </select>
+          <CartesianGrid strokeDasharray="3 3" stroke="#fff2" />
+          <XAxis
+            dataKey="level"
+            stroke="#fff9"
+            tick={{ fill: "#fff", fontSize: 16, fontWeight: 700 }}
+            axisLine={{ stroke: "#fff7" }}
+          />
+          <YAxis
+            stroke="#fff9"
+            tick={{ fill: "#fff", fontSize: 14 }}
+            axisLine={{ stroke: "#fff7" }}
+            allowDecimals={false}
+          />
+          <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#f7cc1c", strokeWidth: 2 }} />
+          <Legend wrapperStyle={{ color: '#fff', fontWeight: 700 }} />
+          <Bar dataKey="baseline" fill="#f7cc1c" radius={[8, 8, 0, 0]} />
+          <Bar dataKey="current" fill="#5aa2ce" radius={[8, 8, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+
+      {/* Colorful Level Badges */}
+      <div className="mt-6 flex flex-wrap gap-2">
+        {chartData && chartData.map((item, idx) => (
+          <span
+            key={item.level}
+            className={`px-3 py-1 rounded-full text-xs font-bold shadow-md animate-bounce ${idx % 2 === 0 ? 'bg-yellow-300/90 text-yellow-900' : 'bg-blue-300/90 text-blue-900'}`}
+          >
+            {item.level}
+          </span>
+        ))}
       </div>
     </div>
   )
-
-  return (
-    <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700">
-      {renderHeader()}
-
-      {loading && chartData.length === 0 ? (
-        <div className="h-80 flex items-center justify-center text-gray-400">
-          Loading chart data...
-        </div>
-      ) : error ? (
-        <div className="h-80 flex items-center justify-center text-red-400 text-center">
-          <div>
-            <p className="font-medium text-lg">Error loading data</p>
-            <p className="text-sm mt-2">{error}</p>
-            <button
-              onClick={onRefresh}
-              className="mt-5 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded-md text-sm transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      ) : chartData.length === 0 ? (
-        <div className="h-80 flex items-center justify-center text-gray-400 text-center">
-          <div>
-            <p className="font-medium text-lg">No data available</p>
-            <p className="text-sm mt-2">
-              No student performance data found for this organization
-            </p>
-          </div>
-        </div>
-      ) : (
-        <ResponsiveContainer width="100%" height={400}>
-          <BarChart
-            data={chartData}
-            layout="vertical"
-            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis type="number" stroke="#9CA3AF" />
-            <YAxis
-              type="category"
-              dataKey="level"
-              stroke="#9CA3AF"
-              width={140}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(55,65,81,0.3)" }} />
-            <Legend
-              wrapperStyle={{ paddingTop: "20px" }}
-              iconType="rect"
-              formatter={(value) => (
-                <span className="text-sm text-gray-300">
-                  {value === "baseline" ? "Baseline" : "Current"}
-                </span>
-              )}
-            />
-            <Bar dataKey="baseline" fill="#6B7280" radius={[0, 4, 4, 0]} />
-            <Bar dataKey="current" fill="#60A5FA" radius={[0, 4, 4, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      )}
-    </div>
-  )
-}

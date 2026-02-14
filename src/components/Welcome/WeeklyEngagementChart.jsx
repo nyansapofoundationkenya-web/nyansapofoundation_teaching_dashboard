@@ -57,20 +57,24 @@ export default function WeeklyEngagementChart() {
 
   if (loading) {
     return (
-      <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700">
-        <h2 className="text-xl font-semibold mb-6 text-foreground">
+      <div className="rounded-2xl p-6 border-0 shadow-xl bg-gradient-to-br from-[var(--primary-2)] to-[var(--secondary-1)]">
+        <h2 className="text-xl font-bold mb-6 text-white drop-shadow-lg">
           WEEKLY ENGAGEMENT (%)
         </h2>
         <div className="h-80 flex items-center justify-center">
-          <div className="text-gray-400">Loading chart data...</div>
+          <div className="text-white/70 animate-pulse">Loading chart data...</div>
         </div>
       </div>
     )
   }
 
+  // Find the best day for highlight
+  const maxEngagement = Math.max(...chartData.map(d => d.engagement))
+  const bestDay = chartData.find(d => d.engagement === maxEngagement)
+
   return (
-    <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700">
-      <h2 className="text-xl font-semibold mb-6 text-foreground">
+    <div className="rounded-2xl p-6 border-0 shadow-xl bg-gradient-to-br from-[var(--primary-2)] to-[var(--secondary-1)]">
+      <h2 className="text-xl font-bold mb-6 text-white drop-shadow-lg">
         WEEKLY ENGAGEMENT (%)
       </h2>
 
@@ -79,53 +83,54 @@ export default function WeeklyEngagementChart() {
           data={chartData}
           margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#fff2" />
           <XAxis
             dataKey="day"
-            stroke="#9CA3AF"
-            tick={{ fill: "#9CA3AF", fontSize: 14 }}
-            axisLine={{ stroke: "#4B5563" }}
+            stroke="#fff9"
+            tick={{ fill: "#fff", fontSize: 16, fontWeight: 700 }}
+            axisLine={{ stroke: "#fff7" }}
           />
           <YAxis
-            stroke="#9CA3AF"
-            tick={{ fill: "#9CA3AF", fontSize: 14 }}
-            axisLine={{ stroke: "#4B5563" }}
+            stroke="#fff9"
+            tick={{ fill: "#fff", fontSize: 14 }}
+            axisLine={{ stroke: "#fff7" }}
             domain={[0, 100]}
             ticks={[0, 20, 40, 60, 80, 100]}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#5aa2ce", strokeWidth: 1 }} />
+          <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#f7cc1c", strokeWidth: 2 }} />
           <Line
             type="monotone"
             dataKey="engagement"
             stroke="#f7cc1c"
-            strokeWidth={3}
-            dot={{ fill: "#f7cc1c", r: 6, strokeWidth: 2, stroke: "#142848" }}
-            activeDot={{ r: 8, fill: "#f7cc1c", stroke: "#142848", strokeWidth: 2 }}
+            strokeWidth={4}
+            dot={{ fill: "#f7cc1c", r: 8, strokeWidth: 2, stroke: "#fff" }}
+            activeDot={{ r: 12, fill: "#f7cc1c", stroke: "#fff", strokeWidth: 3 }}
+            isAnimationActive={true}
           />
         </LineChart>
       </ResponsiveContainer>
 
-      {/* Optional: Week Summary */}
-      {/* <div className="mt-6 grid grid-cols-3 gap-4">
-        <div className="bg-background rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-primary-3">
-            {Math.max(...chartData.map(d => d.engagement))}%
+      {/* Week Summary */}
+      <div className="mt-6 grid grid-cols-3 gap-4">
+        <div className="bg-white/20 rounded-lg p-3 text-center shadow-inner">
+          <div className="text-2xl font-bold text-yellow-200 animate-bounce">
+            {maxEngagement}%
           </div>
-          <div className="text-xs text-gray-400 mt-1">Peak</div>
+          <div className="text-xs text-white/80 mt-1">Peak ({bestDay?.day})</div>
         </div>
-        <div className="bg-background rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-primary-2">
+        <div className="bg-white/20 rounded-lg p-3 text-center shadow-inner">
+          <div className="text-2xl font-bold text-white">
             {Math.round(chartData.reduce((sum, d) => sum + d.engagement, 0) / chartData.length)}%
           </div>
-          <div className="text-xs text-gray-400 mt-1">Average</div>
+          <div className="text-xs text-white/80 mt-1">Average</div>
         </div>
-        <div className="bg-background rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-secondary-1">
+        <div className="bg-white/20 rounded-lg p-3 text-center shadow-inner">
+          <div className="text-2xl font-bold text-pink-200">
             {Math.min(...chartData.map(d => d.engagement))}%
           </div>
-          <div className="text-xs text-gray-400 mt-1">Lowest</div>
+          <div className="text-xs text-white/80 mt-1">Lowest</div>
         </div>
-      </div> */}
+      </div>
     </div>
   )
 }
