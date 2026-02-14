@@ -65,12 +65,12 @@ export default function AttendanceOverview({ organizationId, loading, error, dat
 
   if (loading) {
     return (
-      <div className="rounded-2xl p-6 border-0 shadow-xl bg-gradient-to-br from-[var(--primary-1)] to-[var(--secondary-2)]">
-        <h2 className="text-xl font-bold mb-6 text-white drop-shadow-lg">
+      <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700">
+        <h2 className="text-xl font-semibold mb-6 text-foreground">
           Attendance Overview
         </h2>
         <div className="h-96 flex items-center justify-center">
-          <div className="text-white/70 animate-pulse">Loading attendance data...</div>
+          <div className="text-gray-400">Loading attendance data...</div>
         </div>
       </div>
     )
@@ -78,12 +78,12 @@ export default function AttendanceOverview({ organizationId, loading, error, dat
 
   if (error) {
     return (
-      <div className="rounded-2xl p-6 border-0 shadow-xl bg-gradient-to-br from-[var(--primary-1)] to-[var(--secondary-2)]">
-        <h2 className="text-xl font-bold mb-6 text-white drop-shadow-lg">
+      <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700">
+        <h2 className="text-xl font-semibold mb-6 text-foreground">
           Attendance Overview
         </h2>
         <div className="h-96 flex items-center justify-center">
-          <div className="text-red-200">{error}</div>
+          <div className="text-red-400">{error}</div>
         </div>
       </div>
     )
@@ -95,17 +95,17 @@ export default function AttendanceOverview({ organizationId, loading, error, dat
   const chartData = chartView === "7days" ? data.last_7_days : data.last_30_days
 
   return (
-    <div className="rounded-2xl p-6 border-0 shadow-xl bg-gradient-to-br from-[var(--primary-1)] to-[var(--secondary-2)]">
-      <h2 className="text-xl font-bold mb-6 text-white drop-shadow-lg">
+    <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700">
+      <h2 className="text-xl font-semibold mb-6 text-foreground">
         Attendance Overview
       </h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LEFT: Today's Attendance Gauge */}
-        <div className="rounded-xl p-6 bg-white/10 shadow-inner border-0">
+        <div className="border border-gray-600 rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Calendar className="w-5 h-5 text-yellow-300 animate-bounce" />
-            <h3 className="text-yellow-200 font-bold uppercase tracking-wide">
+            <Calendar className="w-5 h-5 text-primary-2" />
+            <h3 className="text-primary-2 font-semibold uppercase tracking-wide">
               Today's Attendance
             </h3>
           </div>
