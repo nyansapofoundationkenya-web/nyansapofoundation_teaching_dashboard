@@ -1,1 +1,240 @@
-# Quick Reference Card\n\n## 📚 Documentation Files at a Glance\n\n### File Overview\n\n```\ndocs/\n├── README.md                  # START HERE - Documentation Index (6.1K)\n├── PROJECT_STRUCTURE.md       # Architecture & Tech Stack (9.3K)\n├── components.md              # React Components Reference (8.8K)\n├── hooks.md                   # Custom Hooks Reference (7.3K)\n├── pages.md                   # Pages & Routes Guide (6.2K)\n├── API.md                     # REST API Documentation (8.9K)\n├── DEVELOPMENT_GUIDE.md       # Development Workflows (13K)\n└── overview.md                # Quick Lookup (3.5K)\n\nTotal: 1,133 lines of documentation\n```\n\n---\n\n## 🎯 Find What You Need\n\n### I want to understand the project\n→ Start with [README.md](README.md), then [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)\n\n### I want to build a new component\n→ Check [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) → [components.md](components.md)\n\n### I want to create a new hook\n→ Check [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) → [hooks.md](hooks.md)\n\n### I want to add a new page\n→ Check [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) → [pages.md](pages.md)\n\n### I want to create an API endpoint\n→ Check [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) → [API.md](API.md)\n\n### I want to find a specific component\n→ Use [components.md](components.md) or [overview.md](overview.md)\n\n### I want to find a specific hook\n→ Use [hooks.md](hooks.md) or [overview.md](overview.md)\n\n### I want to understand authentication\n→ Check [hooks.md](hooks.md#core-authentication--authorization) → [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md#-authentication)\n\n### I want to understand state management\n→ Check [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md#-state-management-with-redux)\n\n### I want to understand styling\n→ Check [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md#-styling-guidelines)\n\n---\n\n## 📊 Documentation Statistics\n\n| Document | Lines | Focus |\n|----------|-------|-------|\n| README.md | ~150 | Navigation & Overview |\n| PROJECT_STRUCTURE.md | ~280 | Architecture & Tech |\n| components.md | ~350 | UI Components |\n| hooks.md | ~240 | Custom Hooks |\n| pages.md | ~200 | Routing & Pages |\n| API.md | ~350 | API Endpoints |\n| DEVELOPMENT_GUIDE.md | ~430 | Development Workflows |\n| overview.md | ~110 | Quick Lookup |\n\n---\n\n## 🚀 Quick Start Commands\n\n```bash\n# Install dependencies\nnpm install\n\n# Start development\nnpm run dev\n\n# Build for production\nnpm run build\n\n# Run linting\nnpm run lint\n```\n\n---\n\n## 🔧 Tech Stack Quick Ref\n\n```\nFrontend:     React 19, Next.js 16, Tailwind CSS\nState:        Redux Toolkit\nDatabase:     Firebase Firestore\nAuth:         Firebase Auth\nAI:           Google Gemini\nForms:        Formik + Yup\nCharts:       Chart.js, Recharts\n```\n\n---\n\n## 📁 Folder Structure\n\n```\nsrc/\n├── app/          Pages & API Routes\n├── components/   React Components (15+ categories)\n├── hooks/        Custom Hooks (20+)\n├── firebase/     Firebase Setup\n├── redux/        State Management\n├── utils/        Helper Functions\n└── icons/        Icon Components\n```\n\n---\n\n## 🎨 Component Categories\n\n- 🤖 AI Assistant (DashboardChatBot, etc.)\n- 📝 Assessments (StudentsList, StudentMetrics, etc.)\n- 📅 Attendance (Dashboard, Table)\n- 🎤 Audio Moderation (Player, Results, etc.)\n- 🔐 Auth (Login, Signup)\n- 🔘 Buttons (Various button types)\n- 📊 Charts (Grade, Age, Gender distribution)\n- 🏠 Dashboard (Header, Sidebar, Profile)\n- 👨‍👩‍👧 Household (Management)\n- 👨‍🏫 Instructors (Management)\n- ✅ Moderations (Content moderation)\n- 📋 Projects (Project management)\n- 🏫 Schools (School management)\n- 👨‍🎓 Students (Student profiles)\n- 🎯 Welcome (Landing page)\n- 🎨 UI (Generic UI components)\n\n---\n\n## 🪝 Hook Categories\n\n- 🔐 Authentication (useAuth, useIsLoggedIn)\n- 🏢 Organization (useOrganization, useOrganizationHouseholds)\n- 🏫 Schools (useSchools, useSchoolStudents)\n- 👨‍👩‍👧 Household (useHouseholdDetails)\n- 📝 Assessments (useAssessment, useAnalysis)\n- 👨‍🏫 Instructors (useInstructors, useInstructorActions, useAssignInstructor)\n- 📋 Projects (UseProjects, useProjectDetails)\n- 📤 Upload (useMultipleSheetUpload)\n- 🔍 Utilities (SchoolMatcher)\n\n---\n\n## 📄 API Endpoints\n\n```\nGET  /api/check           Health check\nPOST /api/contact         Contact form\nGET  /api/literacy        Get literacy assessments\nPOST /api/literacy        Submit literacy assessment\nGET  /api/numeracy        Get numeracy assessments\nPOST /api/numeracy        Submit numeracy assessment\nPOST /api/export          Export data\n```\n\n---\n\n## ✅ Checklist: Adding a New Feature\n\n- [ ] Create component in `src/components/`\n- [ ] Create/update hooks in `src/hooks/`\n- [ ] Create pages in `src/app/` if needed\n- [ ] Create API routes if needed\n- [ ] Update [components.md](components.md) with component docs\n- [ ] Update [hooks.md](hooks.md) with hook docs\n- [ ] Update [pages.md](pages.md) if new routes added\n- [ ] Update [API.md](API.md) if new endpoints added\n- [ ] Update [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) if structure changed\n- [ ] Test thoroughly\n- [ ] Create pull request with documentation\n\n---\n\n## 🔗 Important Links\n\n- **Main Docs**: [README.md](README.md)\n- **Architecture**: [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)\n- **Components**: [components.md](components.md)\n- **Hooks**: [hooks.md](hooks.md)\n- **Pages**: [pages.md](pages.md)\n- **API**: [API.md](API.md)\n- **Development**: [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md)\n- **Quick Ref**: [overview.md](overview.md)\n\n---\n\n## 💡 Pro Tips\n\n1. **Use Ctrl+F** to search within docs\n2. **Follow existing patterns** when creating new code\n3. **Check components.md** before creating new components\n4. **Check hooks.md** before creating new hooks\n5. **Keep docs updated** when adding features\n6. **Reference examples** in DEVELOPMENT_GUIDE.md\n7. **Test thoroughly** before committing\n8. **Use meaningful names** for components and functions\n\n---\n\n## 🆘 Common Questions\n\nQ: Where do I put a new component?\nA: `src/components/[CategoryName]/ComponentName.jsx`\n\nQ: Where do I put a new hook?\nA: `src/hooks/useHookName.js` or in a subfolder\n\nQ: Where do I put a new page?\nA: `src/app/[route]/page.js` following Next.js conventions\n\nQ: Where do I put an API route?\nA: `src/app/api/[endpoint]/route.js`\n\nQ: How do I handle authentication?\nA: Use `useAuth()` hook from `src/hooks/useAuth.js`\n\nQ: How do I manage state?\nA: Use Redux slices or custom hooks with Firebase\n\nQ: How do I add styles?\nA: Use Tailwind CSS classes in `className`\n\nQ: Where are the Firebase configs?\nA: `src/firebase/config.js`\n\n---\n\n**Created**: February 12, 2026\n**Total Documentation**: 1,133 lines\n**Last Updated**: February 12, 2026"
+# Quick Reference Card
+
+## 📚 Documentation Files at a Glance
+
+### File Overview
+
+```
+docs/
+├── README.md                  # START HERE - Documentation Index (6.1K)
+├── PROJECT_STRUCTURE.md       # Architecture & Tech Stack (9.3K)
+├── components.md              # React Components Reference (8.8K)
+├── hooks.md                   # Custom Hooks Reference (7.3K)
+├── pages.md                   # Pages & Routes Guide (6.2K)
+├── API.md                     # REST API Documentation (8.9K)
+├── DEVELOPMENT_GUIDE.md       # Development Workflows (13K)
+└── overview.md                # Quick Lookup (3.5K)
+
+Total: 1,133 lines of documentation
+```
+
+---
+
+## 🎯 Find What You Need
+
+### I want to understand the project
+→ Start with [README.md](README.md), then [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+
+### I want to build a new component
+→ Check [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) → [components.md](components.md)
+
+### I want to create a new hook
+→ Check [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) → [hooks.md](hooks.md)
+
+### I want to add a new page
+→ Check [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) → [pages.md](pages.md)
+
+### I want to create an API endpoint
+→ Check [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md) → [API.md](API.md)
+
+### I want to find a specific component
+→ Use [components.md](components.md) or [overview.md](overview.md)
+
+### I want to find a specific hook
+→ Use [hooks.md](hooks.md) or [overview.md](overview.md)
+
+### I want to understand authentication
+→ Check [hooks.md](hooks.md#core-authentication--authorization) → [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md#-authentication)
+
+### I want to understand state management
+→ Check [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md#-state-management-with-redux)
+
+### I want to understand styling
+→ Check [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md#-styling-guidelines)
+
+---
+
+## 📊 Documentation Statistics
+
+| Document | Lines | Focus |
+|----------|-------|-------|
+| README.md | ~150 | Navigation & Overview |
+| PROJECT_STRUCTURE.md | ~280 | Architecture & Tech |
+| components.md | ~350 | UI Components |
+| hooks.md | ~240 | Custom Hooks |
+| pages.md | ~200 | Routing & Pages |
+| API.md | ~350 | API Endpoints |
+| DEVELOPMENT_GUIDE.md | ~430 | Development Workflows |
+| overview.md | ~110 | Quick Lookup |
+
+---
+
+## 🚀 Quick Start Commands
+
+```bash
+# Install dependencies
+npm install
+
+# Start development
+npm run dev
+
+# Build for production
+npm run build
+
+# Run linting
+npm run lint
+```
+
+---
+
+## 🔧 Tech Stack Quick Ref
+
+```
+Frontend:     React 19, Next.js 16, Tailwind CSS
+State:        Redux Toolkit
+Database:     Firebase Firestore
+Auth:         Firebase Auth
+AI:           Google Gemini
+Forms:        Formik + Yup
+Charts:       Chart.js, Recharts
+```
+
+---
+
+## 📁 Folder Structure
+
+```
+src/
+├── app/          Pages & API Routes
+├── components/   React Components (15+ categories)
+├── hooks/        Custom Hooks (20+)
+├── firebase/     Firebase Setup
+├── redux/        State Management
+├── utils/        Helper Functions
+└── icons/        Icon Components
+```
+
+---
+
+## 🎨 Component Categories
+
+- 🤖 AI Assistant (DashboardChatBot, etc.)
+- 📝 Assessments (StudentsList, StudentMetrics, etc.)
+- 📅 Attendance (Dashboard, Table)
+- 🎤 Audio Moderation (Player, Results, etc.)
+- 🔐 Auth (Login, Signup)
+- 🔘 Buttons (Various button types)
+- 📊 Charts (Grade, Age, Gender distribution)
+- 🏠 Dashboard (Header, Sidebar, Profile)
+- 👨‍👩‍👧 Household (Management)
+- 👨‍🏫 Instructors (Management)
+- ✅ Moderations (Content moderation)
+- 📋 Projects (Project management)
+- 🏫 Schools (School management)
+- 👨‍🎓 Students (Student profiles)
+- 🎯 Welcome (Landing page)
+- 🎨 UI (Generic UI components)
+
+---
+
+## 🪝 Hook Categories
+
+- 🔐 Authentication (useAuth, useIsLoggedIn)
+- 🏢 Organization (useOrganization, useOrganizationHouseholds)
+- 🏫 Schools (useSchools, useSchoolStudents)
+- 👨‍👩‍👧 Household (useHouseholdDetails)
+- 📝 Assessments (useAssessment, useAnalysis)
+- 👨‍🏫 Instructors (useInstructors, useInstructorActions, useAssignInstructor)
+- 📋 Projects (UseProjects, useProjectDetails)
+- 📤 Upload (useMultipleSheetUpload)
+- 🔍 Utilities (SchoolMatcher)
+
+---
+
+## 📄 API Endpoints
+
+```
+GET  /api/check           Health check
+POST /api/contact         Contact form
+GET  /api/literacy        Get literacy assessments
+POST /api/literacy        Submit literacy assessment
+GET  /api/numeracy        Get numeracy assessments
+POST /api/numeracy        Submit numeracy assessment
+POST /api/export          Export data
+```
+
+---
+
+## ✅ Checklist: Adding a New Feature
+
+- [ ] Create component in `src/components/`
+- [ ] Create/update hooks in `src/hooks/`
+- [ ] Create pages in `src/app/` if needed
+- [ ] Create API routes if needed
+- [ ] Update [components.md](components.md) with component docs
+- [ ] Update [hooks.md](hooks.md) with hook docs
+- [ ] Update [pages.md](pages.md) if new routes added
+- [ ] Update [API.md](API.md) if new endpoints added
+- [ ] Update [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) if structure changed
+- [ ] Test thoroughly
+- [ ] Create pull request with documentation
+
+---
+
+## 🔗 Important Links
+
+- **Main Docs**: [README.md](README.md)
+- **Architecture**: [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+- **Components**: [components.md](components.md)
+- **Hooks**: [hooks.md](hooks.md)
+- **Pages**: [pages.md](pages.md)
+- **API**: [API.md](API.md)
+- **Development**: [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md)
+- **Quick Ref**: [overview.md](overview.md)
+
+---
+
+## 💡 Pro Tips
+
+1. **Use Ctrl+F** to search within docs
+2. **Follow existing patterns** when creating new code
+3. **Check components.md** before creating new components
+4. **Check hooks.md** before creating new hooks
+5. **Keep docs updated** when adding features
+6. **Reference examples** in DEVELOPMENT_GUIDE.md
+7. **Test thoroughly** before committing
+8. **Use meaningful names** for components and functions
+
+---
+
+## 🆘 Common Questions
+
+Q: Where do I put a new component?
+A: `src/components/[CategoryName]/ComponentName.jsx`
+
+Q: Where do I put a new hook?
+A: `src/hooks/useHookName.js` or in a subfolder
+
+Q: Where do I put a new page?
+A: `src/app/[route]/page.js` following Next.js conventions
+
+Q: Where do I put an API route?
+A: `src/app/api/[endpoint]/route.js`
+
+Q: How do I handle authentication?
+A: Use `useAuth()` hook from `src/hooks/useAuth.js`
+
+Q: How do I manage state?
+A: Use Redux slices or custom hooks with Firebase
+
+Q: How do I add styles?
+A: Use Tailwind CSS classes in `className`
+
+Q: Where are the Firebase configs?
+A: `src/firebase/config.js`
+
+---
+
+**Created**: February 12, 2026
+**Total Documentation**: 1,133 lines
+**Last Updated**: February 12, 2026

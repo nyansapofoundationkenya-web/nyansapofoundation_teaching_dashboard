@@ -1,1 +1,199 @@
-# Documentation Index\n\n## Welcome to the Nyansapo Teaching Dashboard Documentation\n\nThis folder contains comprehensive documentation for all aspects of the Nyansapo Teaching Dashboard project.\n\n---\n\n## 📚 Documentation Files\n\n### 1. [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)\n**Complete Project Architecture & Overview**\n- Full directory structure visualization\n- Technology stack breakdown\n- Key features overview\n- API routes reference\n- Project architecture explanation\n\n**Best for**: Understanding the overall project layout and tech stack\n\n---\n\n### 2. [components.md](components.md)\n**React Components Reference**\n- 15+ component categories\n- Detailed descriptions of each component\n- Purpose and functionality of every component\n- Props and features\n- Use cases and integration points\n\n**Components Covered**:\n- AI Assistant Components (DashboardChatBot, ChatHeader, ChatMessage, etc.)\n- Assessment Components (StudentsList, StudentMetrics, AddStudentModal, etc.)\n- Attendance Components (Attendance-dashboard, AttendanceTable)\n- Audio Moderation Components (AudioPlayer, AssessmentResults, etc.)\n- Auth Components (LoginForm, SignupForm)\n- Button Components (AddOrganizationButton, OrganizationButton, etc.)\n- Chart Components (GradeLevelChart, LevelDistributionByAge, etc.)\n- Dashboard Components (Header, SideBar, UserProfileModal)\n- And more!\n\n**Best for**: Finding component details, understanding component hierarchy\n\n---\n\n### 3. [hooks.md](hooks.md)\n**Custom Hooks Reference**\n- 20+ custom hooks documented\n- Purpose and functionality\n- Key functions and return values\n- Use cases for each hook\n- Best practices for hooks usage\n\n**Hook Categories**:\n- **Authentication**: useAuth, useIsLoggedIn\n- **Organization & Schools**: useOrganization, useSchools, useOrganizationHouseholds\n- **Student Management**: useSchoolStudents, useHouseholdDetails\n- **Assessment**: useAssessment, useAnalysis\n- **Instructors**: useInstructors, useInstructorActions, useAssignInstructor\n- **Projects**: UseProjects, useProjectDetails\n- **Utilities**: useMultipleSheetUpload, SchoolMatcher\n- **Folder-based Hooks**: attendance/, household/, metrics/, students/\n\n**Best for**: Finding hooks to use in components, understanding data flow\n\n---\n\n### 4. [pages.md](pages.md)\n**Pages & Routes Reference**\n- All Next.js pages documented\n- Route paths and purposes\n- API endpoints\n- Page flow diagrams\n- Dynamic routes explanation\n\n**Pages Covered**:\n- Root Pages (/, layout.js)\n- Authentication (signup)\n- Organization Setup\n- Dashboard (/dashboard/[organizationId])\n- Contact Us\n- API Routes (check, contact, literacy, numeracy, export)\n\n**Best for**: Understanding routing, navigating the app structure\n\n---\n\n### 5. [overview.md](overview.md)\n**Quick Reference Overview**\n- Component listing\n- Hook listing\n- Page listing\n- External references\n\n**Best for**: Quick lookup of all items in the project\n\n---\n\n## 🎯 Getting Started\n\n### For New Developers\n1. Start with [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) to understand the architecture\n2. Read [pages.md](pages.md) to understand routing\n3. Explore [components.md](components.md) for UI components\n4. Check [hooks.md](hooks.md) for data management\n\n### For Component Development\n1. Reference [components.md](components.md)\n2. Check related hooks in [hooks.md](hooks.md)\n3. Look up routes in [pages.md](pages.md)\n\n### For Feature Implementation\n1. Check [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for relevant folder\n2. Review [pages.md](pages.md) for route requirements\n3. Find components in [components.md](components.md)\n4. Integrate with hooks from [hooks.md](hooks.md)\n\n---\n\n## 🏗️ Project Structure Quick Reference\n\n```\nsrc/\n├── app/                    # Next.js pages & API routes\n├── components/             # React components (15+ categories)\n├── hooks/                  # Custom React hooks (20+)\n├── firebase/              # Firebase configuration\n├── redux/                 # Redux state management\n├── utils/                 # Utility functions\n└── icons/                 # Custom icon components\n```\n\n---\n\n## 🛠️ Technology Stack\n\n| Category | Technologies |\n|----------|---------------|\n| **Frontend** | React 19, Next.js 16, Tailwind CSS |\n| **State Management** | Redux Toolkit, React Hooks |\n| **Database** | Firebase Firestore |\n| **Authentication** | Firebase Auth |\n| **AI** | Google Generative AI (Gemini) |\n| **Forms** | Formik, Yup |\n| **Charts** | Chart.js, Recharts |\n| **File Handling** | ExcelJS, XLSX |\n| **Communication** | Twilio, Nodemailer |\n\n---\n\n## 📋 Documentation Guidelines\n\nWhen updating documentation:\n\n1. **Keep it organized** - Use clear headings and sections\n2. **Add examples** - Include code snippets and usage examples\n3. **Update links** - Maintain cross-references between docs\n4. **Be specific** - Document purpose, parameters, and return values\n5. **Include use cases** - Show where and why to use each component/hook\n6. **Keep it current** - Update when adding new components or features\n\n---\n\n## 🔗 Quick Navigation\n\n- [📁 Full Project Structure](PROJECT_STRUCTURE.md#directory-structure)\n- [🎨 All Components](components.md)\n- [🪝 All Hooks](hooks.md)\n- [📄 All Pages & Routes](pages.md)\n- [⚙️ Technology Stack](PROJECT_STRUCTURE.md#technology-stack-breakdown)\n- [🌐 API Routes](pages.md#api-routes)\n\n---\n\n## 🚀 Key Features\n\n- ✅ Multi-organization support\n- ✅ Student assessment tracking\n- ✅ Attendance management\n- ✅ AI-powered insights\n- ✅ Real-time performance analytics\n- ✅ Bulk data import/export\n- ✅ Audio-based assessments\n- ✅ Role-based access control\n\n---\n\n## 📞 Support\n\nFor questions about specific features or components, refer to:\n- Component questions → [components.md](components.md)\n- Hook questions → [hooks.md](hooks.md)\n- Routing questions → [pages.md](pages.md)\n- Architecture questions → [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)\n\n---\n\n**Last Updated**: February 2026\n**Documentation Version**: 1.0"
+# Documentation Index
+
+## Welcome to the Nyansapo Teaching Dashboard Documentation
+
+This folder contains comprehensive documentation for all aspects of the Nyansapo Teaching Dashboard project.
+
+---
+
+## 📚 Documentation Files
+
+### 1. [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+**Complete Project Architecture & Overview**
+- Full directory structure visualization
+- Technology stack breakdown
+- Key features overview
+- API routes reference
+- Project architecture explanation
+
+**Best for**: Understanding the overall project layout and tech stack
+
+---
+
+### 2. [components.md](components.md)
+**React Components Reference**
+- 15+ component categories
+- Detailed descriptions of each component
+- Purpose and functionality of every component
+- Props and features
+- Use cases and integration points
+
+**Components Covered**:
+- AI Assistant Components (DashboardChatBot, ChatHeader, ChatMessage, etc.)
+- Assessment Components (StudentsList, StudentMetrics, AddStudentModal, etc.)
+- Attendance Components (Attendance-dashboard, AttendanceTable)
+- Audio Moderation Components (AudioPlayer, AssessmentResults, etc.)
+- Auth Components (LoginForm, SignupForm)
+- Button Components (AddOrganizationButton, OrganizationButton, etc.)
+- Chart Components (GradeLevelChart, LevelDistributionByAge, etc.)
+- Dashboard Components (Header, SideBar, UserProfileModal)
+- And more!
+
+**Best for**: Finding component details, understanding component hierarchy
+
+---
+
+### 3. [hooks.md](hooks.md)
+**Custom Hooks Reference**
+- 20+ custom hooks documented
+- Purpose and functionality
+- Key functions and return values
+- Use cases for each hook
+- Best practices for hooks usage
+
+**Hook Categories**:
+- **Authentication**: useAuth, useIsLoggedIn
+- **Organization & Schools**: useOrganization, useSchools, useOrganizationHouseholds
+- **Student Management**: useSchoolStudents, useHouseholdDetails
+- **Assessment**: useAssessment, useAnalysis
+- **Instructors**: useInstructors, useInstructorActions, useAssignInstructor
+- **Projects**: UseProjects, useProjectDetails
+- **Utilities**: useMultipleSheetUpload, SchoolMatcher
+- **Folder-based Hooks**: attendance/, household/, metrics/, students/
+
+**Best for**: Finding hooks to use in components, understanding data flow
+
+---
+
+### 4. [pages.md](pages.md)
+**Pages & Routes Reference**
+- All Next.js pages documented
+- Route paths and purposes
+- API endpoints
+- Page flow diagrams
+- Dynamic routes explanation
+
+**Pages Covered**:
+- Root Pages (/, layout.js)
+- Authentication (signup)
+- Organization Setup
+- Dashboard (/dashboard/[organizationId])
+- Contact Us
+- API Routes (check, contact, literacy, numeracy, export)
+
+**Best for**: Understanding routing, navigating the app structure
+
+---
+
+### 5. [overview.md](overview.md)
+**Quick Reference Overview**
+- Component listing
+- Hook listing
+- Page listing
+- External references
+
+**Best for**: Quick lookup of all items in the project
+
+---
+
+## 🎯 Getting Started
+
+### For New Developers
+1. Start with [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) to understand the architecture
+2. Read [pages.md](pages.md) to understand routing
+3. Explore [components.md](components.md) for UI components
+4. Check [hooks.md](hooks.md) for data management
+
+### For Component Development
+1. Reference [components.md](components.md)
+2. Check related hooks in [hooks.md](hooks.md)
+3. Look up routes in [pages.md](pages.md)
+
+### For Feature Implementation
+1. Check [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) for relevant folder
+2. Review [pages.md](pages.md) for route requirements
+3. Find components in [components.md](components.md)
+4. Integrate with hooks from [hooks.md](hooks.md)
+
+---
+
+## 🏗️ Project Structure Quick Reference
+
+```
+src/
+├── app/                    # Next.js pages & API routes
+├── components/             # React components (15+ categories)
+├── hooks/                  # Custom React hooks (20+)
+├── firebase/              # Firebase configuration
+├── redux/                 # Redux state management
+├── utils/                 # Utility functions
+└── icons/                 # Custom icon components
+```
+
+---
+
+## 🛠️ Technology Stack
+
+| Category | Technologies |
+|----------|---------------|
+| **Frontend** | React 19, Next.js 16, Tailwind CSS |
+| **State Management** | Redux Toolkit, React Hooks |
+| **Database** | Firebase Firestore |
+| **Authentication** | Firebase Auth |
+| **AI** | Google Generative AI (Gemini) |
+| **Forms** | Formik, Yup |
+| **Charts** | Chart.js, Recharts |
+| **File Handling** | ExcelJS, XLSX |
+| **Communication** | Twilio, Nodemailer |
+
+---
+
+## 📋 Documentation Guidelines
+
+When updating documentation:
+
+1. **Keep it organized** - Use clear headings and sections
+2. **Add examples** - Include code snippets and usage examples
+3. **Update links** - Maintain cross-references between docs
+4. **Be specific** - Document purpose, parameters, and return values
+5. **Include use cases** - Show where and why to use each component/hook
+6. **Keep it current** - Update when adding new components or features
+
+---
+
+## 🔗 Quick Navigation
+
+- [📁 Full Project Structure](PROJECT_STRUCTURE.md#directory-structure)
+- [🎨 All Components](components.md)
+- [🪝 All Hooks](hooks.md)
+- [📄 All Pages & Routes](pages.md)
+- [⚙️ Technology Stack](PROJECT_STRUCTURE.md#technology-stack-breakdown)
+- [🌐 API Routes](pages.md#api-routes)
+
+---
+
+## 🚀 Key Features
+
+- ✅ Multi-organization support
+- ✅ Student assessment tracking
+- ✅ Attendance management
+- ✅ AI-powered insights
+- ✅ Real-time performance analytics
+- ✅ Bulk data import/export
+- ✅ Audio-based assessments
+- ✅ Role-based access control
+
+---
+
+## 📞 Support
+
+For questions about specific features or components, refer to:
+- Component questions → [components.md](components.md)
+- Hook questions → [hooks.md](hooks.md)
+- Routing questions → [pages.md](pages.md)
+- Architecture questions → [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+
+---
+
+**Last Updated**: February 2026
+**Documentation Version**: 1.0
