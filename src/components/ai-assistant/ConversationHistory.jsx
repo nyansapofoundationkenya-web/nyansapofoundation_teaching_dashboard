@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FiClock, FiMessageSquare, FiTrash2, FiChevronRight, FiPlus } from "react-icons/fi";
+import { FiClock, FiMessageSquare, FiTrash2, FiChevronRight } from "react-icons/fi";
 import { getUserConversations, deleteConversation, startNewConversation } from "@/utils/aiConversationUtils";
 
 const ConversationHistory = ({ 
-  userId, 
+  userId: propUserId, 
   organizationId, 
   onSelectConversation,
   selectedConversationId 
@@ -13,36 +13,35 @@ const ConversationHistory = ({
   const [conversations, setConversations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
-  const [isCreating, setIsCreating] = useState(false);
+  const [userId, setUserId] = useState(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // Initialize userId
   useEffect(() => {
-    loadConversations();
-  }, [userId]);
+    const initUserId = () => {
+      let uid = propUserId;
+      if (!uid && typeof window !== 'undefined') {
+        uid = localStorage.getItem('user_uid');
+      }
+      setUserId(uid);
+      setIsInitialized(true);
+    };
+    initUserId();
+  }, [propUserId]);
 
-  const handleStartNew = async () => {
-    if (!userId || isCreating) return;
-
-    try {
-      setIsCreating(true);
-      setIsLoading(true);
-      const newId = await startNewConversation(userId, organizationId, "");
-      await loadConversations();
-      onSelectConversation(newId);
-    } catch (err) {
-      console.error("Error starting new conversation:", err);
-      alert("Failed to start new conversation");
-    } finally {
-      setIsLoading(false);
-      setIsCreating(false);
+  // Load conversations
+  useEffect(() => {
+    if (userId && organizationId && isInitialized) {
+      loadConversations();
     }
-  };
+  }, [userId, organizationId, isInitialized, selectedConversationId]);
 
   const loadConversations = async () => {
-    if (!userId) return;
-
+    if (!userId || !organizationId) return;
+    
     try {
       setIsLoading(true);
-      const data = await getUserConversations(userId);
+      const data = await getUserConversations(userId, organizationId);
       setConversations(data);
     } catch (error) {
       console.error("Error loading conversations:", error);
@@ -63,7 +62,6 @@ const ConversationHistory = ({
       await deleteConversation(userId, conversationId);
       setConversations(prev => prev.filter(c => c.id !== conversationId));
       
-      // If deleted conversation was selected, notify parent
       if (conversationId === selectedConversationId) {
         onSelectConversation(null);
       }
@@ -85,19 +83,34 @@ const ConversationHistory = ({
     if (days === 0) return "Today";
     if (days === 1) return "Yesterday";
     if (days < 7) return `${days} days ago`;
-    
     return date.toLocaleDateString();
   };
 
-  if (isLoading) {
+  // Loading states
+  if (!isInitialized || (isLoading && conversations.length === 0)) {
     return (
       <div className="bg-background-light rounded-2xl p-6 border border-gray-600">
         <div className="animate-pulse space-y-4">
           <div className="h-6 bg-background-lighter rounded w-1/2"></div>
           <div className="h-20 bg-background-lighter rounded"></div>
           <div className="h-20 bg-background-lighter rounded"></div>
-          <div className="h-20 bg-background-lighter rounded"></div>
         </div>
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="bg-background-light rounded-2xl p-6 border border-gray-600">
+        <p className="text-gray-400">Please log in to view conversations</p>
+      </div>
+    );
+  }
+
+  if (!organizationId) {
+    return (
+      <div className="bg-background-light rounded-2xl p-6 border border-gray-600">
+        <p className="text-gray-400">No organization selected</p>
       </div>
     );
   }
@@ -109,27 +122,13 @@ const ConversationHistory = ({
           <FiClock />
           Recent Conversations
         </h3>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-400">{conversations.length} total</span>
-          {/* <button
-            onClick={handleStartNew}
-            title="Start new conversation"
-            disabled={isCreating}
-            className={`p-2 rounded-md ${isCreating ? 'opacity-60 cursor-not-allowed' : 'bg-[var(--background-lighter)]/50 hover:bg-[var(--background-lighter)]'} transition`}
-          >
-            {isCreating ? (
-              <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <FiPlus className="w-4 h-4" />
-            )}
-          </button> */}
-        </div>
+        <span className="text-sm text-gray-400">{conversations.length} total</span>
       </div>
 
       {conversations.length === 0 ? (
         <div className="text-center py-8 text-gray-400">
           <FiMessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p>No conversations yet</p>
+          <p>No conversations yet for this organization</p>
           <p className="text-sm mt-1">Start chatting to see your history here</p>
         </div>
       ) : (
@@ -142,12 +141,11 @@ const ConversationHistory = ({
                 key={conv.id}
                 onClick={() => onSelectConversation(conv.id)}
                 className={`
-                  group rounded-xl p-4 cursor-pointer transition-all 
+                  group rounded-xl p-4 cursor-pointer transition-all border
                   ${isSelected 
                     ? 'bg-primary-2/20 border-primary-2' 
                     : 'bg-background-lighter/50 hover:bg-background-lighter border-transparent hover:border-primary-2/30'
                   }
-                  border
                 `}
               >
                 <div className="flex items-start justify-between gap-3">

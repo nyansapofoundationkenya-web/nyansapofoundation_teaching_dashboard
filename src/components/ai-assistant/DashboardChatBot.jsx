@@ -19,17 +19,10 @@ import { executeToolCall } from "./toolExecutor";
 
 const DashboardChatBot = ({ 
   organizationId, 
-  userId, 
+  userId: propUserId, 
   conversationId: initialConversationId = null 
 }) => {
-  const [messages, setMessages] = useState([
-    {
-      text: "Hello! I'm your AI Education Analyst.\n\nI can answer questions about assessments, student results, performance, attendance, trends — using real-time data from your organization only.\n\nAsk me anything!",
-      sender: "bot",
-      timestamp: new Date(),
-      id: "welcome",
-    },
-  ]);
+  const [messages, setMessages] = useState([]); // Start with empty array
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState(null);
@@ -39,6 +32,41 @@ const DashboardChatBot = ({
   const [isSavingConversation, setIsSavingConversation] = useState(false);
   const [conversationLoaded, setConversationLoaded] = useState(false);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+  const [userId, setUserId] = useState(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Initialize userId from props or localStorage (client-side only)
+  useEffect(() => {
+    const initUserId = () => {
+      // First try prop, then localStorage (only in browser)
+      let uid = propUserId;
+      
+      if (!uid && typeof window !== 'undefined') {
+        uid = localStorage.getItem('user_uid');
+        console.log("Retrieved user_uid from localStorage:", uid);
+      }
+      
+      console.log("Setting userId:", uid);
+      setUserId(uid);
+      setIsInitialized(true);
+    };
+
+    initUserId();
+  }, [propUserId]);
+
+  // Initialize welcome message after we have organization name
+  useEffect(() => {
+    if (organizationName && messages.length === 0) {
+      setMessages([
+        {
+          text: `Hello! I'm your AI Education Analyst for **${organizationName}**.\n\nWhat would you like to know?`,
+          sender: "bot",
+          timestamp: new Date(),
+          id: "welcome-personalized",
+        },
+      ]);
+    }
+  }, [organizationName]);
 
   // Sync internal conversationId with prop when parent selects a conversation
   useEffect(() => {
@@ -62,42 +90,31 @@ const DashboardChatBot = ({
         if (orgDoc.exists()) {
           const name = orgDoc.data()?.name || "Your Organization";
           setOrganizationName(name);
-          
-          if (!conversationLoaded) {
-            setMessages((prev) => {
-              // Remove any existing welcome messages (welcome, welcome-personalized, cleared/new placeholders)
-              const filtered = prev.filter((m) => !m.id?.toString().startsWith("welcome") && !m.id?.toString().startsWith("new-") && !m.id?.toString().startsWith("cleared-"));
-              return [
-                {
-                  text: `Hello! I'm your AI Education Analyst for **${name}**.\n\nWhat would you like to know?`,
-                  sender: "bot",
-                  timestamp: new Date(),
-                  id: "welcome-personalized",
-                },
-                ...filtered,
-              ];
-            });
-          }
         }
       } catch (error) {
         console.error("Error loading organization name:", error);
       }
     };
     loadOrgName();
-  }, [organizationId, conversationLoaded]);
+  }, [organizationId]);
 
   // Load existing conversation if conversationId is provided
   useEffect(() => {
     const loadExistingConversation = async () => {
-      if (!userId || !initialConversationId || conversationLoaded) return;
+      if (!userId || !initialConversationId || conversationLoaded || !isInitialized) {
+        console.log("Skipping load:", { userId, initialConversationId, conversationLoaded, isInitialized });
+        return;
+      }
 
       try {
         setIsLoading(true);
+        console.log("Loading conversation:", initialConversationId);
         const loadedMessages = await loadConversationMessages(userId, initialConversationId);
         
         if (loadedMessages.length > 0) {
           setMessages(loadedMessages);
           setConversationLoaded(true);
+          console.log("Loaded messages:", loadedMessages.length);
         }
       } catch (error) {
         console.error("Error loading conversation:", error);
@@ -107,7 +124,7 @@ const DashboardChatBot = ({
     };
 
     loadExistingConversation();
-  }, [userId, initialConversationId, conversationLoaded]);
+  }, [userId, initialConversationId, conversationLoaded, isInitialized]);
 
   // Initialize Gemini model
   const ai = getAI(app);
@@ -119,22 +136,27 @@ const DashboardChatBot = ({
 
   // Save a message to Firestore
   const saveMessage = async (message, isFirstUserMessage = false) => {
-    if (!userId || isSavingConversation) return;
+    // Check if we have userId
+    if (!userId) {
+      console.error("No userId available for saving message");
+      return;
+    }
 
     try {
       setIsSavingConversation(true);
+      console.log("Saving message for user:", userId);
 
       // Get or create active conversation
       let currentConversationId = conversationId;
       if (!currentConversationId) {
-        console.log("Getting or creating active conversation...");
+        console.log("Creating new conversation...");
         currentConversationId = await getOrCreateActiveConversation(
           userId,
           organizationId,
           organizationName
         );
         setConversationId(currentConversationId);
-        console.log("Using conversation:", currentConversationId);
+        console.log("New conversation created:", currentConversationId);
       }
 
       // Save the message
@@ -144,8 +166,11 @@ const DashboardChatBot = ({
         message,
         isFirstUserMessage
       );
+      
+      console.log("Message saved successfully:", message.id);
     } catch (error) {
       console.error("Error saving message:", error);
+      throw error;
     } finally {
       setIsSavingConversation(false);
     }
@@ -153,6 +178,13 @@ const DashboardChatBot = ({
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
+
+    // Check if we have userId
+    if (!userId) {
+      console.error("Cannot send message: No userId");
+      alert("Please log in to send messages");
+      return;
+    }
 
     const userQuestion = input.trim();
     const userMessage = {
@@ -167,7 +199,13 @@ const DashboardChatBot = ({
     setIsLoading(true);
 
     const isFirstUserMessage = messages.filter(m => m.sender === "user").length === 0;
-    await saveMessage(userMessage, isFirstUserMessage);
+    
+    // AWAIT the first save
+    try {
+      await saveMessage(userMessage, isFirstUserMessage);
+    } catch (error) {
+      console.error("Failed to save user message:", error);
+    }
 
     try {
       const chat = model.startChat({ history: [] });
@@ -204,7 +242,14 @@ const DashboardChatBot = ({
       };
 
       setMessages((prev) => [...prev, botMessage]);
-      await saveMessage(botMessage);
+      
+      // AWAIT the second save
+      try {
+        await saveMessage(botMessage);
+      } catch (error) {
+        console.error("Failed to save bot message:", error);
+      }
+      
     } catch (error) {
       console.error("Gemini Error:", error);
       const errorMessage = {
@@ -215,7 +260,14 @@ const DashboardChatBot = ({
         isError: true,
       };
       setMessages((prev) => [...prev, errorMessage]);
-      await saveMessage(errorMessage);
+      
+      // AWAIT error message save
+      try {
+        await saveMessage(errorMessage);
+      } catch (saveError) {
+        console.error("Failed to save error message:", saveError);
+      }
+      
     } finally {
       setIsLoading(false);
     }
@@ -235,7 +287,11 @@ const DashboardChatBot = ({
   };
 
   const handleNewConversation = async () => {
-    if (!userId) return;
+    if (!userId) {
+      console.error("No userId for new conversation");
+      return;
+    }
+    
     try {
       setIsCreatingConversation(true);
       const newConvId = await startNewConversation(userId, organizationId, organizationName);
@@ -267,6 +323,25 @@ const DashboardChatBot = ({
   };
 
   const formatTime = (date) => date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  // Show loading if not initialized yet
+  if (!isInitialized) {
+    return (
+      <div className="flex flex-col h-full bg-[var(--background)] text-[var(--foreground)] font-sans items-center justify-center">
+        <LoadingIndicator />
+        <p className="mt-4 text-gray-400">Initializing...</p>
+      </div>
+    );
+  }
+
+  // Show message if no userId
+  if (!userId) {
+    return (
+      <div className="flex flex-col h-full bg-[var(--background)] text-[var(--foreground)] font-sans items-center justify-center">
+        <p className="text-gray-400">Please log in to use the chat</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-[var(--background)] text-[var(--foreground)] font-sans">
