@@ -25,7 +25,7 @@ export const getOrCreateActiveConversation = async (userId, organizationId, orga
   }
 
   try {
-    const conversationsRef = collection(db, `users/${userId}/ai_conversations`);
+    const conversationsRef = collection(db, `user/${userId}/ai_conversations`);
     const recentQuery = query(
       conversationsRef,
       where("organizationId", "==", organizationId),
@@ -73,7 +73,7 @@ export const createAIConversation = async (userId, organizationId, organizationN
   }
 
   try {
-    const conversationsRef = collection(db, `users/${userId}/ai_conversations`);
+    const conversationsRef = collection(db, `user/${userId}/ai_conversations`);
     const newConversationRef = await addDoc(conversationsRef, {
       organizationId,
       organizationName: organizationName || "Unknown Organization",
@@ -107,7 +107,7 @@ export const saveMessageToConversation = async (
   try {
     const messagesRef = collection(
       db,
-      `users/${userId}/ai_conversations/${conversationId}/messages`
+      `user/${userId}/ai_conversations/${conversationId}/messages`
     );
     
     const messageDocRef = doc(messagesRef, message.id);
@@ -121,7 +121,7 @@ export const saveMessageToConversation = async (
       metadata: message.metadata || null,
     });
 
-    const conversationRef = doc(db, `users/${userId}/ai_conversations/${conversationId}`);
+    const conversationRef = doc(db, `user/${userId}/ai_conversations/${conversationId}`);
     const updateData = {
       updatedAt: serverTimestamp(),
       lastMessage: message.text.substring(0, 100),
@@ -154,7 +154,7 @@ export const loadConversationMessages = async (userId, conversationId) => {
   try {
     const messagesRef = collection(
       db,
-      `users/${userId}/ai_conversations/${conversationId}/messages`
+      `user/${userId}/ai_conversations/${conversationId}/messages`
     );
     const q = query(messagesRef, orderBy("timestamp", "asc"));
     const snapshot = await getDocs(q);
@@ -184,7 +184,7 @@ export const getUserConversations = async (userId, organizationId, limitCount = 
   }
 
   try {
-    const conversationsRef = collection(db, `users/${userId}/ai_conversations`);
+    const conversationsRef = collection(db, `user/${userId}/ai_conversations`);
     
     const q = query(
       conversationsRef, 
@@ -218,7 +218,7 @@ export const getUserConversations = async (userId, organizationId, limitCount = 
  */
 const getConversationsInMemory = async (userId, organizationId, limitCount) => {
   try {
-    const conversationsRef = collection(db, `users/${userId}/ai_conversations`);
+    const conversationsRef = collection(db, `user/${userId}/ai_conversations`);
     const q = query(conversationsRef, orderBy("updatedAt", "desc"));
     const snapshot = await getDocs(q);
     
@@ -246,7 +246,7 @@ export const getConversationMetadata = async (userId, conversationId) => {
   }
 
   try {
-    const conversationRef = doc(db, `users/${userId}/ai_conversations/${conversationId}`);
+    const conversationRef = doc(db, `user/${userId}/ai_conversations/${conversationId}`);
     const snapshot = await getDoc(conversationRef);
 
     if (!snapshot.exists()) {
@@ -276,7 +276,7 @@ export const deleteConversation = async (userId, conversationId) => {
   try {
     const messagesRef = collection(
       db,
-      `users/${userId}/ai_conversations/${conversationId}/messages`
+      `user/${userId}/ai_conversations/${conversationId}/messages`
     );
     const messagesSnapshot = await getDocs(messagesRef);
     
@@ -285,7 +285,7 @@ export const deleteConversation = async (userId, conversationId) => {
     );
     await Promise.all(deletePromises);
 
-    const conversationRef = doc(db, `users/${userId}/ai_conversations/${conversationId}`);
+    const conversationRef = doc(db, `user/${userId}/ai_conversations/${conversationId}`);
     await deleteDoc(conversationRef);
   } catch (error) {
     console.error("Error deleting conversation:", error);
