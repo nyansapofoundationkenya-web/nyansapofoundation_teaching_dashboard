@@ -1,57 +1,100 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Users, CheckCircle, Clock, Plus } from "lucide-react"
-import AddStudentModal from "./AddStudentModal"
+import { useState } from "react";
+import { Users, CheckCircle, Clock, Plus, Download } from "lucide-react";
+import AddStudentModal from "./AddStudentModal";
+import { exportStudentsToExcel } from "@/utils/studentExportUtil";
 
 export default function StudentMetrics({
   students,
   loading = false,
   assessmentId,
 }) {
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("");
 
-  const totalStudents = students?.length || 0
+  const totalStudents = students?.length || 0;
 
-  let doneCount = 0
-  let notStartedCount = 0
+  let doneCount = 0;
+  let notStartedCount = 0;
 
   if (students) {
-    students.forEach(student => {
-      // Check if baseline has a meaningful value
+    students.forEach((student) => {
       const hasBaseline =
         student.baseline != null &&
         student.baseline !== "" &&
-        String(student.baseline).trim() !== ""
+        String(student.baseline).trim() !== "";
 
       if (hasBaseline) {
-        doneCount++
+        doneCount++;
       } else {
-        notStartedCount++
+        notStartedCount++;
       }
-    })
+    });
   }
 
   if (loading) {
-    return <StudentMetricsSkeleton />
+    return <StudentMetricsSkeleton />;
   }
+
+  const categories = [
+    "letter",
+    "word",
+    "beginner",
+    "paragraph",
+    "story",
+    "above",
+    "non-reader",
+    "reading-comprehension",
+  ];
+
+  // Export handler
+  const handleExport = async () => {
+    await exportStudentsToExcel(students, assessmentId, selectedCategory || null);
+  };
 
   return (
     <>
       <div className="bg-background-light rounded-2xl shadow-lg border border-gray-600 p-6 mb-6">
         {/* Header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
           <h3 className="text-lg font-semibold text-foreground">
             Student Progress Overview
           </h3>
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-primary-3 hover:bg-primary-3/90 text-primary-1 font-medium rounded-xl transition-all duration-200 shadow-md hover:shadow-lg whitespace-nowrap"
-          >
-            <Plus className="w-4 h-4" />
-            Assign Students
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+            {/* Filter Dropdown */}
+            <select
+              className="border border-gray-400 rounded-lg px-3 py-2 text-sm bg-background-light focus:outline-none"
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+            >
+              <option value="">All Categories</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </option>
+              ))}
+            </select>
+
+            {/* Export Button */}
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl transition-all duration-200 shadow-md hover:shadow-lg whitespace-nowrap"
+            >
+              <Download className="w-4 h-4" />
+              Export Excel
+            </button>
+
+            {/* Assign Button */}
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-primary-3 hover:bg-primary-3/90 text-primary-1 font-medium rounded-xl transition-all duration-200 shadow-md hover:shadow-lg whitespace-nowrap"
+            >
+              <Plus className="w-4 h-4" />
+              Assign Students
+            </button>
+          </div>
         </div>
 
         {/* Metrics */}
@@ -64,7 +107,7 @@ export default function StudentMetrics({
           />
 
           <MetricCard
-            label="Done"                      // Changed from "Completed"
+            label="Done"
             value={doneCount}
             percentage={
               totalStudents > 0
@@ -97,7 +140,7 @@ export default function StudentMetrics({
         />
       )}
     </>
-  )
+  );
 }
 
 function MetricCard({ label, value, percentage, icon, color }) {
@@ -105,7 +148,7 @@ function MetricCard({ label, value, percentage, icon, color }) {
     primary: "primary-2",
     secondary: "secondary-2",
     gray: "gray-400",
-  }
+  };
 
   return (
     <div
@@ -130,7 +173,7 @@ function MetricCard({ label, value, percentage, icon, color }) {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function StudentMetricsSkeleton() {
@@ -138,5 +181,5 @@ function StudentMetricsSkeleton() {
     <div className="bg-background-light rounded-2xl shadow-lg border border-gray-600 p-6 mb-6 animate-pulse">
       <div className="h-6 bg-background-lighter rounded w-48 mb-4"></div>
     </div>
-  )
+  );
 }
