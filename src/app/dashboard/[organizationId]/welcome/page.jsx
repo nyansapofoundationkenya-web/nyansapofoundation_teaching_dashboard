@@ -167,6 +167,7 @@ export default function WelcomePage() {
         </main>
 
         {/* Quick guide modal */}
+        {/* jhajekoqjqm;q lwlmqw */}
         {showGuide && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="bg-background-lighter rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-gray-700 flex flex-col">
