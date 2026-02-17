@@ -6,7 +6,7 @@ export default function KeyBarriers({ organizationId }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [barriersData, setBarriersData] = useState(null)
-  const [assessmentType, setAssessmentType] = useState("Literacy") // default
+  const [assessmentType, setAssessmentType] = useState("Literacy")
 
   useEffect(() => {
     const fetchData = async () => {
@@ -28,7 +28,6 @@ export default function KeyBarriers({ organizationId }) {
         })
 
         const result = await response.json()
-
         if (!result.success) {
           setError(result.message || result.error)
           return
@@ -43,9 +42,8 @@ export default function KeyBarriers({ organizationId }) {
     }
 
     fetchData()
-  }, [organizationId, assessmentType]) // refetch when dropdown changes
+  }, [organizationId, assessmentType])
 
-  // --- UI States ---
   if (loading) {
     return (
       <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700 h-full flex items-center justify-center">
@@ -62,20 +60,19 @@ export default function KeyBarriers({ organizationId }) {
     )
   }
 
-  // Extract data for Literacy or Numeracy
+  // --- Extracted Data ---
   const topItems =
     assessmentType === "Literacy"
-      ? barriersData?.top_3_missed?.map(i => ({ value: i.letter }))
-      : barriersData?.top_3_missed?.map(i => ({ value: i.number }))
+      ? barriersData?.top_3_missed?.map((i) => i.letter)
+      : barriersData?.top_3_missed?.map((i) => i.number)
 
   const successRate = barriersData?.stats?.success_rate || 0
-  const accuracy = successRate
 
   // --- Render ---
   return (
     <div className="bg-background-lighter rounded-2xl p-6 md:p-8 border border-gray-700 h-full flex flex-col">
       {/* Header + Dropdown */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-6">
         <h3 className="text-secondary-1 text-base font-semibold tracking-wider uppercase">
           Key Barriers
         </h3>
@@ -92,38 +89,37 @@ export default function KeyBarriers({ organizationId }) {
 
       {/* Content */}
       <div className="flex-1 flex flex-col items-center justify-center text-center">
-        <div className="mb-4 md:mb-6 w-full flex-1 flex flex-col items-center justify-center">
-          {/* Display top missed letters or numbers */}
-          <div className="flex items-center justify-center gap-4 md:gap-6 mb-4 md:mb-6 max-w-full px-2">
+        {/* Most Missed Letters/Numbers */}
+        <div className="mb-6">
+          <p className="text-secondary-3 text-sm mb-3">
+            Most Missed{" "}
+            {assessmentType === "Literacy" ? "Letters" : "Numbers"}
+          </p>
+
+          <div className="flex flex-wrap justify-center gap-6">
             {topItems?.length > 0 ? (
               topItems.map((item, index) => (
-                <div key={index} className="flex items-center">
-                  <span
-                    className="text-secondary-1 font-bold leading-none"
-                    style={{
-                      fontSize: "clamp(2rem, 6vmin, 3rem)",
-                    }}
-                  >
-                    {item.value}
-                  </span>
-                  {index < topItems.length - 1 && (
-                    <span
-                      className="text-secondary-1 font-bold leading-none mx-2"
-                      style={{
-                        fontSize: "clamp(2rem, 6vmin, 3rem)",
-                      }}
-                    >
-                      ,
-                    </span>
-                  )}
-                </div>
+                <span
+                  key={index}
+                  className="text-secondary-1 font-bold leading-none"
+                  style={{
+                    fontSize: "clamp(2rem, 6vmin, 3rem)",
+                  }}
+                >
+                  {item.toUpperCase()}
+                </span>
               ))
             ) : (
               <span className="text-gray-400">No data available</span>
             )}
           </div>
-          <p className="text-gray-300 text-sm md:text-base lg:text-lg">
-            Most Missed ({accuracy}% Accuracy)
+        </div>
+
+        {/* Success Rate */}
+        <div>
+          <p className="text-secondary-3 text-sm">Overall Accuracy</p>
+          <p className="text-primary-3 text-3xl font-bold mt-1">
+            {successRate}%
           </p>
         </div>
       </div>
