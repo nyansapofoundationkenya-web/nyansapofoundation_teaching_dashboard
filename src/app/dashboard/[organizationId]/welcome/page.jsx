@@ -9,6 +9,7 @@ import {
   InformationCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline"
+import { Users, School, GraduationCap } from "lucide-react" // Add these imports
 import Header from "@/components/Welcome/Header"
 import DashboardLayout from "../DashboardLayout"
 import GetStarted from "@/components/Welcome/GetStarted"
@@ -19,6 +20,7 @@ import WeeklyEngagementChart from "@/components/Welcome/WeeklyEngagementChart"
 import ProgramImpact from "@/components/Welcome/ProgramImpact"
 import AssessmentHealth from "@/components/Welcome/AssessmentHealth"
 import AttendanceOverview from "@/components/Welcome/AttendanceOverview"
+import StatsCard from "@/components/ProjectDetails/StatsCard" // Import StatsCard component
 
 export default function WelcomePage() {
   const { organizationId } = useParams()
@@ -33,7 +35,6 @@ export default function WelcomePage() {
     schools: "—",
     students: "—",
     teachers: "—",
-    // ratio: "—", // Commented out
   })
 
   const { user: currentUser } = useSelector((state) => state.auth)
@@ -53,14 +54,12 @@ export default function WelcomePage() {
           const schools = Number(org.total_schools ?? 0)
           const students = Number(org.total_students ?? 0)
           const teachers = Number(org.total_teachers ?? 0)
-          // const ratio = teachers > 0 ? (students / teachers).toFixed(2) : "—" // Commented out
 
           setStats({
             projects: projects.toLocaleString(),
             schools: schools.toLocaleString(),
             students: students.toLocaleString(),
             teachers: teachers.toLocaleString(),
-            // ratio, // Commented out
           })
         }
       } catch (err) {
@@ -71,27 +70,10 @@ export default function WelcomePage() {
     fetchData()
   }, [organizationId, handleFetchOrganizationById])
 
-    const statsConfig = [
-    { 
-      label: "Learners Reached", 
-      value: stats.students,
-      color: "text-secondary-2"
-    },
-     { 
-      label: (
-        <span>
-          Schools in <span className="text-primary-3 font-bold">{stats.projects} </span>Projects
-        </span>
-      ),
-      value: stats.schools,
-      color: "text-primary-3"
-    },
-    { 
-      label: "Teachers", 
-      value: stats.teachers,
-      color: "text-primary-3"
-    },
-  ]
+  const handleSchoolsClick = () => {
+    // Add navigation or modal functionality here if needed
+    console.log("Schools card clicked");
+  }
 
   return (
     <DashboardLayout title="Welcome" organizationId={organizationId}>
@@ -110,22 +92,41 @@ export default function WelcomePage() {
             </button>
           </div>
 
-          {/* Organization stats - Redesigned */}
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-10">
-            {statsConfig.map((item, i) => (
-              <div
-                key={i}
-                className="bg-background-lighter rounded-2xl p-6 border border-gray-700 text-center"
-              >
-                <div className={`text-3xl font-bold ${item.color}`}>
-                  {item.value}
-                </div>
-                <hr className="border-t border-gray-600 my-4" />
-                <div className="text-xl text-gray-400 tracking-wide">
-                  {item.label}
-                </div>
-              </div>
-            ))}
+          {/* Organization stats - Using StatsCard component from example */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-10">
+            <StatsCard
+              icon={<GraduationCap className="w-6 h-6" />}
+              label="Learners Reached"
+              value={stats.students}
+              iconColor="text-secondary-2"
+              valueColor="text-secondary-2"
+            />
+
+            <StatsCard
+              icon={<School className="w-6 h-6" />}
+              label={
+                <span>
+                  Schools in{" "}
+                  <span className="font-bold text-primary-3">
+                    {stats.projects}
+                  </span>{" "}
+                  {Number(stats.projects.replace(/,/g, "")) === 1 ? "Project" : "Projects"}
+                </span>
+              }
+              value={stats.schools}
+              iconColor="text-primary-3"
+              valueColor="text-primary-3"
+              onClick={handleSchoolsClick}
+              clickable={true}
+            />
+
+            <StatsCard
+              icon={<Users className="w-6 h-6" />}
+              label="Teachers"
+              value={stats.teachers}
+              iconColor="text-primary-3"
+              valueColor="text-primary-3"
+            />
           </div>
 
           {/* Student Level Distribution Chart + Key Barriers */}
