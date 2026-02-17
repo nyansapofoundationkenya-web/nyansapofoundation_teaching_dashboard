@@ -259,8 +259,9 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
               className="w-full px-3 py-2 text-sm border border-gray-500 rounded-lg bg-background-light text-gray-300 focus:ring-2 focus:ring-primary-2 focus:border-primary-2 outline-none"
             >
               <option value="all">All Levels</option>
-              <option value="Endline">Endline</option>
               <option value="Baseline">Baseline</option>
+              <option value="Midline">Midline</option>
+              <option value="Endline">Endline</option>
             </select>
           </div>
 

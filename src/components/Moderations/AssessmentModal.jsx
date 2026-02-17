@@ -26,7 +26,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
     assessmentName: "",
     projectId: "",
     schoolIds: [],
-    type: "Numeracy",
+    type: "Literacy",
     level: "Baseline",
     assessmentNumber: null,
     to_be_done: new Date().toISOString().split('T')[0],
@@ -55,7 +55,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
             setStudentsLoading(false);
           });
       } else {
-        // For Baseline, fetch regular students
+        // For Baseline and Mindline, fetch regular students
         fetchStudentsForSchools(formData.projectId, formData.schoolIds, formData.level)
           .finally(() => {
             setStudentsLoading(false);

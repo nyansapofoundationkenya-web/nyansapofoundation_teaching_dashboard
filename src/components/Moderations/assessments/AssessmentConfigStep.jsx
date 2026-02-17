@@ -38,7 +38,7 @@ export default function AssessmentConfigStep({
   const renderLevelSelection = () => (
     <div className="mb-6">
       <label className="block text-sm font-medium text-foreground mb-3">Assessment Level *</label>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <label className={`flex items-center p-4 rounded-xl cursor-pointer transition-all border-2 ${
           formData.level === "Baseline" 
             ? 'bg-primary-2/10 border-primary-2/50 shadow-md' 
@@ -53,7 +53,24 @@ export default function AssessmentConfigStep({
           />
           <div className="ml-3">
             <span className="text-sm font-medium text-foreground block">Baseline</span>
-            <span className="text-xs text-gray-400 mt-1">Uses student list</span>
+            <span className="text-xs text-gray-400 mt-1">Initial assessment</span>
+          </div>
+        </label>
+        <label className={`flex items-center p-4 rounded-xl cursor-pointer transition-all border-2 ${
+          formData.level === "Mindline" 
+            ? 'bg-primary-2/10 border-primary-2/50 shadow-md' 
+            : 'bg-background-lighter border-gray-600 hover:bg-background-light'
+        }`}>
+          <input
+            type="radio"
+            value="Midline"
+            checked={formData.level === "Midline"}
+            onChange={(e) => handleLevelChange(e.target.value)}
+            className="w-4 h-4 text-primary-2 bg-background-lighter border-gray-500 focus:ring-primary-2 focus:ring-2"
+          />
+          <div className="ml-3">
+            <span className="text-sm font-medium text-foreground block">Midline</span>
+            <span className="text-xs text-gray-400 mt-1">Mid-term assessment</span>
           </div>
         </label>
         <label className={`flex items-center p-4 rounded-xl cursor-pointer transition-all border-2 ${
@@ -70,7 +87,7 @@ export default function AssessmentConfigStep({
           />
           <div className="ml-3">
             <span className="text-sm font-medium text-foreground block">Endline</span>
-            <span className="text-xs text-gray-400 mt-1">Uses student list</span>
+            <span className="text-xs text-gray-400 mt-1">Final assessment</span>
           </div>
         </label>
       </div>
