@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 
 export default function KeyBarriers({
   organizationId,
@@ -32,20 +32,24 @@ export default function KeyBarriers({
     )
   }
 
-  // Extract data for Literacy or Numeracy
+  // --- Extract data ---
   const topItems =
     assessmentType === "Literacy"
-      ? barriersData?.top_3_missed?.map(i => ({ value: i.letter }))
-      : barriersData?.top_3_missed?.map(i => ({ value: i.number }))
+      ? barriersData?.top_3_missed?.map((i) => ({ value: i.letter }))
+      : barriersData?.top_3_missed?.map((i) => ({ value: i.number }))
 
-  const successRate = barriersData?.stats?.success_rate || 0
-  const accuracy = successRate
+  const accuracy = barriersData?.stats?.success_rate || 0
+  const missedCount = barriersData?.stats?.total_missed || 0
+
+  const radius = 70
+  const circumference = 2 * Math.PI * radius
+  const offset = circumference - (accuracy / 100) * circumference
 
   // --- Render ---
   return (
-    <div className="bg-background-lighter rounded-2xl p-6 md:p-8 border border-gray-700 h-full flex flex-col">
+    <div className="bg-background-lighter rounded-2xl p-6 md:p-8 border border-gray-700 flex flex-col gap-8">
       {/* Header + Dropdown */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between">
         <h3 className="text-secondary-1 text-base font-semibold tracking-wider uppercase">
           Key Barriers
         </h3>
@@ -60,11 +64,15 @@ export default function KeyBarriers({
         </select>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex flex-col items-center justify-center text-center">
-        <div className="mb-4 md:mb-6 w-full flex-1 flex flex-col items-center justify-center">
-          {/* Display top missed letters or numbers */}
-          <div className="flex items-center justify-center gap-4 md:gap-6 mb-4 md:mb-6 max-w-full px-2">
+      {/* CONTENT (2 rows, 1 column) */}
+      <div className="flex flex-col gap-6">
+        {/* ROW 1 — Missed Letters/Numbers */}
+        <div className="border border-gray-600 rounded-xl p-6 flex flex-col items-center justify-center text-center">
+          <h4 className="text-secondary-1 uppercase font-semibold tracking-wide mb-4 text-sm">
+            Most Missed {assessmentType === "Literacy" ? "Letters" : "Numbers"}
+          </h4>
+
+          <div className="flex items-center justify-center flex-wrap gap-4 mb-4">
             {topItems?.length > 0 ? (
               topItems.map((item, index) => (
                 <div key={index} className="flex items-center">
@@ -89,12 +97,54 @@ export default function KeyBarriers({
                 </div>
               ))
             ) : (
-              <span className="text-gray-400">No data available</span>
+              <span className="text-gray-400 text-sm">No data available</span>
             )}
           </div>
-          <p className="text-gray-300 text-sm md:text-base lg:text-lg">
-            Most Missed ({accuracy}% Accuracy)
-          </p>
+
+          {/* <p className="text-gray-300 text-sm md:text-base">
+            {missedCount} Total Missed
+          </p> */}
+        </div>
+
+        {/* ROW 2 — Accuracy */}
+        <div className="border border-gray-600 rounded-xl p-6 flex flex-col items-center justify-center text-center">
+          <h4 className="text-secondary-1 uppercase font-semibold tracking-wide mb-4 text-sm">
+            Accuracy
+          </h4>
+
+          <div className="relative w-40 h-40">
+            <svg width="160" height="160" className="transform -rotate-90">
+              <circle
+                cx="80"
+                cy="80"
+                r={radius}
+                stroke="#374151"
+                strokeWidth="16"
+                fill="none"
+              />
+              <circle
+                cx="80"
+                cy="80"
+                r={radius}
+                stroke="#4caf50"
+                strokeWidth="16"
+                fill="none"
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+                strokeLinecap="round"
+                style={{ transition: "stroke-dashoffset 1s ease-in-out" }}
+              />
+            </svg>
+
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-foreground">
+                  {Math.round(accuracy)}%
+                </div>
+                <div className="text-xs text-gray-400 mt-1">Success Rate</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

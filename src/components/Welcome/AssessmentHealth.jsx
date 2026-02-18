@@ -3,10 +3,44 @@
 import { useEffect, useState } from "react"
 import { TrendingUp } from "lucide-react"
 
-export default function AssessmentHealth({ organizationId, loading, error, data, onFetchData }) {
+export default function AssessmentHealth({ organizationId }) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [data, setData] = useState(null)
+
   useEffect(() => {
-    onFetchData()
-  }, [organizationId, onFetchData])
+    const fetchData = async () => {
+      if (!organizationId) return
+
+      setLoading(true)
+      setError(null)
+
+      try {
+        const response = await fetch("/api/literacy/assessment-health", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ organization_id: organizationId }),
+        })
+
+        const result = await response.json()
+
+        if (!result.success) {
+          setError(result.message || result.error)
+          return
+        }
+
+        setData(result.data)
+
+      } catch (err) {
+        console.error("Assessment health fetch error:", err)
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [organizationId])
 
   // Calculate circle progress
   const getCircleProps = (completionRate) => {
