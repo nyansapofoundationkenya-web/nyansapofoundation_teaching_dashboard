@@ -39,18 +39,13 @@ export default function ProjectDetails() {
   const { organizationId, projectId } = useParams();
   const router = useRouter();
 
-  // -------------------------------------------------------------------------
   // Auth & Role
-  // -------------------------------------------------------------------------
   const { user: currentUser, loading: userLoading } = useSelector(
     (state) => state.auth
   );
   const isAdminOrSuperAdmin =
     currentUser?.role === "admin" || currentUser?.role === "super_admin";
-
-  // -------------------------------------------------------------------------
   // Hooks
-  // -------------------------------------------------------------------------
   const {
     project,
     schools,
@@ -93,9 +88,7 @@ export default function ProjectDetails() {
     schoolId: null
   });
 
-  // -------------------------------------------------------------------------
   // UI state
-  // -------------------------------------------------------------------------
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false);
   const [isSchoolsListModalOpen, setIsSchoolsListModalOpen] = useState(false);
@@ -153,10 +146,7 @@ export default function ProjectDetails() {
     projectId,
     schoolId: null
   });
-
-  // -------------------------------------------------------------------------
   // Load data
-  // -------------------------------------------------------------------------
   useEffect(() => {
     if (organizationId && projectId) {
       fetchProjectById(projectId);
@@ -165,9 +155,7 @@ export default function ProjectDetails() {
     }
   }, [organizationId, projectId, fetchProjectById, fetchSchools, fetchProjectStats]);
 
-  // -------------------------------------------------------------------------
   // Click outside dropdown
-  // -------------------------------------------------------------------------
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -178,9 +166,7 @@ export default function ProjectDetails() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // -------------------------------------------------------------------------
   // Handlers
-  // -------------------------------------------------------------------------
   const handleSchoolsCardClick = () => {
     if (schools.length > 0) {
       setIsSchoolsListModalOpen(true);
@@ -214,9 +200,7 @@ export default function ProjectDetails() {
     // window.open(`/api/export/project-performance?organization_id=${organizationId}&project_id=${projectId}`);
   };
 
-  // -------------------------------------------------------------------------
   // Prepare chart data
-  // -------------------------------------------------------------------------
   const chartData = (() => {
     // Use data from new hooks first, fall back to old stats for backward compatibility
     const source = levelType === "literacy"
@@ -255,9 +239,7 @@ export default function ProjectDetails() {
   const combinedLevelsLoading = levelsLoading || literacyLoading || numeracyLoading;
   const combinedLevelsError = levelsError || literacyError || numeracyError;
 
-  // -------------------------------------------------------------------------
   // Render
-  // -------------------------------------------------------------------------
   return (
     <DashboardLayout
       title={project?.name || "Project Details"}
