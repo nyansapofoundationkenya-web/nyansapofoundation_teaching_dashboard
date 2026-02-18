@@ -1,17 +1,23 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { useSelector } from "react-redux"
 import { useOrganizations } from "@/hooks/useOrganization"
 import { useStats } from "@/hooks/stats/useStats"
+import { useBarriers } from "@/hooks/stats/useBarriers"
+import { useStudentImprovement } from "@/hooks/stats/useStudentImprovement"
+import { useAttendanceOverview } from "@/hooks/stats/useAttendanceOverview"
+import { useAssessmentHealth } from "@/hooks/stats/useAssessmentHealth"
+import { useStudentLevels } from "@/hooks/stats/useStudentLevels"
+import { useNumeracyLevels } from "@/hooks/stats/useNumeracyLevels"
 import {
   Info,
   X,
   Users,
   School,
   GraduationCap,
-} from "lucide-react"  // ← switched to lucide-react
+} from "lucide-react"
 import Header from "@/components/Welcome/Header"
 import DashboardLayout from "../DashboardLayout"
 import GetStarted from "@/components/Welcome/GetStarted"
@@ -100,13 +106,25 @@ export default function WelcomePage() {
     currentUser?.role === "superadmin" || 
     currentUser?.role === "admin"
 
+  // Use student levels hook instead of useStats
   const {
-    stats: studentLevelsStats,
+    data: studentLevelsData,
     loading: levelsLoading,
     error: levelsError,
-    fetchOrganizationStats,
-    refreshOrganizationStats,
-  } = useStats()
+    fetchData: fetchStudentLevels
+  } = useStudentLevels({
+    organizationId
+  })
+
+  // Use numeracy levels hook
+  const {
+    data: numeracyLevelsData,
+    loading: numeracyLoading,
+    error: numeracyError,
+    fetchData: fetchNumeracyLevels
+  } = useNumeracyLevels({
+    organizationId
+  })
 
   const [organization, setOrganization] = useState(null)
   const [showGuide, setShowGuide] = useState(false)
@@ -120,26 +138,55 @@ export default function WelcomePage() {
   const [levelType, setLevelType] = useState("literacy")
   const [downloadLoading, setDownloadLoading] = useState(false)
 
-  // Key Barriers state
-  const [barrierLoading, setBarrierLoading] = useState(false)
-  const [barrierError, setBarrierError] = useState(null)
-  const [barriersData, setBarriersData] = useState(null)
-  const [assessmentType, setAssessmentType] = useState("Literacy")
+  // Key Barriers - fix the parameter name from assessmentType to type
+  const [assessmentType, setAssessmentType] = useState("literacy") // Changed from "Literacy" to "literacy"
+  const {
+    loading: barrierLoading,
+    error: barrierError,
+    data: barriersData,
+    fetchData: refetchBarriers
+  } = useBarriers({
+    organizationId,
+    type: assessmentType.toLowerCase(), // Ensure lowercase
+    projectId: null,
+    schoolId: null
+  })
 
-  // Assessment Health state
-  const [healthLoading, setHealthLoading] = useState(false)
-  const [healthError, setHealthError] = useState(null)
-  const [healthData, setHealthData] = useState(null)
+  // Assessment Health
+  const {
+    loading: healthLoading,
+    error: healthError,
+    data: healthData,
+    fetchData: refetchHealth
+  } = useAssessmentHealth({
+    organizationId,
+    projectId: null,
+    schoolId: null
+  })
 
-  // Attendance Overview state
-  const [attendanceLoading, setAttendanceLoading] = useState(false)
-  const [attendanceError, setAttendanceError] = useState(null)
-  const [attendanceData, setAttendanceData] = useState(null)
+  // Attendance Overview
+  const {
+    loading: attendanceLoading,
+    error: attendanceError,
+    data: attendanceData,
+    fetchData: refetchAttendance
+  } = useAttendanceOverview({
+    organizationId,
+    projectId: null,
+    schoolId: null
+  })
 
-  // Program Impact state
-  const [impactLoading, setImpactLoading] = useState(false)
-  const [impactError, setImpactError] = useState(null)
-  const [impactData, setImpactData] = useState(null)
+  // Program Impact (Student Improvement)
+  const {
+    loading: impactLoading,
+    error: impactError,
+    data: impactData,
+    fetchData: refetchImpact
+  } = useStudentImprovement({
+    organizationId,
+    projectId: null,
+    schoolId: null
+  })
 
   // Fetch organization general info
   useEffect(() => {
@@ -166,145 +213,20 @@ export default function WelcomePage() {
     fetchOrg()
   }, [organizationId, handleFetchOrganizationById])
 
-  // Fetch student levels
-  useEffect(() => {
-    if (organizationId) {
-      fetchOrganizationStats(organizationId).catch(err => {
-        console.error("Failed to load student levels:", err)
-      })
-    }
-  }, [organizationId, fetchOrganizationStats])
-
-  // ------------------- Fetch Key Barriers Data -------------------
-  const fetchBarriersData = useCallback(async (type) => {
-    if (!organizationId) return
-
-    setBarrierLoading(true)
-    setBarrierError(null)
-
-    try {
-      const endpoint =
-        type === "Literacy"
-          ? "/api/literacy/missed-letters"
-          : "/api/numeracy/missed-numbers"
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ organization_id: organizationId }),
-      })
-
-      const result = await response.json()
-
-      if (!result.success) {
-        setBarrierError(result.message || result.error)
-        return
-      }
-
-      setBarriersData(result.data)
-    } catch (err) {
-      setBarrierError(err.message)
-    } finally {
-      setBarrierLoading(false)
-    }
-  }, [organizationId])
-
-  // ------------------- Fetch Assessment Health Data -------------------
-  const fetchHealthData = useCallback(async () => {
-    if (!organizationId) return
-
-    setHealthLoading(true)
-    setHealthError(null)
-
-    try {
-      const response = await fetch("/api/literacy/assessment-health", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ organization_id: organizationId }),
-      })
-
-      const result = await response.json()
-
-      if (!result.success) {
-        setHealthError(result.message || result.error)
-        return
-      }
-
-      setHealthData(result.data)
-    } catch (err) {
-      setHealthError(err.message)
-    } finally {
-      setHealthLoading(false)
-    }
-  }, [organizationId])
-
-  // ------------------- Fetch Attendance Data -------------------
-  const fetchAttendanceData = useCallback(async () => {
-    if (!organizationId) return
-
-    setAttendanceLoading(true)
-    setAttendanceError(null)
-
-    try {
-      const response = await fetch("/api/literacy/attendance-overview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ organization_id: organizationId }),
-      })
-
-      const result = await response.json()
-
-      if (!result.success) {
-        setAttendanceError(result.message || result.error)
-        return
-      }
-
-      setAttendanceData(result.data)
-    } catch (err) {
-      setAttendanceError(err.message)
-    } finally {
-      setAttendanceLoading(false)
-    }
-  }, [organizationId])
-
-  // ------------------- Fetch Program Impact Data -------------------
-  const fetchImpactData = useCallback(async () => {
-    if (!organizationId) return
-
-    setImpactLoading(true)
-    setImpactError(null)
-
-    try {
-      const response = await fetch("/api/literacy/student-improvement", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ organization_id: organizationId }),
-      })
-
-      const result = await response.json()
-
-      if (!result.success) {
-        setImpactError(result.message || result.error)
-        return
-      }
-
-      setImpactData(result.data)
-    } catch (err) {
-      setImpactError(err.message)
-    } finally {
-      setImpactLoading(false)
-    }
-  }, [organizationId])
-
+  // Prepare chart data based on level type
   const chartData = ChartDataTransformer.transformData(
-    levelType === "literacy" ? studentLevelsStats?.literacy : studentLevelsStats?.numeracy,
+    levelType === "literacy" ? studentLevelsData : numeracyLevelsData,
     levelType
   )
 
   const handleRefresh = async () => {
     if (!organizationId) return
     try {
-      await refreshOrganizationStats(organizationId)
+      if (levelType === "literacy") {
+        await fetchStudentLevels()
+      } else {
+        await fetchNumeracyLevels()
+      }
     } catch (err) {
       console.error("Refresh failed:", err)
     }
@@ -428,12 +350,13 @@ export default function WelcomePage() {
                 levelType={levelType}
                 setLevelType={setLevelType}
                 chartData={chartData}
-                loading={levelsLoading}
-                error={levelsError}
+                loading={levelsLoading || numeracyLoading}
+                error={levelsError || numeracyError}
                 onRefresh={handleRefresh}
                 onDownload={handleDownload}
                 downloadLoading={downloadLoading}
                 isSuperAdmin={isSuperAdmin}
+                organizationId={organizationId}
               />
             </div>
             <div className="lg:col-span-1">
@@ -444,7 +367,7 @@ export default function WelcomePage() {
                 barriersData={barriersData}
                 assessmentType={assessmentType}
                 onAssessmentTypeChange={setAssessmentType}
-                onFetchData={fetchBarriersData}
+                onFetchData={refetchBarriers}
               />
             </div>
           </div>
@@ -460,7 +383,7 @@ export default function WelcomePage() {
                 loading={impactLoading}
                 error={impactError}
                 impactData={impactData}
-                onFetchData={fetchImpactData}
+                onFetchData={refetchImpact}
               />
             </div>
           </div>
@@ -472,7 +395,7 @@ export default function WelcomePage() {
               loading={healthLoading}
               error={healthError}
               data={healthData}
-              onFetchData={fetchHealthData}
+              onFetchData={refetchHealth}
             />
           </div>
 
@@ -483,7 +406,7 @@ export default function WelcomePage() {
               loading={attendanceLoading}
               error={attendanceError}
               data={attendanceData}
-              onFetchData={fetchAttendanceData}
+              onFetchData={refetchAttendance}
             />
           </div>
         </main>
