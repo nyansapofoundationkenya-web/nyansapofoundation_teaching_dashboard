@@ -15,6 +15,7 @@ export default function KeyBarriers({
     onFetchData(assessmentType)
   }, [organizationId, assessmentType])
 
+  // --- UI States ---
   if (loading) {
     return (
       <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700 h-full flex items-center justify-center">
@@ -74,15 +75,26 @@ export default function KeyBarriers({
           <div className="flex items-center justify-center flex-wrap gap-4 mb-4">
             {topItems?.length > 0 ? (
               topItems.map((item, index) => (
-                <span
-                  key={index}
-                  className="text-secondary-1 font-bold leading-none"
-                  style={{
-                    fontSize: "clamp(2rem, 6vmin, 3rem)",
-                  }}
-                >
-                  {item.toUpperCase()}
-                </span>
+                <div key={index} className="flex items-center">
+                  <span
+                    className="text-secondary-1 font-bold leading-none"
+                    style={{
+                      fontSize: "clamp(2rem, 6vmin, 3rem)",
+                    }}
+                  >
+                    {item.value?.toString().toUpperCase() || item.value}
+                  </span>
+                  {index < topItems.length - 1 && (
+                    <span
+                      className="text-secondary-1 font-bold leading-none mx-2"
+                      style={{
+                        fontSize: "clamp(2rem, 6vmin, 3rem)",
+                      }}
+                    >
+                      ,
+                    </span>
+                  )}
+                </div>
               ))
             ) : (
               <span className="text-gray-400 text-sm">No data available</span>
