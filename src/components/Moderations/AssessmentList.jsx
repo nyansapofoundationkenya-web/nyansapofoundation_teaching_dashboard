@@ -62,7 +62,8 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
     
     const validBaselines = [
       "beginner", "letter", "word", "paragraph", "story", "above",
-      "non-reader", "reading-comprehension"
+      "non-reader", "reading-comprehension",
+      "number_recognition","division","subtraction","addition","multiplication"
     ]
 
     return students.filter(s => 

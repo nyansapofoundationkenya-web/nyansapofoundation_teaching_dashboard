@@ -86,7 +86,7 @@ export default function StudentChart({
   const type = assessmentType.toLowerCase().trim()
   const calc = (calculationType || "").toLowerCase().trim()
 
-  console.log(baseline)
+  // console.log(baseline)
 
   // Choose the correct config
   let config
