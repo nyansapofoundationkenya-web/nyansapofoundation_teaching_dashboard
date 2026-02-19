@@ -1,6 +1,11 @@
+// components/Instructors/InstructorTableRow.jsx
+"use client"
+
 import { MoreVertical, Eye, EyeOff } from "lucide-react";
 import ActionMenu from "./ActionMenu";
 import RoleUpdateDropdown from "./RoleUpdateDropdown";
+import AssignmentDropdown from "./AssignmentDropdown";
+import { useState, useRef, useEffect } from "react";
 
 export default function InstructorTableRow({ 
   instructor, 
@@ -21,11 +26,26 @@ export default function InstructorTableRow({
   setNewRole,
   userRole,
   currentOrganizationId,
-  canUpdateRoles, // ADD THIS
+  canUpdateRoles,
   getRoleBadgeColor,
   getAvailableRoles,
   canViewPins
 }) {
+  const actionRef = useRef(null);
+
+  // Handle click outside for action menu
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (actionRef.current && !actionRef.current.contains(event.target)) {
+        setActionMenuOpen(null);
+        setRoleUpdateOpen(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [setActionMenuOpen, setRoleUpdateOpen]);
+
   return (
     <tr className="border-b border-gray-600 hover:bg-background-lighter/50">
       <td className="px-4 py-3 text-sm font-medium text-foreground whitespace-nowrap">
@@ -65,21 +85,16 @@ export default function InstructorTableRow({
           )}
         </div>
       </td>
-      <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap text-center">
-        <span className="font-semibold text-lg">{instructor.orgCount || 0}</span>
+      <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">
+        <AssignmentDropdown instructor={instructor} />
       </td>
-      <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap text-center">
-        <span className="font-semibold text-lg">{instructor.projectCount || 0}</span>
-      </td>
-      <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap text-center">
-        <span className="font-semibold text-lg">{instructor.schoolCount || 0}</span>
-      </td>
-      <td className="px-4 py-3 text-sm whitespace-nowrap">
-        <div className="relative action-menu-container">
+      <td className="px-4 py-3 text-sm whitespace-nowrap relative" ref={actionRef}>
+        <div className="relative flex justify-end">
           <button
             onClick={(e) => {
               e.stopPropagation();
               setActionMenuOpen(actionMenuOpen === instructor.uid ? null : instructor.uid);
+              setRoleUpdateOpen(null);
             }}
             className="p-2 rounded-xl hover:bg-primary-3/20 text-primary-2 hover:text-primary-3 transition-colors"
           >
@@ -94,7 +109,6 @@ export default function InstructorTableRow({
               onUnassign={onUnassign}
               userRole={userRole}
               currentOrganizationId={currentOrganizationId}
-              canUpdateRoles={canUpdateRoles} // ADD THIS
               onRoleUpdateClick={() => {
                 setActionMenuOpen(null);
                 setRoleUpdateOpen(instructor.uid);
@@ -103,7 +117,6 @@ export default function InstructorTableRow({
             />
           )}
 
-          {/* Only show RoleUpdateDropdown if user is super admin */}
           {canUpdateRoles && roleUpdateOpen === instructor.uid && (
             <RoleUpdateDropdown
               instructor={instructor}
