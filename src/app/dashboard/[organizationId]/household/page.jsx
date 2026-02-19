@@ -91,7 +91,7 @@ export default function HouseholdsPage() {
   }
 
   return (
-    <DashboardLayout title="Household" organizationId={organizationId}>
+    <DashboardLayout title="Household" organizationId={organizationId} currentSection={"survey"}>
       <div className="space-y-6 max-w-7xl mx-auto w-full">
         {/* Metrics Cards */}
         <HouseholdMetrics metrics={pageMetrics} />

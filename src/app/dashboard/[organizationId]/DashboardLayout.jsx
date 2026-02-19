@@ -4,7 +4,12 @@ import Sidebar from "@/components/Dashboard/SideBar";
 import Header from "@/components/Dashboard/Header";
 import { FiMenu, FiX } from "react-icons/fi";
 
-const DashboardLayout = ({ children, title, organizationId }) => {
+const DashboardLayout = ({ 
+  children, 
+  title, 
+  organizationId,
+  currentSection // New prop to pass to Sidebar
+}) => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
 
@@ -60,7 +65,12 @@ const DashboardLayout = ({ children, title, organizationId }) => {
                         <FiX className="w-5 h-5 text-indigo-600" />
                     </button>
                 )}
-                <Sidebar title={title} organizationId={organizationId} />
+                {/* Pass currentSection to Sidebar */}
+                <Sidebar 
+                  title={title} 
+                  organizationId={organizationId}
+                  currentSection={currentSection}
+                />
             </div>
 
             {/* Main Content Area */}

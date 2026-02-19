@@ -11,7 +11,7 @@ export default function AudioModerationPage() {
   const { organizationId, assessmentId, studentId } = useParams();
 
   return (
-    <DashboardLayout organizationId={organizationId}>
+    <DashboardLayout organizationId={organizationId} currentSection={"assessments"} title={"Literacy Moderation"}>
       <AudioModerationContent
         router={router}
         searchParams={searchParams}

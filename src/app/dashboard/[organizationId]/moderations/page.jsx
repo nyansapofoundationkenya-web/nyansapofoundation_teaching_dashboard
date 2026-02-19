@@ -41,7 +41,7 @@ export default function ModerationsPage() {
   };
 
   return (
-    <DashboardLayout title="Assessments" organizationId={organizationId}>
+    <DashboardLayout title="Assessments" organizationId={organizationId} currentSection={"assessments"}>
       <div className="p-4 space-y-4">
         {/* Search + Add Button Row */}
         <div className="flex flex-col lg:flex-row gap-3 justify-between items-start lg:items-center">

@@ -238,7 +238,7 @@ export default function InstructorsPage() {
 
   if (isLoadingData) {
     return (
-      <DashboardLayout title="Instructors" organizationId={organizationId}>
+      <DashboardLayout title="Instructors" organizationId={organizationId} currentSection={"instructors"}>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-3 mx-auto mb-4"></div>
@@ -251,7 +251,7 @@ export default function InstructorsPage() {
 
   if (fetchError) {
     return (
-      <DashboardLayout title="Instructors" organizationId={organizationId}>
+      <DashboardLayout title="Instructors" organizationId={organizationId} currentSection={"instructors"}>
         <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-6 text-center">
           <p className="text-red-400 font-medium">{fetchError}</p>
         </div>
@@ -260,7 +260,7 @@ export default function InstructorsPage() {
   }
 
   return (
-    <DashboardLayout title="Instructors" organizationId={organizationId}>
+    <DashboardLayout title="Instructors" organizationId={organizationId} currentSection={"instructors"}>
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
           <div className="relative w-full sm:w-auto sm:max-w-md">

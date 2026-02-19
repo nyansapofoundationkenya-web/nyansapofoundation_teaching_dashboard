@@ -11,7 +11,7 @@ export default function NumeracyModerationPage() {
   const { organizationId, assessmentId, studentId } = useParams();
 
   return (
-    <DashboardLayout organizationId={organizationId}>
+    <DashboardLayout organizationId={organizationId} currentSection={"assessments"} title={"Numeracy Moderation"}>
       <NumeracyModerationContent
         router={router}
         searchParams={searchParams}

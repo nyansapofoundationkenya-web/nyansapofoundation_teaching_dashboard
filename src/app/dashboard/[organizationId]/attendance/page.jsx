@@ -61,7 +61,7 @@ export default function AttendancePage() {
   );
 
   return (
-    <DashboardLayout title="Attendance" organizationId={organizationId}>
+    <DashboardLayout title="Attendance" organizationId={organizationId} currentSection={"attendance"}>
       <div className="p-6 space-y-6">
         {/* Filter Section */}
         <div className="bg-background-light p-6 rounded-2xl shadow-lg border border-gray-600">

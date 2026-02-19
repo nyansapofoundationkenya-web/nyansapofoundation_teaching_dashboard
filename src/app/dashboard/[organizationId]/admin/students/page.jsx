@@ -70,7 +70,7 @@ export default function StudentsPage() {
   );
 
   return (
-    <DashboardLayout title="Students" organizationId={organizationId}>
+    <DashboardLayout title="Students" organizationId={organizationId} currentSection={"students"}>
       <div className="p-6 space-y-6">
         {/* Filter Section */}
         <div className="bg-background-light p-6 rounded-2xl shadow-lg border border-gray-600">

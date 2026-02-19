@@ -453,7 +453,7 @@ export default function StudentDetailPage() {
               <FiX className="w-5 h-5 text-indigo-600" />
             </button>
           )}
-          <Sidebar title="Student Details" organizationId={organizationId} />
+          <Sidebar title="Student Details" organizationId={organizationId} currentSection={"students"}/>
         </div>
 
         {/* Main Content */}

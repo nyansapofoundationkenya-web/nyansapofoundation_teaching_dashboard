@@ -16,7 +16,7 @@ export default function HouseholdPage() {
   const { 
     households, 
     metrics, 
-    loading, 
+    loading, DashboardLayout
     error,
     exportToExcel,
     isExporting,
@@ -341,7 +341,7 @@ export default function HouseholdPage() {
   
   if (loading || isFetchingStudents) {
     return (
-      <DashboardLayout organizationId={organizationId}>
+      <DashboardLayout organizationId={organizationId} currentSection={"survey"}>
         <div className="min-h-screen bg-background p-6">
           <div className="max-w-7xl mx-auto">
             <div className="animate-pulse">
@@ -361,7 +361,7 @@ export default function HouseholdPage() {
   
   if (error) {
     return (
-      <DashboardLayout organizationId={organizationId}>
+      <DashboardLayout organizationId={organizationId} currentSection={"survey"}>
         <div className="min-h-screen bg-background p-6">
           <div className="max-w-7xl mx-auto">
             <div className="bg-red-500/20 border border-red-500/30 rounded-2xl p-6">
@@ -374,7 +374,7 @@ export default function HouseholdPage() {
   }
 
   return (
-    <DashboardLayout organizationId={organizationId}>
+    <DashboardLayout organizationId={organizationId} currentSection={"survey"}>
       <div className="min-h-screen bg-background p-6">
         <div className="max-w-7xl mx-auto">
           {/* Header */}

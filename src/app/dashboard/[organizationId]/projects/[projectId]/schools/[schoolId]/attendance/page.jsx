@@ -48,7 +48,7 @@ export default function AnalyticsPage() {
             <FiX className="w-5 h-5 text-indigo-600" />
           </button>
         )}
-        <Sidebar initialTitle="Schools" organizationId={organizationId} />
+        <Sidebar initialTitle="Attendance" organizationId={organizationId} currentSection={"attendance"}/>
       </div>
 
       {/* Main Content */}

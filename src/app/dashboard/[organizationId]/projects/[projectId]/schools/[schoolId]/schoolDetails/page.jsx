@@ -33,7 +33,7 @@ export default function SchoolDetailPage() {
   // Loading State
   if (loading) {
     return (
-      <DashboardLayout title="School Details" organizationId={organizationId}>
+      <DashboardLayout title="School Details" organizationId={organizationId} currentSection={"schools"}>
         <div className="p-4 sm:p-6">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
@@ -49,7 +49,7 @@ export default function SchoolDetailPage() {
   // Error State
   if (error) {
     return (
-      <DashboardLayout title="School Details" organizationId={organizationId}>
+      <DashboardLayout title="School Details" organizationId={organizationId} currentSection={"schools"}>
         <div className="p-4 sm:p-6">
           <div className="bg-red-500/20 border border-red-500/30 rounded-2xl p-6 text-center">
             <p className="text-red-400 font-medium">Error loading school details</p>
@@ -62,7 +62,7 @@ export default function SchoolDetailPage() {
 
   // Main Content
   return (
-    <DashboardLayout title="School Details" organizationId={organizationId}>
+    <DashboardLayout title="School Details" organizationId={organizationId} currentSection={"schools"}>
       <div className="p-4 sm:p-6">
         <SchoolDetailContent
           school={school}

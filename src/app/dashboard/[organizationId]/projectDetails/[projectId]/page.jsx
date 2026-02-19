@@ -244,6 +244,7 @@ export default function ProjectDetails() {
     <DashboardLayout
       title={project?.name || "Project Details"}
       organizationId={organizationId}
+      currentSection={"projects"}
     >
       <div className="p-4 space-y-6 overflow-auto">
         {/* Action buttons – admin/superadmin only */}

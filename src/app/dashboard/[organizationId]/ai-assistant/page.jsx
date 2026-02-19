@@ -92,7 +92,7 @@ export default function AIAssistantPage() {
   // Wait for user to load
   if (userLoading || isLoading) {
     return (
-      <DashboardLayout title="AI Assistant" organizationId={organizationId}>
+      <DashboardLayout title="AI Assistant" organizationId={organizationId} currentSection={"ai-assistant"}>
         <div className="min-h-screen bg-background p-6">
           <div className="max-w-6xl mx-auto">
             <div className="animate-pulse">
@@ -108,7 +108,7 @@ export default function AIAssistantPage() {
   // Check if user is authenticated
   if (!currentUser) {
     return (
-      <DashboardLayout title="AI Assistant" organizationId={organizationId}>
+      <DashboardLayout title="AI Assistant" organizationId={organizationId} currentSection={"ai-assistant"}>
         <div className="min-h-screen bg-background p-6">
           <div className="max-w-6xl mx-auto">
             <div className="bg-background-light rounded-2xl p-8 text-center">

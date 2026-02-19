@@ -59,7 +59,7 @@ export default function StudentDetailsPage() {
 
   if (loading) {
     return (
-      <DashboardLayout title="Student Details" organizationId={organizationId}>
+      <DashboardLayout title="Student Details" organizationId={organizationId} currentSection={"assessments"}>
         <div className="p-6 flex items-center justify-center min-h-[400px]">
           <div className="text-foreground">Loading student data...</div>
         </div>
@@ -69,7 +69,7 @@ export default function StudentDetailsPage() {
 
   if (error) {
     return (
-      <DashboardLayout title="Student Details" organizationId={organizationId}>
+      <DashboardLayout title="Student Details" organizationId={organizationId} currentSection={"assessments"}>
         <div className="p-6 flex items-center justify-center min-h-[400px]">
           <div className="text-red-400">Error: {error}</div>
         </div>
@@ -79,7 +79,7 @@ export default function StudentDetailsPage() {
 
   if (!student || !assessment) {
     return (
-      <DashboardLayout title="Student Details" organizationId={organizationId}>
+      <DashboardLayout title="Student Details" organizationId={organizationId} currentSection={"assessments"}>
         <div className="p-6 flex items-center justify-center min-h-[400px]">
           <div className="text-foreground">Data not found</div>
         </div>
@@ -93,7 +93,7 @@ export default function StudentDetailsPage() {
   const backUrl = `/dashboard/${organizationId}/moderations/${assessmentId}`;
 
   return (
-    <DashboardLayout title={pageTitle} organizationId={organizationId}>
+    <DashboardLayout title={pageTitle} organizationId={organizationId} currentSection={"assessments"}>
       <div className="h-full overflow-auto">
         <div className="p-6 space-y-6">
           {/* Student Header */}

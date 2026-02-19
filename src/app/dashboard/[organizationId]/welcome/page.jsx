@@ -290,7 +290,7 @@ export default function WelcomePage() {
   }
 
   return (
-    <DashboardLayout title="Welcome" organizationId={organizationId}>
+    <DashboardLayout title="Welcome" organizationId={organizationId} currentSection={home}>
       <div className="min-h-screen text-foreground flex flex-col">
         <Header organizationName={organization?.name || "Loading..."} />
 

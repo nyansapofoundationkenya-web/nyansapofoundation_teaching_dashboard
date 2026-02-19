@@ -62,7 +62,7 @@ export default function HouseholdDetailPage() {
   }
 
   return (
-    <DashboardLayout title="Household Details" organizationId={organizationId}>
+    <DashboardLayout title="Household Details" organizationId={organizationId} currentSection={"survey"}>
       <div className="space-y-6 max-w-4xl mx-auto w-full">
         {/* Header Section */}
         <div className="bg-background-lighter rounded-xl border border-gray-600 p-6">

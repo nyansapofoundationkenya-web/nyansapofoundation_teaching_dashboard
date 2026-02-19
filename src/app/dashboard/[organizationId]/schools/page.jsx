@@ -8,7 +8,7 @@ export default function SchoolsPage() {
   const { organizationId } = useParams()
 
   return (
-    <DashboardLayout organizationId={organizationId}>
+    <DashboardLayout organizationId={organizationId} currentSection={"schools"}>
       <div className="min-h-screen">
         <SchoolsList organizationId={organizationId} />
       </div>

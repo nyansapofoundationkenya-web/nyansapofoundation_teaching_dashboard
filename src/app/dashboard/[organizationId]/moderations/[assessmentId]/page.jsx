@@ -65,7 +65,7 @@ export default function AssessmentDetailsPage() {
   // Loading state
   if (loading) {
     return (
-      <DashboardLayout title="Assessment Details" organizationId={organizationId}>
+      <DashboardLayout title="Assessment Details" organizationId={organizationId} currentSection={"assessments"}>
         <div className="p-6 space-y-6">
           <StudentMetrics loading={true} />
           <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
@@ -86,7 +86,7 @@ export default function AssessmentDetailsPage() {
   // Error state
   if (error) {
     return (
-      <DashboardLayout title="Assessment Details" organizationId={organizationId}>
+      <DashboardLayout title="Assessment Details" organizationId={organizationId} currentSection={"assessments"}>
         <div className="p-6 flex items-center justify-center min-h-[300px]">
           <div className="text-red-400">Error: {error}</div>
         </div>
@@ -97,7 +97,7 @@ export default function AssessmentDetailsPage() {
   // Not-found state
   if (!assessment) {
     return (
-      <DashboardLayout title="Assessment Details" organizationId={organizationId}>
+      <DashboardLayout title="Assessment Details" organizationId={organizationId} currentSection={"assessments"}>
         <div className="p-6 flex items-center justify-center min-h-[300px]">
           <div className="text-foreground">Assessment not found</div>
         </div>
@@ -107,7 +107,7 @@ export default function AssessmentDetailsPage() {
 
   // Main content
   return (
-    <DashboardLayout title={assessment.name} organizationId={organizationId}>
+    <DashboardLayout title={assessment.name} organizationId={organizationId} currentSection={"assessments"}>
       <div className="p-6 space-y-6">
         {/* Header row – title, grade filter & search */}
         <div className="bg-background-light border-b border-gray-600 px-6 py-4 rounded-2xl shadow-lg">

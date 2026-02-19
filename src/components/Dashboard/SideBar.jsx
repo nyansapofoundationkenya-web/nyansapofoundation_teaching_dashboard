@@ -66,7 +66,11 @@ const SidebarSkeleton = () => {
   );
 };
 
-const Sidebar = ({ initialTitle, organizationId }) => {
+const Sidebar = ({ 
+  initialTitle, 
+  organizationId,
+  currentSection // "home", "projects", "schools", "assessments", "attendance", "survey", "ai-assistant", "instructors", "students"
+}) => {
   const router = useRouter();
   const pathname = usePathname();
   const [title, setTitle] = useState(initialTitle || "");
@@ -84,9 +88,7 @@ const Sidebar = ({ initialTitle, organizationId }) => {
     }
   }, [userLoading, currentUser, router]);
 
-
-
-   const handleLogoutClick = async () => {
+  const handleLogoutClick = async () => {
     try {
       await handleLogout();
     } catch (err) {
@@ -98,32 +100,32 @@ const Sidebar = ({ initialTitle, organizationId }) => {
     { 
       name: "Home", 
       icon: <FiHome size={20} />, 
-      path: `/dashboard/${organizationId}/welcome` 
+      path: `/dashboard/${organizationId}/welcome`,
+      section: "home"
     },
-    // { 
-    //   name: "Overview", 
-    //   icon: <FiBarChart2 size={20} />, 
-    //   path: `/dashboard/${organizationId}/overview` 
-    // },
     { 
       name: "Projects", 
       icon: <FiFolder size={20} />, 
-      path: `/dashboard/${organizationId}/projects` 
+      path: `/dashboard/${organizationId}/projects`,
+      section: "projects"
     },
-     { 
+    { 
       name: "Assessments", 
       icon: <FiClipboard size={20} />,
-      path: `/dashboard/${organizationId}/moderations` 
+      path: `/dashboard/${organizationId}/moderations`,
+      section: "assessments"
     },
     { 
       name: "Schools", 
       icon: <FiMapPin size={20} />, 
-      path: `/dashboard/${organizationId}/schools` 
+      path: `/dashboard/${organizationId}/schools`,
+      section: "schools"
     },
     {
       name: "Attendance",
       icon: <FiCheckSquare size={20} />,
-      path: `/dashboard/${organizationId}/attendance`
+      path: `/dashboard/${organizationId}/attendance`,
+      section: "attendance"
     },
   ];
 
@@ -131,7 +133,8 @@ const Sidebar = ({ initialTitle, organizationId }) => {
   const surveyMenuItem = {
     name: "Survey",
     icon: <FiFileText size={20} />,
-    path: `/dashboard/${organizationId}/household`
+    path: `/dashboard/${organizationId}/household`,
+    section: "survey"
   };
 
   // Admin-only menu items
@@ -139,40 +142,41 @@ const Sidebar = ({ initialTitle, organizationId }) => {
     {
       name : "Ai Assistant",
       icon: <FiMessageSquare size={20} />,
-      path: `/dashboard/${organizationId}/ai-assistant`
+      path: `/dashboard/${organizationId}/ai-assistant`,
+      section: "ai-assistant"
     },
     { 
       name: "Instructors", 
       icon: <FiUserCheck size={20} />, 
-      path: `/dashboard/${organizationId}/instructors` 
+      path: `/dashboard/${organizationId}/instructors`,
+      section: "instructors"
     },
     { 
       name: "Students", 
       icon: <FiUsers size={20} />, 
-      path: `/dashboard/${organizationId}/admin/students` 
+      path: `/dashboard/${organizationId}/admin/students`,
+      section: "students"
     },
-    // { 
-    //   name: "Household", 
-    //   icon: <FiUsers size={20} />, 
-    //   path: `/dashboard/${organizationId}/survey` 
-    // },
   ];
 
   const adminMenuItems = [
     {
       name : "Ai Assistant",
       icon: <FiMessageSquare size={20} />,
-      path: `/dashboard/${organizationId}/ai-assistant`
+      path: `/dashboard/${organizationId}/ai-assistant`,
+      section: "ai-assistant"
     },
     { 
       name: "Instructors", 
       icon: <FiUserCheck size={20} />, 
-      path: `/dashboard/${organizationId}/instructors` 
+      path: `/dashboard/${organizationId}/instructors`,
+      section: "instructors"
     },
     { 
       name: "Students", 
       icon: <FiUsers size={20} />, 
-      path: `/dashboard/${organizationId}/admin/students` 
+      path: `/dashboard/${organizationId}/admin/students`,
+      section: "students"
     },
   ];
 
@@ -210,28 +214,24 @@ const Sidebar = ({ initialTitle, organizationId }) => {
 
   const menuItems = getMenuItems();
 
-  // Helper function to check if a menu item is active (including nested routes)
-  const isMenuItemActive = (itemPath) => {
-    // Exact match
-    if (pathname === itemPath) return true;
-    
-    // Check if current path starts with the item path (for nested routes)
-    // But exclude the base dashboard path to avoid all items being active
-    const dashboardBase = `/dashboard/${organizationId}`;
-    if (itemPath !== dashboardBase && pathname.startsWith(itemPath)) {
-      return true;
+  // Simplified active state check - only uses currentSection prop
+  const isMenuItemActive = (item) => {
+    // If currentSection is provided, use it for highlighting
+    if (currentSection) {
+      return item.section === currentSection;
     }
     
-    return false;
+    // Fallback: only check for exact path match (no nested routes)
+    return pathname === item.path;
   };
 
-  // Update title based on active menu item (including nested routes)
+  // Update title based on active menu item
   useEffect(() => {
-    const activeItem = menuItems.find((item) => isMenuItemActive(item.path));
+    const activeItem = menuItems.find((item) => isMenuItemActive(item));
     if (activeItem) {
       setTitle(activeItem.name);
     }
-  }, [pathname, menuItems]);
+  }, [pathname, menuItems, currentSection]);
 
   const handleMenuClick = (item) => {
     setTitle(item.name);
@@ -263,8 +263,9 @@ const Sidebar = ({ initialTitle, organizationId }) => {
       {/* Top: Logo and Organization Info - Fixed */}
       <div className="flex-shrink-0">
         <div 
-        onClick={() => router.push("/organization")}
-        className="flex flex-col items-center mb-8 p-4 rounded-2xl bg-background-lighter">
+          onClick={() => router.push("/organization")}
+          className="flex flex-col items-center mb-8 p-4 rounded-2xl bg-background-lighter cursor-pointer hover:bg-opacity-80 transition-all"
+        >
           <Logo />
           <p className="mt-2 text-lg font-semibold text-foreground">
             {organization?.name}
@@ -276,14 +277,14 @@ const Sidebar = ({ initialTitle, organizationId }) => {
       <div className="flex-grow overflow-y-auto scrollbar-hide pb-6 mb-2">
         <nav className="flex flex-col space-y-3">
           {menuItems.map((item, index) => {
-            const isActive = isMenuItemActive(item.path);
+            const isActive = isMenuItemActive(item);
             
             return (
               <button
                 key={index}
                 className={`flex items-center space-x-3 p-4 rounded-2xl transition-all duration-200 ${
                   isActive
-                    ? "bg-primary-3 text-primary-1 shadow-lg" 
+                    ? "bg-primary-3 text-primary-1 shadow-lg" // Yellow highlight for active section
                     : "bg-background-lighter text-foreground hover:bg-primary-2 hover:text-white hover:shadow-md"
                 }`}
                 onClick={() => handleMenuClick(item)}
@@ -301,7 +302,7 @@ const Sidebar = ({ initialTitle, organizationId }) => {
       {/* Bottom: Logout Button - Fixed at bottom */}
       <div className="flex-shrink-0">
         <button
-          onClick={handleLogoutClick }
+          onClick={handleLogoutClick}
           className="flex items-center space-x-3 p-4 rounded-2xl text-primary-1 bg-primary-3 hover:bg-yellow-400 hover:shadow-lg transition-all duration-200 w-full font-medium"
         >
           <FiLogOut size={20} />

@@ -91,7 +91,7 @@ export default function OrganizationDashboardPage() {
   ];
 
   return (
-    <DashboardLayout title="Projects" organizationId={organizationId}>
+    <DashboardLayout title="Projects" organizationId={organizationId} currentSection={"projects"}>
       <div className="min-h-screen text-foreground flex flex-col gap-4 p-4">
 
         {/* Small top bar with only the Create button on the right */}
