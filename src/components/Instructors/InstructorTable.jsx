@@ -1,3 +1,4 @@
+// components/Instructors/InstructorTable.jsx
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -18,7 +19,7 @@ export default function InstructorTable({
   onItemsPerPageChange,
   onEditInstructor,
   onDeleteInstructor,
-  onUnassignInstructor, // ADD THIS
+  onUnassignInstructor,
   onUpdateRole,
   actionMenuOpen,
   setActionMenuOpen,
@@ -30,7 +31,7 @@ export default function InstructorTable({
   getRoleBadgeColor,
   getAvailableRoles,
   userRole,
-  currentOrganizationId, // ADD THIS
+  currentOrganizationId,
   searchQuery
 }) {
   // State for PINs
@@ -182,9 +183,7 @@ export default function InstructorTable({
                       <th className="px-4 py-3 text-left text-sm font-medium text-foreground whitespace-nowrap">Name</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-foreground whitespace-nowrap">Role</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-foreground whitespace-nowrap">PIN</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-foreground whitespace-nowrap">Organizations</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-foreground whitespace-nowrap">Projects</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-foreground whitespace-nowrap">Schools</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-foreground whitespace-nowrap">Assignments</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-foreground whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
@@ -219,7 +218,7 @@ export default function InstructorTable({
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                        <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-400">
                           {!searchQuery?.trim()
                             ? "No instructors with assigned organizations found. Use search to find all instructors."
                             : "No instructors found matching your search."}

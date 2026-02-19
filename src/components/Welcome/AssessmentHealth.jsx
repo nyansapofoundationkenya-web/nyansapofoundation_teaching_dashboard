@@ -1,47 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { TrendingUp } from "lucide-react"
 
-export default function AssessmentHealth({ organizationId }) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [data, setData] = useState(null)
-
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!organizationId) return
-
-      setLoading(true)
-      setError(null)
-
-      try {
-        const response = await fetch("/api/literacy/assessment-health", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ organization_id: organizationId }),
-        })
-
-        const result = await response.json()
-
-        if (!result.success) {
-          setError(result.message || result.error)
-          return
-        }
-
-        setData(result.data)
-
-      } catch (err) {
-        console.error("Assessment health fetch error:", err)
-        setError(err.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [organizationId])
-
+export default function AssessmentHealth({ 
+  data, 
+  loading = false, 
+  error = null,
+  onFetchData // Optional: if you want to provide a refresh button
+}) {
   // Calculate circle progress
   const getCircleProps = (completionRate) => {
     const radius = 70
@@ -61,9 +27,19 @@ export default function AssessmentHealth({ organizationId }) {
   if (loading) {
     return (
       <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700">
-        <h2 className="text-xl font-semibold mb-6 text-foreground">
-          Assessment Health
-        </h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-foreground">
+            Assessment Health
+          </h2>
+          {onFetchData && (
+            <button
+              onClick={onFetchData}
+              className="text-sm text-primary-2 hover:text-primary-1 transition-colors"
+            >
+              Refresh
+            </button>
+          )}
+        </div>
         <div className="h-48 flex items-center justify-center">
           <div className="text-gray-400">Loading assessment data...</div>
         </div>
@@ -74,9 +50,19 @@ export default function AssessmentHealth({ organizationId }) {
   if (error) {
     return (
       <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700">
-        <h2 className="text-xl font-semibold mb-6 text-foreground">
-          Assessment Health
-        </h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-foreground">
+            Assessment Health
+          </h2>
+          {onFetchData && (
+            <button
+              onClick={onFetchData}
+              className="text-sm text-primary-2 hover:text-primary-1 transition-colors"
+            >
+              Try Again
+            </button>
+          )}
+        </div>
         <div className="h-48 flex items-center justify-center">
           <div className="text-red-400">{error}</div>
         </div>
@@ -84,16 +70,37 @@ export default function AssessmentHealth({ organizationId }) {
     )
   }
 
-  if (!data) return null
+  if (!data) {
+    return (
+      <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700">
+        <h2 className="text-xl font-semibold mb-6 text-foreground">
+          Assessment Health
+        </h2>
+        <div className="h-48 flex items-center justify-center">
+          <div className="text-gray-400">No assessment data available</div>
+        </div>
+      </div>
+    )
+  }
 
-  const literacyCircle = getCircleProps(data.literacy.completion_rate)
-  const numeracyCircle = getCircleProps(data.numeracy.completion_rate)
+  const literacyCircle = getCircleProps(data.literacy?.completion_rate || 0)
+  const numeracyCircle = getCircleProps(data.numeracy?.completion_rate || 0)
 
   return (
     <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700">
-      <h2 className="text-xl font-semibold mb-6 text-foreground">
-        Assessment Health
-      </h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-foreground">
+          Assessment Health
+        </h2>
+        {onFetchData && (
+          <button
+            onClick={onFetchData}
+            className="text-sm text-primary-2 hover:text-primary-1 transition-colors"
+          >
+            Refresh
+          </button>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* LITERACY SECTION */}
@@ -147,10 +154,10 @@ export default function AssessmentHealth({ organizationId }) {
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
                   <div className="text-3xl font-bold text-foreground">
-                    {Math.round(data.literacy.completion_rate)}%
+                    {Math.round(data.literacy?.completion_rate || 0)}%
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
-                    {data.literacy.total_students_completed}/{data.literacy.total_students_assigned}
+                    {data.literacy?.total_students_completed || 0}/{data.literacy?.total_students_assigned || 0}
                   </div>
                 </div>
               </div>
@@ -164,12 +171,9 @@ export default function AssessmentHealth({ organizationId }) {
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-secondary-2"></div>
                   <div className="text-2xl font-bold text-foreground">
-                    {Math.round(data.literacy.completion_rate)}%
+                    {Math.round(data.literacy?.completion_rate || 0)}%
                   </div>
                 </div>
-                {/* <div className="text-xs text-gray-500 mt-0.5">
-                  <span className="text-secondary-1">●</span> Total Assessment
-                </div> */}
               </div>
 
               {/* Total Assessments */}
@@ -177,7 +181,7 @@ export default function AssessmentHealth({ organizationId }) {
                 <div className="text-gray-400 text-xs mb-1">Total Assessments</div>
                 <div className="flex items-center gap-2">
                   <div className="text-2xl font-bold text-foreground">
-                    {formatNumber(data.literacy.total_assessments)}
+                    {formatNumber(data.literacy?.total_assessments || 0)}
                   </div>
                   <TrendingUp className="w-5 h-5 text-secondary-2" />
                 </div>
@@ -237,10 +241,10 @@ export default function AssessmentHealth({ organizationId }) {
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
                   <div className="text-3xl font-bold text-foreground">
-                    {Math.round(data.numeracy.completion_rate)}%
+                    {Math.round(data.numeracy?.completion_rate || 0)}%
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
-                    {data.numeracy.total_students_completed}/{data.numeracy.total_students_assigned}
+                    {data.numeracy?.total_students_completed || 0}/{data.numeracy?.total_students_assigned || 0}
                   </div>
                 </div>
               </div>
@@ -254,12 +258,9 @@ export default function AssessmentHealth({ organizationId }) {
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-primary-3"></div>
                   <div className="text-2xl font-bold text-foreground">
-                    {Math.round(data.numeracy.completion_rate)}%
+                    {Math.round(data.numeracy?.completion_rate || 0)}%
                   </div>
                 </div>
-                {/* <div className="text-xs text-gray-500 mt-0.5">
-                  <span className="text-secondary-1">●</span> Total Assessment
-                </div> */}
               </div>
 
               {/* Total Assessments */}
@@ -267,7 +268,7 @@ export default function AssessmentHealth({ organizationId }) {
                 <div className="text-gray-400 text-xs mb-1">Total Assessments</div>
                 <div className="flex items-center gap-2">
                   <div className="text-2xl font-bold text-foreground">
-                    {formatNumber(data.numeracy.total_assessments)}
+                    {formatNumber(data.numeracy?.total_assessments || 0)}
                   </div>
                   <TrendingUp className="w-5 h-5 text-primary-3" />
                 </div>

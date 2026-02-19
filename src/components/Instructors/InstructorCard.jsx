@@ -1,6 +1,8 @@
+// components/Instructors/InstructorCard.jsx
 import { MoreVertical, Eye, EyeOff } from "lucide-react";
 import ActionMenu from "./ActionMenu";
 import RoleUpdateDropdown from "./RoleUpdateDropdown";
+import AssignmentDropdown from "./AssignmentDropdown"; // Add this import
 
 export default function InstructorCard({ 
   instructor, 
@@ -12,15 +14,15 @@ export default function InstructorCard({
   onEdit, 
   onDelete, 
   onUpdateRole,
-  onUnassign,  // Add this prop
+  onUnassign,
   actionMenuOpen,
   setActionMenuOpen,
   roleUpdateOpen,
   setRoleUpdateOpen,
   newRole,
   setNewRole,
-  userRole,  // Add this prop
-  currentOrganizationId, // Add this prop
+  userRole,
+  currentOrganizationId,
   getRoleBadgeColor,
   getAvailableRoles,
   canViewPins
@@ -63,7 +65,6 @@ export default function InstructorCard({
             />
           )}
 
-          {/* Only show RoleUpdateDropdown if user is super admin */}
           {userRole === 'super_admin' && roleUpdateOpen === instructor.uid && (
             <RoleUpdateDropdown
               instructor={instructor}
@@ -115,10 +116,9 @@ export default function InstructorCard({
         </div>
       )}
       
-      <div className="flex justify-between text-xs text-gray-300">
-        <span>Orgs: <span className="font-semibold">{instructor.orgCount || 0}</span></span>
-        <span>Proj: <span className="font-semibold">{instructor.projectCount || 0}</span></span>
-        <span>Sch: <span className="font-semibold">{instructor.schoolCount || 0}</span></span>
+      {/* Replace the simple counts with AssignmentDropdown */}
+      <div className="mt-2">
+        <AssignmentDropdown instructor={instructor} />
       </div>
     </div>
   );

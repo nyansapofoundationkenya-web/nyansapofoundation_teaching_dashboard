@@ -1,3 +1,4 @@
+// app/api/export/student-performance/route.js
 import { NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import { initializeApp, getApps, cert } from "firebase-admin/app";
@@ -16,7 +17,7 @@ if (!getApps().length) {
 
 const db = getFirestore();
 
-// Level mappings for different organization types
+// Level mappings (same as before)
 const LEVEL_MAPPINGS = {
   standard: {
     literacy: {
@@ -62,6 +63,10 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const organizationId = searchParams.get('organization_id');
+    const projectId = searchParams.get('project_id');
+    const schoolId = searchParams.get('school_id');
+    const levelType = searchParams.get('level_type') || 'literacy';
+    const levels = searchParams.get('levels'); // Comma-separated list or 'all'
 
     if (!organizationId) {
       return NextResponse.json(
@@ -70,7 +75,18 @@ export async function GET(request) {
       );
     }
 
-    console.log(`🔍 Fetching data for organization: ${organizationId}`);
+    console.log(`🔍 Fetching data for:`, {
+      organizationId,
+      projectId: projectId || 'all',
+      schoolId: schoolId || 'all',
+      levelType,
+      levels: levels || 'all'
+    });
+
+    // Parse levels to filter
+    const levelsToFilter = levels && levels !== 'all' 
+      ? levels.split(',').map(l => l.trim())
+      : null;
 
     // Fetch organization details
     let orgName = '';
@@ -81,28 +97,32 @@ export async function GET(request) {
       if (orgDoc.exists) {
         const orgData = orgDoc.data();
         orgName = orgData.name || orgData.organization_name || '';
-        console.log(`🏢 Organization: ${orgName}`);
         
         // Determine organization type
         if (orgData.level_mapping === 'alternative' || 
             orgName.toLowerCase().includes('alternative') ||
             orgName.toLowerCase().includes('special')) {
           orgType = 'alternative';
-          console.log('📋 Using alternative level mapping');
         }
       }
     } catch (error) {
       console.log('⚠️ Could not fetch organization details:', error.message);
     }
 
-    // Fetch all student data
+    // Fetch student data with filters
     console.log('📊 Fetching student data...');
-    const students = await fetchStudentDataFromFirebase(organizationId);
+    const students = await fetchStudentDataFromFirebase(
+      organizationId, 
+      projectId, 
+      schoolId,
+      levelType,
+      levelsToFilter
+    );
     
     if (students.length === 0) {
-      console.log('❌ No student data found');
+      console.log('❌ No student data found for the selected filters');
       return NextResponse.json(
-        { success: false, error: 'No student data found for this organization' },
+        { success: false, error: 'No student data found for the selected filters' },
         { status: 404 }
       );
     }
@@ -126,10 +146,9 @@ export async function GET(request) {
       { header: 'School', key: 'school', width: 25 },
       { header: 'Grade', key: 'grade', width: 15 },
       { header: 'Gender', key: 'gender', width: 15 },
-      { header: 'Literacy Baseline', key: 'literacy_baseline', width: 25 },
-      { header: 'Literacy Endline', key: 'literacy_endline', width: 25 },
-      { header: 'Numeracy Baseline', key: 'numeracy_baseline', width: 25 },
-      { header: 'Numeracy Endline', key: 'numeracy_endline', width: 25 },
+      { header: `${levelType === 'literacy' ? 'Literacy' : 'Numeracy'} Baseline`, key: 'baseline', width: 25 },
+      { header: `${levelType === 'literacy' ? 'Literacy' : 'Numeracy'} Endline`, key: 'endline', width: 25 },
+      { header: 'Current Level', key: 'current_level', width: 25 },
       { header: 'Last Updated', key: 'updated', width: 20 },
     ];
 
@@ -138,11 +157,13 @@ export async function GET(request) {
     mainSheet.getRow(1).fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: '2563EB' } // Blue color
+      fgColor: { argb: '2563EB' }
     };
 
     // Add student data
     students.forEach((student, index) => {
+      const currentLevel = student[`${levelType}_endline`] || student[`${levelType}_baseline`] || 'N/A';
+      
       mainSheet.addRow({
         id: student.id || `STU${index + 1}`,
         name: student.name || 'N/A',
@@ -150,10 +171,9 @@ export async function GET(request) {
         school: student.school || 'N/A',
         grade: student.grade || 'N/A',
         gender: student.gender || 'N/A',
-        literacy_baseline: formatLevel(student.literacy_baseline, 'literacy', orgType),
-        literacy_endline: formatLevel(student.literacy_endline, 'literacy', orgType),
-        numeracy_baseline: formatLevel(student.numeracy_baseline, 'numeracy', orgType),
-        numeracy_endline: formatLevel(student.numeracy_endline, 'numeracy', orgType),
+        baseline: formatLevel(student[`${levelType}_baseline`], levelType, orgType),
+        endline: formatLevel(student[`${levelType}_endline`], levelType, orgType),
+        current_level: formatLevel(currentLevel, levelType, orgType),
         updated: student.updated_at ? formatDate(student.updated_at) : 'N/A',
       });
     });
@@ -169,32 +189,22 @@ export async function GET(request) {
 
     // Calculate statistics
     const totalStudents = students.length;
-    const withLiteracyData = students.filter(s => s.literacy_baseline || s.literacy_endline).length;
-    const withNumeracyData = students.filter(s => s.numeracy_baseline || s.numeracy_endline).length;
-    const withBothAssessments = students.filter(s => 
-      (s.literacy_baseline && s.literacy_endline) || 
-      (s.numeracy_baseline && s.numeracy_endline)
-    ).length;
     
-    // Calculate literacy improvement
-    const literacyImproved = students.filter(s => 
-      s.literacy_baseline && s.literacy_endline && 
-      getLevelValue(s.literacy_endline, 'literacy', orgType) > getLevelValue(s.literacy_baseline, 'literacy', orgType)
-    ).length;
-    
-    // Calculate numeracy improvement
-    const numeracyImproved = students.filter(s => 
-      s.numeracy_baseline && s.numeracy_endline && 
-      getLevelValue(s.numeracy_endline, 'numeracy', orgType) > getLevelValue(s.numeracy_baseline, 'numeracy', orgType)
-    ).length;
+    // Count students by level
+    const levelCounts = {};
+    students.forEach(student => {
+      const level = student[`${levelType}_endline`] || student[`${levelType}_baseline`] || 'unknown';
+      const formattedLevel = formatLevel(level, levelType, orgType);
+      levelCounts[formattedLevel] = (levelCounts[formattedLevel] || 0) + 1;
+    });
 
     const summaryData = [
       { category: 'Total Students', count: totalStudents, percentage: '100%' },
-      { category: 'With Literacy Data', count: withLiteracyData, percentage: `${Math.round((withLiteracyData/totalStudents)*100)}%` },
-      { category: 'With Numeracy Data', count: withNumeracyData, percentage: `${Math.round((withNumeracyData/totalStudents)*100)}%` },
-      { category: 'With Both Assessments', count: withBothAssessments, percentage: `${Math.round((withBothAssessments/totalStudents)*100)}%` },
-      { category: 'Literacy Improved', count: literacyImproved, percentage: withLiteracyData > 0 ? `${Math.round((literacyImproved/withLiteracyData)*100)}%` : 'N/A' },
-      { category: 'Numeracy Improved', count: numeracyImproved, percentage: withNumeracyData > 0 ? `${Math.round((numeracyImproved/withNumeracyData)*100)}%` : 'N/A' },
+      ...Object.entries(levelCounts).map(([level, count]) => ({
+        category: `Students at ${level}`,
+        count,
+        percentage: `${Math.round((count/totalStudents)*100)}%`
+      }))
     ];
 
     summarySheet.addRows(summaryData);
@@ -204,7 +214,7 @@ export async function GET(request) {
     summarySheet.getRow(1).fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: '059669' } // Green color
+      fgColor: { argb: '059669' }
     };
 
     // Auto-fit columns
@@ -218,16 +228,19 @@ export async function GET(request) {
     console.log('💾 Generating Excel file...');
     const buffer = await workbook.xlsx.writeBuffer();
     
-    // Create filename
+    // Create filename with filters
     const cleanOrgName = orgName
       .replace(/[^a-zA-Z0-9\s-]/g, '')
       .replace(/\s+/g, '_')
       .substring(0, 30);
     
+    const levelFilter = levels && levels !== 'all' ? `_${levels.replace(/,/g, '-')}` : '';
+    const context = schoolId ? 'school' : (projectId ? 'project' : 'organization');
     const dateStr = new Date().toISOString().split('T')[0];
+    
     const filename = cleanOrgName 
-      ? `student_performance_${cleanOrgName}_${dateStr}.xlsx`
-      : `student_performance_${organizationId}_${dateStr}.xlsx`;
+      ? `student_performance_${context}_${cleanOrgName}_${levelType}${levelFilter}_${dateStr}.xlsx`
+      : `student_performance_${organizationId}_${levelType}${levelFilter}_${dateStr}.xlsx`;
     
     console.log(`📄 File ready: ${filename} (${buffer.length} bytes)`);
 
@@ -263,50 +276,90 @@ export async function GET(request) {
   }
 }
 
-// Fetch student data from Firebase - CORRECTED PATH STRUCTURE
-async function fetchStudentDataFromFirebase(organizationId) {
+// Updated fetch function with filters
+async function fetchStudentDataFromFirebase(
+  organizationId, 
+  targetProjectId = null, 
+  targetSchoolId = null,
+  levelType = 'literacy',
+  levelsToFilter = null
+) {
   const students = [];
   
   try {
-    console.log(`🔍 Fetching projects for organization: ${organizationId}`);
+    console.log(`🔍 Fetching data for organization: ${organizationId}`);
     
-    // Get all projects under the organization
-    const projectsRef = db.collection(`organization/${organizationId}/projects`);
-    const projectsSnapshot = await projectsRef.get();
+    // Determine which projects to fetch
+    let projectsToProcess = [];
     
-    if (projectsSnapshot.empty) {
-      console.log('📭 No projects found for organization');
+    if (targetProjectId) {
+      // Fetch specific project
+      console.log(`  📁 Targeting specific project: ${targetProjectId}`);
+      const projectDoc = await db.collection(`organization/${organizationId}/projects`).doc(targetProjectId).get();
+      if (projectDoc.exists) {
+        projectsToProcess.push({
+          id: targetProjectId,
+          data: projectDoc.data()
+        });
+      }
+    } else {
+      // Fetch all projects
+      const projectsRef = db.collection(`organization/${organizationId}/projects`);
+      const projectsSnapshot = await projectsRef.get();
+      projectsToProcess = projectsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        data: doc.data()
+      }));
+    }
+    
+    if (projectsToProcess.length === 0) {
+      console.log('📭 No projects found');
       return students;
     }
 
-    console.log(`📂 Found ${projectsSnapshot.docs.length} projects`);
+    console.log(`📂 Processing ${projectsToProcess.length} projects`);
     
     // Process each project
-    for (const projectDoc of projectsSnapshot.docs) {
-      const projectId = projectDoc.id;
-      const projectData = projectDoc.data();
+    for (const { id: projectId, data: projectData } of projectsToProcess) {
       const projectName = projectData.name || projectData.project_name || projectId;
       
       console.log(`  📁 Project: ${projectName}`);
       
-      // Get all schools under this project
-      const schoolsRef = db.collection(`organization/${organizationId}/projects/${projectId}/schools`);
-      const schoolsSnapshot = await schoolsRef.get();
+      // Determine which schools to fetch
+      let schoolsToProcess = [];
       
-      if (schoolsSnapshot.empty) {
-        console.log(`    📭 No schools found in project`);
+      if (targetSchoolId && targetProjectId === projectId) {
+        // Fetch specific school in this project
+        console.log(`    🏫 Targeting specific school: ${targetSchoolId}`);
+        const schoolDoc = await db.collection(`organization/${organizationId}/projects/${projectId}/schools`).doc(targetSchoolId).get();
+        if (schoolDoc.exists) {
+          schoolsToProcess.push({
+            id: targetSchoolId,
+            data: schoolDoc.data()
+          });
+        }
+      } else if (!targetSchoolId) {
+        // Fetch all schools in this project
+        const schoolsRef = db.collection(`organization/${organizationId}/projects/${projectId}/schools`);
+        const schoolsSnapshot = await schoolsRef.get();
+        schoolsToProcess = schoolsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          data: doc.data()
+        }));
+      }
+      
+      if (schoolsToProcess.length === 0) {
+        console.log(`    📭 No schools to process in project`);
         continue;
       }
 
-      console.log(`    🏫 Found ${schoolsSnapshot.docs.length} schools`);
+      console.log(`    🏫 Processing ${schoolsToProcess.length} schools`);
       
       // Process each school
-      for (const schoolDoc of schoolsSnapshot.docs) {
-        const schoolId = schoolDoc.id;
-        const schoolData = schoolDoc.data();
+      for (const { id: schoolId, data: schoolData } of schoolsToProcess) {
         const schoolName = schoolData.name || schoolData.school_name || schoolId;
         
-        // Get all students under this school - CORRECT PATH
+        // Get all students under this school
         const studentsRef = db.collection(`organization/${organizationId}/projects/${projectId}/schools/${schoolId}/students`);
         const studentsSnapshot = await studentsRef.get();
         
@@ -322,6 +375,14 @@ async function fetchStudentDataFromFirebase(organizationId) {
           const studentId = studentDoc.id;
           const studentData = studentDoc.data();
           
+          // Check if student matches level filter
+          if (levelsToFilter) {
+            const studentLevel = studentData[`${levelType}_endline`] || studentData[`${levelType}_baseline`];
+            if (!studentLevel || !levelsToFilter.includes(studentLevel.toLowerCase().trim())) {
+              continue; // Skip this student
+            }
+          }
+          
           // Extract student information
           const student = {
             id: studentId,
@@ -336,7 +397,6 @@ async function fetchStudentDataFromFirebase(organizationId) {
             numeracy_endline: studentData.endline_numeracy,
             created_at: studentData.created_at,
             updated_at: studentData.updated_at,
-            // Add any other relevant fields
             ...(studentData.age && { age: studentData.age }),
             ...(studentData.date_of_birth && { dob: studentData.date_of_birth }),
           };
@@ -355,14 +415,13 @@ async function fetchStudentDataFromFirebase(organizationId) {
   }
 }
 
-// Format level for display
+// Helper functions (keep the same)
 function formatLevel(level, assessmentType, orgType) {
   if (!level || typeof level !== 'string') return 'N/A';
   
   const lowerLevel = level.toLowerCase().trim();
   const mapping = LEVEL_MAPPINGS[orgType] || LEVEL_MAPPINGS.standard;
   
-  // Try to find in mapping
   if (assessmentType === 'literacy' && mapping.literacy[lowerLevel]) {
     return mapping.literacy[lowerLevel];
   }
@@ -371,7 +430,6 @@ function formatLevel(level, assessmentType, orgType) {
     return mapping.numeracy[lowerLevel];
   }
   
-  // Handle common variations
   const variations = {
     'nonreader': 'non-reader',
     'non_reader': 'non-reader',
@@ -387,7 +445,6 @@ function formatLevel(level, assessmentType, orgType) {
   
   const normalized = variations[lowerLevel] || lowerLevel;
   
-  // Try with normalized
   if (assessmentType === 'literacy' && mapping.literacy[normalized]) {
     return mapping.literacy[normalized];
   }
@@ -396,52 +453,16 @@ function formatLevel(level, assessmentType, orgType) {
     return mapping.numeracy[normalized];
   }
   
-  // Return original with first letter capitalized
   return level.charAt(0).toUpperCase() + level.slice(1);
 }
 
-// Get numeric value for level (for improvement calculations)
-function getLevelValue(level, assessmentType, orgType) {
-  if (!level) return 0;
-  
-  const lowerLevel = level.toLowerCase().trim();
-  const mapping = LEVEL_MAPPINGS[orgType] || LEVEL_MAPPINGS.standard;
-  
-  // Create value mapping
-  const levelValues = {
-    'literacy': {
-      'standard': {
-        'beginner': 1, 'letter': 2, 'word': 3, 'paragraph': 4, 'story': 5, 'above': 6
-      },
-      'alternative': {
-        'non-reader': 1, 'letter': 2, 'word': 3, 'paragraph': 4, 'reading-comprehension': 5, 'above': 6
-      }
-    },
-    'numeracy': {
-      'standard': {
-        'beginner': 1, 'number_recognition': 2, 'addition': 3, 'subtraction': 4, 'multiplication': 5, 'division': 6
-      },
-      'alternative': {
-        'beginner': 1, 'number_recognition': 2, 'addition': 3, 'subtraction': 4, 'multiplication': 5, 'division': 6
-      }
-    }
-  };
-  
-  const value = levelValues[assessmentType]?.[orgType]?.[lowerLevel] || 0;
-  return value;
-}
-
-// Format date for display
 function formatDate(timestamp) {
   if (!timestamp) return 'N/A';
   
   try {
-    // Handle Firebase Timestamp
     if (timestamp.toDate) {
       return timestamp.toDate().toLocaleDateString();
     }
-    
-    // Handle string or number
     const date = new Date(timestamp);
     return isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString();
   } catch {

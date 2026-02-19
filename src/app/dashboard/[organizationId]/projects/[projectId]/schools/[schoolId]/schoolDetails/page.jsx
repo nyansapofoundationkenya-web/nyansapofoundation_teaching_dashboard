@@ -67,6 +67,7 @@ export default function SchoolDetailPage() {
         <SchoolDetailContent
           school={school}
           organizationId={organizationId}
+          projectId={projectId}
           onSchoolUpdated={handleSchoolUpdated}
         />
       </div>

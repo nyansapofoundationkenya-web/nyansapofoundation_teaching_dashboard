@@ -4,44 +4,12 @@ import { useEffect, useState } from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import { Calendar, TrendingUp, TrendingDown, Users, Minus, Building2, CheckCircle, Clock } from "lucide-react"
 
-export default function AttendanceOverview({ organizationId }) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [data, setData] = useState(null)
+export default function AttendanceOverview({ organizationId, loading, error, data, onFetchData }) {
   const [chartView, setChartView] = useState("7days") // "7days" or "30days"
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!organizationId) return
-
-      setLoading(true)
-      setError(null)
-
-      try {
-        const response = await fetch("/api/literacy/attendance-overview", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ organization_id: organizationId }),
-        })
-
-        const result = await response.json()
-
-        if (!result.success) {
-          setError(result.message || result.error)
-          return
-        }
-
-        setData(result.data)
-      } catch (err) {
-        console.error("Attendance overview fetch error:", err)
-        setError(err.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [organizationId])
+    onFetchData()
+  }, [organizationId, onFetchData])
 
   // Calculate circle progress for gauge
   const getCircleProps = (rate) => {

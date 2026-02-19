@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { doc, getDoc, collection, addDoc, updateDoc, arrayUnion, setDoc, getDocs, increment, writeBatch } from "firebase/firestore";
 import { db } from "../firebase/config";
 import Papa from "papaparse";
@@ -10,7 +10,7 @@ export function useProjectDetails(organizationId) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchProjectById = async (projectId) => {
+  const fetchProjectById = useCallback(async (projectId) => {
     if (!organizationId || !projectId) {
       setError("Missing organization ID or project ID");
       return;
@@ -34,9 +34,9 @@ export function useProjectDetails(organizationId) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [organizationId]);
 
-  const fetchSchools = async (projectId) => {
+  const fetchSchools = useCallback(async (projectId) => {
     if (!organizationId || !projectId) {
       setError("Missing organization ID or project ID");
       return;
@@ -55,9 +55,9 @@ export function useProjectDetails(organizationId) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [organizationId]);
 
-  const fetchCampsByIds = async (projectId, campIds) => {
+  const fetchCampsByIds = useCallback(async (projectId, campIds) => {
     if (!organizationId || !projectId || !campIds || campIds.length === 0) {
       return [];
     }
@@ -81,9 +81,9 @@ export function useProjectDetails(organizationId) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [organizationId]);
 
-const addSchoolsByFile = async (projectId, file) => {
+  const addSchoolsByFile = useCallback(async (projectId, file) => {
     if (!organizationId || !projectId) {
       setError("Missing organization ID or project ID");
       return;
@@ -246,9 +246,9 @@ const addSchoolsByFile = async (projectId, file) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [organizationId, fetchSchools]);
 
-  const createCamp = async (projectId, schoolIds, { name, subject, startDate, endDate }) => {
+  const createCamp = useCallback(async (projectId, schoolIds, { name, subject, startDate, endDate }) => {
     if (!organizationId || !projectId || !schoolIds || schoolIds.length === 0) {
       setError("Missing organization ID, project ID, or school IDs");
       return;
@@ -299,9 +299,9 @@ const addSchoolsByFile = async (projectId, file) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [organizationId]);
 
-  const createInstructor = async (organizationId, projectId, schoolId, campId, { name, email, phone }) => {
+  const createInstructor = useCallback(async (organizationId, projectId, schoolId, campId, { name, email, phone }) => {
     if (!organizationId || !projectId || !schoolId || !campId || !name || !email || !phone) {
       setError("Missing required instructor details (organizationId, projectId, schoolId, campId, name, email, or phone)");
       return;
@@ -405,7 +405,7 @@ const addSchoolsByFile = async (projectId, file) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []); // No dependencies since all params are passed in
 
   return {
     project,
