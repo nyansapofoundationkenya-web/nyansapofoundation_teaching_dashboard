@@ -86,6 +86,8 @@ export default function StudentChart({
   const type = assessmentType.toLowerCase().trim()
   const calc = (calculationType || "").toLowerCase().trim()
 
+  console.log(baseline)
+
   // Choose the correct config
   let config
   if (type === "numeracy") {
@@ -102,12 +104,11 @@ export default function StudentChart({
   const { levels, labels } = config
   const maxLevel = Math.max(...Object.values(levels))
 
-  // Normalize baseline (flexible matching)
+  // Normalize baseline - DON'T replace underscores
   const normalized = baseline
     .toLowerCase()
     .trim()
-    .replace(/\s+/g, "-")
-    .replace(/_/g, "-")
+    .replace(/\s+/g, "-")  // Only replace spaces with hyphens, keep underscores
 
   let baselineKey = normalized || "beginner"
 
@@ -117,6 +118,9 @@ export default function StudentChart({
     if (normalized.includes("nonreader") || normalized.includes("non-reader")) baselineKey = "non-reader"
     if (normalized.includes("readingcomprehension") || normalized.includes("reading-comprehension")) baselineKey = "reading-comprehension"
     if (normalized.includes("abov")) baselineKey = type === "numeracy" ? "above_level" : "above"
+    
+    // Additional fallback for number_recognition
+    if (normalized.includes("number") && normalized.includes("recognition")) baselineKey = "number_recognition"
   }
 
   const baselineValue = levels[baselineKey] ?? 0
