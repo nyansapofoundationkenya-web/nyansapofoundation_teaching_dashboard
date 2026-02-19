@@ -10,7 +10,7 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
   const [projects, setProjects] = useState([])
   const [selectedProject, setSelectedProject] = useState(null)
   const [selectedSchool, setSelectedSchool] = useState(null)
-  const [type, setType] = useState(currentFilters?.type || "Literacy") // Default: Literacy
+  const [type, setType] = useState(currentFilters?.type || "all") // Default: Literacy
   const [level, setLevel] = useState(currentFilters?.level || "all") // Default: All Levels (changed from "All Levels" to "all" for consistency)
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -26,7 +26,7 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
     if (currentFilters) {
       setSelectedProject(currentFilters.projectId || null)
       setSelectedSchool(currentFilters.schoolId || null)
-      setType(currentFilters.type || "Literacy")
+      setType(currentFilters.type || "all")
       setLevel(currentFilters.level || "all") // Changed to "all"
     }
   }, [currentFilters])
