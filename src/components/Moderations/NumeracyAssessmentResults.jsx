@@ -54,6 +54,12 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
   if (!results) return <div className="text-foreground">No data available</div>;
 
   const numeracyResults = results.numeracy_results || {};
+  
+  // Get counts for each operation type to conditionally render sections
+  const additionCount = getOperationsByType(numeracyResults.number_operations, 'addition').length;
+  const subtractionCount = getOperationsByType(numeracyResults.number_operations, 'subtraction').length;
+  const multiplicationCount = getOperationsByType(numeracyResults.number_operations, 'multiplication').length;
+  const divisionCount = getOperationsByType(numeracyResults.number_operations, 'division').length;
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -192,9 +198,9 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
       </div>
 
       {/* Number Operations - Addition */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4 text-primary-3">Addition</h2>
-        {getOperationsByType(numeracyResults.number_operations, 'addition').length > 0 ? (
+      {additionCount > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 text-primary-3">Addition</h2>
           <div className="flex flex-wrap gap-4">
             {getOperationsByType(numeracyResults.number_operations, 'addition').map((operation, index) => (
               <div
@@ -218,7 +224,6 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
                     {operation.expected_answer}
                   </div>
                 </div>
-                {/* Done time - added here */}
                 {operation.metadata?.done_time && (
                   <div className="text-xs text-gray-500 mt-2 text-center">
                     {formatDoneTime(operation.metadata.done_time)}
@@ -227,15 +232,13 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
               </div>
             ))}
           </div>
-        ) : (
-          <div className="text-gray-400">No addition results available</div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Number Operations - Subtraction */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4 text-primary-3">Subtraction</h2>
-        {getOperationsByType(numeracyResults.number_operations, 'subtraction').length > 0 ? (
+      {subtractionCount > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 text-primary-3">Subtraction</h2>
           <div className="flex flex-wrap gap-4">
             {getOperationsByType(numeracyResults.number_operations, 'subtraction').map((operation, index) => (
               <div
@@ -267,15 +270,13 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
               </div>
             ))}
           </div>
-        ) : (
-          <div className="text-gray-400">No subtraction results available</div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Number Operations - Multiplication */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4 text-primary-3">Multiplication</h2>
-        {getOperationsByType(numeracyResults.number_operations, 'multiplication').length > 0 ? (
+      {/* Number Operations - Multiplication - Only show if there are results */}
+      {multiplicationCount > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 text-primary-3">Multiplication</h2>
           <div className="flex flex-wrap gap-4">
             {getOperationsByType(numeracyResults.number_operations, 'multiplication').map((operation, index) => (
               <div
@@ -307,15 +308,13 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
               </div>
             ))}
           </div>
-        ) : (
-          <div className="text-gray-400">No multiplication results available</div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Number Operations - Division */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4 text-primary-3">Division</h2>
-        {getOperationsByType(numeracyResults.number_operations, 'division').length > 0 ? (
+      {/* Number Operations - Division - Only show if there are results */}
+      {divisionCount > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 text-primary-3">Division</h2>
           <div className="flex flex-wrap gap-4">
             {getOperationsByType(numeracyResults.number_operations, 'division').map((operation, index) => (
               <div
@@ -347,10 +346,8 @@ export default function NumeracyAssessmentResults({ assessmentId, studentId, org
               </div>
             ))}
           </div>
-        ) : (
-          <div className="text-gray-400">No division results available</div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Word Problem Results */}
       <div className="mb-8">
