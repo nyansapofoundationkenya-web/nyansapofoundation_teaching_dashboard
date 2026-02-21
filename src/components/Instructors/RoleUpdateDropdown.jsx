@@ -12,62 +12,63 @@ export default function RoleUpdateDropdown({
   onUpdateRole, 
   onCancel, 
   getAvailableRoles,
-  userRole 
+  userRole,
+  triggerRef // optional: ref to anchor element for positioning
 }) {
   const [dropdownStyle, setDropdownStyle] = useState({});
-  const buttonRef = useRef(null);
+  const innerRef = useRef(null);
 
-  // Calculate position when dropdown opens
   useEffect(() => {
-    if (buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
+    // Use triggerRef if provided, otherwise fall back to innerRef
+    const ref = triggerRef?.current || innerRef.current;
+    if (ref) {
+      const rect = ref.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
       const dropdownHeight = 220;
-      
+
       if (spaceBelow < dropdownHeight) {
-        // Position above
         setDropdownStyle({
-          bottom: window.innerHeight - rect.top + 8,
+          bottom: window.innerHeight - rect.top + 4,
           right: window.innerWidth - rect.right,
           minWidth: '250px',
           maxWidth: '300px'
         });
       } else {
-        // Position below
         setDropdownStyle({
-          top: rect.bottom + 8,
+          top: rect.bottom + 4,
           right: window.innerWidth - rect.right,
           minWidth: '250px',
           maxWidth: '300px'
         });
       }
     }
-  }, []);
+  }, [triggerRef]);
 
-  // Only show if user is super admin
-  if (userRole !== 'super_admin') {
-    return null;
-  }
+  if (userRole !== 'super_admin') return null;
 
   return (
     <>
-      {/* Invisible button ref for positioning */}
-      <div ref={buttonRef} className="absolute right-0 top-1/2 -translate-y-1/2 w-0 h-0" />
-      
+      {/* Fallback anchor if no triggerRef passed */}
+      {!triggerRef && (
+        <div ref={innerRef} className="absolute right-0 top-1/2 -translate-y-1/2 w-0 h-0" />
+      )}
+
       <Portal>
+        {/* Backdrop */}
         <div 
-          className="fixed inset-0 z-40" 
+          className="fixed inset-0 z-[9998]" 
           onClick={onCancel}
         />
+        {/* Dropdown */}
         <div 
-          className="fixed z-50 bg-background-light rounded-xl shadow-lg border border-primary-2/30 overflow-hidden"
+          className="fixed z-[9999] bg-background-light rounded-xl shadow-lg border border-primary-2/30 overflow-hidden"
           style={dropdownStyle}
         >
           <div className="p-4">
             <p className="text-sm font-medium text-foreground mb-3 truncate">
               Update Role for {instructor.name}
             </p>
-            
+
             <label className="block text-xs font-medium text-gray-400 mb-1">
               Select New Role
             </label>

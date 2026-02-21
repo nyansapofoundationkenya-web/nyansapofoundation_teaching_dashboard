@@ -11,7 +11,7 @@ import InstructorModal from "@/components/Instructors/InstructorsModal";
 import InstructorTable from "@/components/Instructors/InstructorTable";
 import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/firebase/config";
-import { unassignInstructorFromOrganization } from "@/utils/instructorUtils"; // Add this import
+import { unassignInstructorFromOrganization } from "@/utils/instructorUtils";
 
 export default function InstructorsPage() {
   const { organizationId } = useParams();
@@ -154,7 +154,6 @@ export default function InstructorsPage() {
     }
   };
 
-  // NEW: Handle unassign instructor from organization
   const handleUnassignInstructor = async (instructorId, instructorName) => {
     if (!organizationId) {
       alert('No organization context available');
@@ -222,19 +221,9 @@ export default function InstructorsPage() {
     setActionMenuOpen(null);
   };
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (actionMenuOpen && !event.target.closest('.action-menu-container')) {
-        setActionMenuOpen(null);
-      }
-      if (roleUpdateOpen && !event.target.closest('.role-update-container')) {
-        setRoleUpdateOpen(null);
-      }
-    };
-
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [actionMenuOpen, roleUpdateOpen]);
+  // ✅ Removed the redundant document click-outside listener that was
+  // checking for '.action-menu-container' (class that never existed).
+  // Click-outside is now handled correctly at the row level in InstructorTableRow.
 
   if (isLoadingData) {
     return (
@@ -290,7 +279,7 @@ export default function InstructorsPage() {
           onItemsPerPageChange={handleItemsPerPageChange}
           onEditInstructor={handleEditInstructor}
           onDeleteInstructor={handleDeleteInstructor}
-          onUnassignInstructor={handleUnassignInstructor} // Add this
+          onUnassignInstructor={handleUnassignInstructor}
           onUpdateRole={handleUpdateRole}
           actionMenuOpen={actionMenuOpen}
           setActionMenuOpen={setActionMenuOpen}
@@ -302,7 +291,7 @@ export default function InstructorsPage() {
           canUpdateRoles={canUpdateRoles}
           getRoleBadgeColor={getRoleBadgeColor}
           getAvailableRoles={getAvailableRoles}
-          currentOrganizationId={organizationId} // Add this
+          currentOrganizationId={organizationId}
           searchQuery={searchTerm}
         />
 

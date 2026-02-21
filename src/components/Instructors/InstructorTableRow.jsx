@@ -5,7 +5,7 @@ import { MoreVertical, Eye, EyeOff } from "lucide-react";
 import ActionMenu from "./ActionMenu";
 import RoleUpdateDropdown from "./RoleUpdateDropdown";
 import AssignmentDropdown from "./AssignmentDropdown";
-import { useState, useRef, useEffect } from "react";
+import { useRef } from "react";
 
 export default function InstructorTableRow({ 
   instructor, 
@@ -31,20 +31,7 @@ export default function InstructorTableRow({
   getAvailableRoles,
   canViewPins
 }) {
-  const actionRef = useRef(null);
-
-  // Handle click outside for action menu
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (actionRef.current && !actionRef.current.contains(event.target)) {
-        setActionMenuOpen(null);
-        setRoleUpdateOpen(null);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [setActionMenuOpen, setRoleUpdateOpen]);
+  const triggerButtonRef = useRef(null);
 
   return (
     <tr className="border-b border-gray-600 hover:bg-background-lighter/50">
@@ -55,6 +42,12 @@ export default function InstructorTableRow({
         <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${getRoleBadgeColor(instructor.role)}`}>
           {instructor.role || 'teacher'}
         </span>
+      </td>
+      <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">
+        {instructor.email || <span className="text-gray-500 italic">N/A</span>}
+      </td>
+      <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">
+        {instructor.phone || <span className="text-gray-500 italic">N/A</span>}
       </td>
       <td className="px-4 py-3 text-sm whitespace-nowrap">
         <div className="flex items-center gap-2">
@@ -88,9 +81,10 @@ export default function InstructorTableRow({
       <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">
         <AssignmentDropdown instructor={instructor} />
       </td>
-      <td className="px-4 py-3 text-sm whitespace-nowrap relative" ref={actionRef}>
-        <div className="relative flex justify-end">
+      <td className="px-4 py-3 text-sm whitespace-nowrap">
+        <div className="flex justify-center">
           <button
+            ref={triggerButtonRef}
             onClick={(e) => {
               e.stopPropagation();
               setActionMenuOpen(actionMenuOpen === instructor.uid ? null : instructor.uid);
@@ -100,20 +94,30 @@ export default function InstructorTableRow({
           >
             <MoreVertical className="w-4 h-4" />
           </button>
-          
+
           {actionMenuOpen === instructor.uid && (
             <ActionMenu
               instructor={instructor}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onUnassign={onUnassign}
+              triggerRef={triggerButtonRef}
+              onEdit={(inst) => {
+                onEdit(inst);
+                setActionMenuOpen(null);
+              }}
+              onDelete={async (uid) => {
+                await onDelete(uid);
+                setActionMenuOpen(null);
+              }}
+              onUnassign={async (uid, name) => {
+                await onUnassign(uid, name);
+                setActionMenuOpen(null);
+              }}
               userRole={userRole}
               currentOrganizationId={currentOrganizationId}
               onRoleUpdateClick={() => {
-                setActionMenuOpen(null);
                 setRoleUpdateOpen(instructor.uid);
                 setNewRole(instructor.role || 'teacher');
               }}
+              onClose={() => setActionMenuOpen(null)}
             />
           )}
 
@@ -122,13 +126,14 @@ export default function InstructorTableRow({
               instructor={instructor}
               newRole={newRole}
               setNewRole={setNewRole}
-              onUpdateRole={onUpdateRole}
+              onUpdateRole={() => onUpdateRole(instructor.uid, newRole)}
               onCancel={() => {
                 setRoleUpdateOpen(null);
                 setNewRole("");
               }}
               getAvailableRoles={getAvailableRoles}
               userRole={userRole}
+              triggerRef={triggerButtonRef}
             />
           )}
         </div>

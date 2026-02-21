@@ -1,8 +1,9 @@
 // components/Instructors/InstructorCard.jsx
 import { MoreVertical, Eye, EyeOff } from "lucide-react";
+import { useRef } from "react";
 import ActionMenu from "./ActionMenu";
 import RoleUpdateDropdown from "./RoleUpdateDropdown";
-import AssignmentDropdown from "./AssignmentDropdown"; // Add this import
+import AssignmentDropdown from "./AssignmentDropdown";
 
 export default function InstructorCard({ 
   instructor, 
@@ -27,6 +28,8 @@ export default function InstructorCard({
   getAvailableRoles,
   canViewPins
 }) {
+  const triggerButtonRef = useRef(null);
+
   return (
     <div className="bg-background-light rounded-xl p-3 border border-gray-600">
       <div className="flex justify-between items-start mb-2">
@@ -38,30 +41,42 @@ export default function InstructorCard({
             {instructor.role || 'teacher'}
           </span>
         </div>
-        <div className="flex-shrink-0 ml-2 relative action-menu-container">
+        <div className="flex-shrink-0 ml-2">
           <button
+            ref={triggerButtonRef}
             onClick={(e) => {
               e.stopPropagation();
               setActionMenuOpen(actionMenuOpen === instructor.uid ? null : instructor.uid);
+              setRoleUpdateOpen(null);
             }}
             className="p-2 rounded-xl hover:bg-primary-3/20 text-primary-2 hover:text-primary-3 transition-colors"
           >
             <MoreVertical className="w-4 h-4" />
           </button>
-          
+
           {actionMenuOpen === instructor.uid && (
             <ActionMenu
               instructor={instructor}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onUnassign={onUnassign}
+              triggerRef={triggerButtonRef}
+              onEdit={(inst) => {
+                onEdit(inst);
+                setActionMenuOpen(null);
+              }}
+              onDelete={async (uid) => {
+                await onDelete(uid);
+                setActionMenuOpen(null);
+              }}
+              onUnassign={async (uid, name) => {
+                await onUnassign(uid, name);
+                setActionMenuOpen(null);
+              }}
               userRole={userRole}
               currentOrganizationId={currentOrganizationId}
               onRoleUpdateClick={() => {
-                setActionMenuOpen(null);
                 setRoleUpdateOpen(instructor.uid);
                 setNewRole(instructor.role || 'teacher');
               }}
+              onClose={() => setActionMenuOpen(null)}
             />
           )}
 
@@ -77,11 +92,26 @@ export default function InstructorCard({
               }}
               getAvailableRoles={getAvailableRoles}
               userRole={userRole}
+              triggerRef={triggerButtonRef}
             />
           )}
         </div>
       </div>
-      
+
+      {/* Email & Phone */}
+      <div className="mb-2 space-y-1">
+        {instructor.email && (
+          <p className="text-xs text-gray-400 truncate">
+            <span className="text-gray-500">Email: </span>{instructor.email}
+          </p>
+        )}
+        {instructor.phone && (
+          <p className="text-xs text-gray-400 truncate">
+            <span className="text-gray-500">Phone: </span>{instructor.phone}
+          </p>
+        )}
+      </div>
+
       {/* PIN Section */}
       {canViewPins && (
         <div className="mb-3">
@@ -115,8 +145,8 @@ export default function InstructorCard({
           </div>
         </div>
       )}
-      
-      {/* Replace the simple counts with AssignmentDropdown */}
+
+      {/* Assignment Dropdown */}
       <div className="mt-2">
         <AssignmentDropdown instructor={instructor} />
       </div>

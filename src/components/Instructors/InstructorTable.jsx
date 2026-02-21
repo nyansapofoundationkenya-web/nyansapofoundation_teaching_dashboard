@@ -34,42 +34,32 @@ export default function InstructorTable({
   currentOrganizationId,
   searchQuery
 }) {
-  // State for PINs
   const [pins, setPins] = useState({});
   const [loadingPins, setLoadingPins] = useState({});
   const [revealedPins, setRevealedPins] = useState({});
 
-  // Permission checks
   const canViewPins = userRole === 'admin' || userRole === 'super_admin';
   const canExport = userRole === 'admin' || userRole === 'super_admin';
 
-  // FILTER LOGIC: Hide instructors with 0 orgs unless searching
   const filteredInstructors = useMemo(() => {
     if (!searchQuery || searchQuery.trim() === '') {
-      // When NOT searching: hide instructors with 0 organizations
       return instructors.filter(instructor => (instructor.orgCount || 0) > 0);
     } else {
-      // When searching: show ALL instructors (including those with 0 orgs)
       return instructors;
     }
   }, [instructors, searchQuery]);
 
-  // Calculate pagination based on filtered instructors
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentInstructors = filteredInstructors.slice(startIndex, endIndex);
   const filteredTotalPages = Math.ceil(filteredInstructors.length / itemsPerPage) || 1;
 
-  // Fetch PIN for a specific instructor
   const fetchPin = async (uid) => {
     if (loadingPins[uid] || pins[uid]) return;
-
     setLoadingPins(prev => ({ ...prev, [uid]: true }));
-
     try {
       const response = await fetch(`https://nyansapo-auth.vercel.app/api/auth/pin?uid=${uid}`);
       if (!response.ok) throw new Error('Failed to fetch PIN');
-
       const data = await response.json();
       setPins(prev => ({ ...prev, [uid]: data?.pin ?? 'N/A' }));
     } catch (error) {
@@ -80,15 +70,10 @@ export default function InstructorTable({
     }
   };
 
-  // Toggle PIN visibility
   const togglePinVisibility = (uid) => {
-    setRevealedPins(prev => ({
-      ...prev,
-      [uid]: !prev[uid]
-    }));
+    setRevealedPins(prev => ({ ...prev, [uid]: !prev[uid] }));
   };
 
-  // Fetch all pins for current page
   useEffect(() => {
     currentInstructors.forEach(instructor => {
       if (!pins[instructor.uid]) {
@@ -97,31 +82,28 @@ export default function InstructorTable({
     });
   }, [currentInstructors]);
 
-  // Handle export
   const handleExport = (format) => {
     if (!canExport) {
       alert('You do not have permission to export data');
       return;
     }
-
     const exportDataArray = currentInstructors.map(instructor => ({
       Name: instructor.name || 'N/A',
       Role: instructor.role || 'teacher',
       Email: instructor.email || 'N/A',
+      Phone: instructor.phone || 'N/A',
       PIN: pins[instructor.uid] || 'Not fetched',
       Organizations: instructor.orgCount || 0,
       Projects: instructor.projectCount || 0,
       Schools: instructor.schoolCount || 0,
     }));
-
     exportData(exportDataArray, format);
   };
 
   return (
     <div className="space-y-4">
-      {/* Show search instructions if no search query */}
       {!searchQuery?.trim() && <SearchInstructions />}
-      
+
       <TableControls
         itemsPerPage={itemsPerPage}
         onItemsPerPageChange={onItemsPerPageChange}
@@ -146,10 +128,10 @@ export default function InstructorTable({
                   revealed={revealedPins[instructor.uid]}
                   onFetchPin={() => fetchPin(instructor.uid)}
                   onTogglePin={() => togglePinVisibility(instructor.uid)}
-                  onEdit={onEditInstructor}
-                  onDelete={onDeleteInstructor}
-                  onUnassign={onUnassignInstructor}
-                  onUpdateRole={onUpdateRole}
+                  onEdit={() => onEditInstructor(instructor)}
+                  onDelete={() => onDeleteInstructor(instructor.uid)}
+                  onUnassign={(uid, name) => onUnassignInstructor(uid, name)}
+                  onUpdateRole={(uid, role) => onUpdateRole(uid, role)}
                   actionMenuOpen={actionMenuOpen}
                   setActionMenuOpen={setActionMenuOpen}
                   roleUpdateOpen={roleUpdateOpen}
@@ -182,6 +164,8 @@ export default function InstructorTable({
                     <tr className="bg-background-lighter border-b border-gray-600">
                       <th className="px-4 py-3 text-left text-sm font-medium text-foreground whitespace-nowrap">Name</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-foreground whitespace-nowrap">Role</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-foreground whitespace-nowrap">Email</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-foreground whitespace-nowrap">Phone</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-foreground whitespace-nowrap">PIN</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-foreground whitespace-nowrap">Assignments</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-foreground whitespace-nowrap">Actions</th>
@@ -218,7 +202,7 @@ export default function InstructorTable({
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-400">
+                        <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
                           {!searchQuery?.trim()
                             ? "No instructors with assigned organizations found. Use search to find all instructors."
                             : "No instructors found matching your search."}
@@ -231,7 +215,6 @@ export default function InstructorTable({
             </div>
           </div>
 
-          {/* Pagination */}
           {filteredTotalPages > 1 && (
             <Pagination
               currentPage={currentPage}
