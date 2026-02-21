@@ -12,9 +12,47 @@ import {
   ChevronRight, 
   Eye,
   Filter,
-  X
+  X,
+  BookOpen,
+  Calculator,
+  AlertCircle,
+  Info
 } from "lucide-react";
 import StudentModal from "./StudentModal";
+import GuideModal from "./GuideModal";
+
+// Competency levels constants
+const LITERACY_LEVELS = [
+  "non-reader",
+  "beginner",
+  "letter",
+  "word",
+  "paragraph",
+  "story",
+  "reading-comprehension",
+  "above"
+];
+
+const NUMERACY_LEVELS = [
+  "beginner",
+  "number_recognition",
+  "addition",
+  "subtraction",
+  "multiplication",
+  "division",
+  "above"
+];
+
+// Level options for dropdowns
+const LITERACY_OPTIONS = LITERACY_LEVELS.map(level => ({
+  value: level,
+  label: level.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+}));
+
+const NUMERACY_OPTIONS = NUMERACY_LEVELS.map(level => ({
+  value: level,
+  label: level.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+}));
 
 export default function StudentsTable({
   students,
@@ -30,13 +68,16 @@ export default function StudentsTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [actionMenuOpen, setActionMenuOpen] = useState(null);
   const [duplicates, setDuplicates] = useState(new Set());
   
-  // New state for baseline and endline filters
-  const [baselineFilter, setBaselineFilter] = useState("");
-  const [endlineFilter, setEndlineFilter] = useState("");
+  // New filter states
+  const [assessmentType, setAssessmentType] = useState(""); // "literacy" or "numeracy"
+  const [levelType, setLevelType] = useState(""); // "baseline", "midline", "endline"
+  const [competencyLevel, setCompetencyLevel] = useState("");
+  const [showMissingOnly, setShowMissingOnly] = useState(false); // Filter for missing data
 
   // Enhanced duplicate detection: first name + last name + grade + gender
   useEffect(() => {
@@ -70,7 +111,26 @@ export default function StudentsTable({
     return duplicates.has(student.id);
   };
 
-  // Apply search and level filters to students
+  // Get the appropriate field based on assessment type and level
+  const getStudentLevelValue = (student, type, level) => {
+    if (!type || !level) return null;
+    
+    if (type === "literacy") {
+      return student[`${level}`]; // baseline, midline, endline fields for literacy
+    } else if (type === "numeracy") {
+      return student[`${level}_numeracy`]; // baseline_numeracy, midline_numeracy, endline_numeracy
+    }
+    return null;
+  };
+
+  // Check if a student has missing data for a specific assessment type and level
+  const hasMissingData = (student, type, level) => {
+    if (!type || !level) return false;
+    const value = getStudentLevelValue(student, type, level);
+    return !value || value === "" || value === null || value === undefined;
+  };
+
+  // Apply filters to students
   const filteredStudents = students.filter(student => {
     // Search filter
     if (searchTerm) {
@@ -82,14 +142,19 @@ export default function StudentsTable({
       if (!matchesSearch) return false;
     }
     
-    // Baseline filter
-    if (baselineFilter && student.baseline !== baselineFilter) {
-      return false;
+    // Missing data filter
+    if (showMissingOnly && assessmentType && levelType) {
+      if (!hasMissingData(student, assessmentType, levelType)) {
+        return false;
+      }
     }
     
-    // Endline filter
-    if (endlineFilter && student.endline !== endlineFilter) {
-      return false;
+    // Assessment type, level, and competency filter
+    if (assessmentType && levelType && competencyLevel) {
+      const studentLevelValue = getStudentLevelValue(student, assessmentType, levelType);
+      if (studentLevelValue !== competencyLevel) {
+        return false;
+      }
     }
     
     return true;
@@ -103,14 +168,32 @@ export default function StudentsTable({
 
   // Clear all filters
   const clearFilters = () => {
-    setBaselineFilter("");
-    setEndlineFilter("");
+    setAssessmentType("");
+    setLevelType("");
+    setCompetencyLevel("");
+    setShowMissingOnly(false);
     setSearchTerm("");
     setCurrentPage(1);
   };
 
   // Check if any filters are active
-  const hasActiveFilters = baselineFilter || endlineFilter || searchTerm;
+  const hasActiveFilters = assessmentType || levelType || competencyLevel || showMissingOnly || searchTerm;
+
+  // Get competency options based on selected assessment type
+  const getCompetencyOptions = () => {
+    if (assessmentType === "literacy") {
+      return LITERACY_OPTIONS;
+    } else if (assessmentType === "numeracy") {
+      return NUMERACY_OPTIONS;
+    }
+    return [];
+  };
+
+  // Reset competency level when assessment type or level type changes
+  useEffect(() => {
+    setCompetencyLevel("");
+    setShowMissingOnly(false);
+  }, [assessmentType, levelType]);
 
   // Student actions
   const handleAddClick = () => {
@@ -160,6 +243,52 @@ export default function StudentsTable({
     }
   };
 
+  // Get color for competency level badge
+  const getLevelColor = (level, type = "literacy") => {
+    const colors = {
+      // Literacy levels
+      "non-reader": "bg-gray-500/20 text-gray-400 border border-gray-500/30",
+      "beginner": "bg-purple-500/20 text-purple-400 border border-purple-500/30",
+      "letter": "bg-orange-500/20 text-orange-400 border border-orange-500/30",
+      "word": "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30",
+      "paragraph": "bg-blue-500/20 text-blue-400 border border-blue-500/30",
+      "story": "bg-green-500/20 text-green-400 border border-green-500/30",
+      "reading-comprehension": "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30",
+      "above": "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
+      // Numeracy levels
+      "number_recognition": "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30",
+      "addition": "bg-sky-500/20 text-sky-400 border border-sky-500/30",
+      "subtraction": "bg-violet-500/20 text-violet-400 border border-violet-500/30",
+      "multiplication": "bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30",
+      "division": "bg-pink-500/20 text-pink-400 border border-pink-500/30",
+    };
+    
+    return colors[level] || "bg-gray-500/20 text-gray-400 border border-gray-500/30";
+  };
+
+  // Format level name for display
+  const formatLevelName = (level) => {
+    if (!level) return "_";
+    return level.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+
+  // Get missing data count for a student
+  const getMissingDataCount = (student) => {
+    let count = 0;
+    const literacyLevels = ['baseline', 'midline', 'endline'];
+    const numeracyLevels = ['baseline_numeracy', 'midline_numeracy', 'endline_numeracy'];
+    
+    literacyLevels.forEach(level => {
+      if (!student[level]) count++;
+    });
+    
+    numeracyLevels.forEach(level => {
+      if (!student[level]) count++;
+    });
+    
+    return count;
+  };
+
   // Get duplicate count for display
   const duplicateCount = duplicates.size;
 
@@ -205,7 +334,7 @@ export default function StudentsTable({
                 Students at {currentFilter.schoolName}
               </h3>
               <p className="text-sm text-gray-300">
-                {filteredStudents.length} of {students.length} students match search
+                {filteredStudents.length} of {students.length} students match filters
                 {duplicateCount > 0 && (
                   <span className="text-primary-3 ml-2">
                     • {duplicateCount} potential duplicate(s)
@@ -213,13 +342,23 @@ export default function StudentsTable({
                 )}
               </p>
             </div>
-            <button
-              onClick={handleAddClick}
-              className="flex items-center gap-2 px-4 py-2 bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold rounded-xl transition-colors shadow-md hover:shadow-lg"
-            >
-              <UserPlus className="w-4 h-4" />
-              Add Student
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setIsGuideOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-500 hover:bg-gray-700/30 text-foreground rounded-xl transition-colors"
+                title="How to read this table"
+              >
+                <Info className="w-4 h-4" />
+                <span className="hidden sm:inline">Guide</span>
+              </button>
+              <button
+                onClick={handleAddClick}
+                className="flex items-center gap-2 px-4 py-2 bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold rounded-xl transition-colors shadow-md hover:shadow-lg"
+              >
+                <UserPlus className="w-4 h-4" />
+                Add Student
+              </button>
+            </div>
           </div>
         </div>
 
@@ -265,56 +404,114 @@ export default function StudentsTable({
             </div>
 
             {/* Filter Controls Row */}
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <div className="flex flex-col gap-4">
               <div className="flex flex-wrap gap-3 items-center">
                 <div className="flex items-center gap-2">
                   <Filter className="w-4 h-4 text-gray-400" />
                   <span className="text-sm text-gray-300">Filter by:</span>
                 </div>
                 
-                {/* Baseline Dropdown */}
+                {/* Assessment Type (Literacy/Numeracy) */}
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs text-gray-400">Baseline</label>
-                  <select
-                    value={baselineFilter}
-                    onChange={(e) => {
-                      setBaselineFilter(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="border border-gray-500 rounded-xl px-3 py-2 text-sm 
-                              focus:outline-none focus:ring-1 focus:ring-primary-2 focus:border-primary-2
-                              bg-background-lighter text-foreground cursor-pointer shadow-md min-w-[140px]"
-                  >
-                    <option value="">All Baseline</option>
-                    <option value="letter">Letter</option>
-                    <option value="word">Word</option>
-                    <option value="beginner">Beginner</option>
-                    <option value="paragraph">Paragraph</option>
-                    <option value="story">Story</option>
-                  </select>
+                  <label className="text-xs text-gray-400">Assessment Type</label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setAssessmentType("literacy");
+                        setCurrentPage(1);
+                      }}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+                        assessmentType === "literacy"
+                          ? 'bg-primary-3/20 text-primary-3 border border-primary-3/30'
+                          : 'border border-gray-500 text-gray-300 hover:bg-gray-700/30'
+                      }`}
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      Literacy
+                    </button>
+                    <button
+                      onClick={() => {
+                        setAssessmentType("numeracy");
+                        setCurrentPage(1);
+                      }}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+                        assessmentType === "numeracy"
+                          ? 'bg-primary-3/20 text-primary-3 border border-primary-3/30'
+                          : 'border border-gray-500 text-gray-300 hover:bg-gray-700/30'
+                      }`}
+                    >
+                      <Calculator className="w-4 h-4" />
+                      Numeracy
+                    </button>
+                  </div>
                 </div>
 
-                {/* Endline Dropdown */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-gray-400">Endline</label>
-                  <select
-                    value={endlineFilter}
-                    onChange={(e) => {
-                      setEndlineFilter(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="border border-gray-500 rounded-xl px-3 py-2 text-sm 
-                              focus:outline-none focus:ring-1 focus:ring-primary-2 focus:border-primary-2
-                              bg-background-lighter text-foreground cursor-pointer shadow-md min-w-[140px]"
-                  >
-                    <option value="">All Endline</option>
-                    <option value="letter">Letter</option>
-                    <option value="word">Word</option>
-                    <option value="beginner">Beginner</option>
-                    <option value="paragraph">Paragraph</option>
-                    <option value="story">Story</option>
-                  </select>
-                </div>
+                {/* Level Type (Baseline/Midline/Endline) */}
+                {assessmentType && (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-400">Level Type</label>
+                    <select
+                      value={levelType}
+                      onChange={(e) => {
+                        setLevelType(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="border border-gray-500 rounded-xl px-3 py-2 text-sm 
+                                focus:outline-none focus:ring-1 focus:ring-primary-2 focus:border-primary-2
+                                bg-background-lighter text-foreground cursor-pointer shadow-md min-w-[140px]"
+                    >
+                      <option value="">Select Level</option>
+                      <option value="baseline">Baseline (B)</option>
+                      <option value="midline">Midline (M)</option>
+                      <option value="endline">Endline (E)</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Competency Level Dropdown */}
+                {assessmentType && levelType && (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-400">Competency Level</label>
+                    <select
+                      value={competencyLevel}
+                      onChange={(e) => {
+                        setCompetencyLevel(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="border border-gray-500 rounded-xl px-3 py-2 text-sm 
+                                focus:outline-none focus:ring-1 focus:ring-primary-2 focus:border-primary-2
+                                bg-background-lighter text-foreground cursor-pointer shadow-md min-w-[160px]"
+                    >
+                      <option value="">All Levels</option>
+                      {getCompetencyOptions().map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Missing Data Filter */}
+                {assessmentType && levelType && (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-400">Data Status</label>
+                    <button
+                      onClick={() => {
+                        setShowMissingOnly(!showMissingOnly);
+                        setCurrentPage(1);
+                      }}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+                        showMissingOnly
+                          ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                          : 'border border-gray-500 text-gray-300 hover:bg-gray-700/30'
+                      }`}
+                    >
+                      <AlertCircle className="w-4 h-4" />
+                      {showMissingOnly ? "Show Missing Only" : "All Data"}
+                    </button>
+                  </div>
+                )}
 
                 {/* Clear Filters Button */}
                 {hasActiveFilters && (
@@ -331,8 +528,30 @@ export default function StudentsTable({
 
               {/* Active Filters Badge */}
               {hasActiveFilters && (
-                <div className="text-xs text-primary-3 bg-primary-3/20 px-2 py-1 rounded-full border border-primary-3/30">
-                  Filters Active
+                <div className="flex flex-wrap gap-2">
+                  <div className="text-xs text-primary-3 bg-primary-3/20 px-2 py-1 rounded-full border border-primary-3/30">
+                    Filters Active
+                  </div>
+                  {assessmentType && (
+                    <div className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full border border-blue-500/30">
+                      {assessmentType === "literacy" ? "Literacy" : "Numeracy"}
+                    </div>
+                  )}
+                  {levelType && (
+                    <div className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded-full border border-purple-500/30">
+                      {levelType === "baseline" ? "B" : levelType === "midline" ? "M" : "E"}
+                    </div>
+                  )}
+                  {competencyLevel && (
+                    <div className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full border border-green-500/30">
+                      {formatLevelName(competencyLevel)}
+                    </div>
+                  )}
+                  {showMissingOnly && (
+                    <div className="text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full border border-amber-500/30">
+                      Missing Data
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -347,8 +566,12 @@ export default function StudentsTable({
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Student Name</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Grade</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Gender</th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Baseline</th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Endline</th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">
+                  Literacy <span className="text-xs text-gray-400 ml-1">(B/M/E)</span>
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-foreground">
+                  Numeracy <span className="text-xs text-gray-400 ml-1">(B/M/E)</span>
+                </th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Status</th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-foreground">Actions</th>
               </tr>
@@ -357,11 +580,13 @@ export default function StudentsTable({
               {currentStudents.length > 0 ? (
                 currentStudents.map((student) => {
                   const isDuplicate = isDuplicateStudent(student);
+                  const missingCount = getMissingDataCount(student);
                   
                   return (
                     <tr 
                       key={student.id} 
-                      className="border-b border-gray-600 hover:bg-background-lighter cursor-pointer transition-colors"
+                      className="border-b border-gray-600 hover:bg-background-lighter cursor-pointer transition-colors group"
+                      onClick={() => handleStudentClick(student)}
                     >
                       <td className="px-6 py-4 text-sm font-medium text-foreground">
                         <div className="flex items-center gap-2">
@@ -376,42 +601,96 @@ export default function StudentsTable({
                         {student.sex}
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          student.baseline === 'story' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                          student.baseline === 'paragraph' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
-                          student.baseline === 'beginner' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
-                          student.baseline === 'word' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-                          student.baseline === 'letter' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
-                          'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-                        }`}>
-                          {student.baseline || "Unknown"}
-                        </span>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-gray-400 w-4">B:</span>
+                            {student.baseline ? (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getLevelColor(student.baseline)}`}>
+                                {formatLevelName(student.baseline)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-500 text-xs italic">_</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-gray-400 w-4">M:</span>
+                            {student.midline ? (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getLevelColor(student.midline)}`}>
+                                {formatLevelName(student.midline)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-500 text-xs italic">_</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-gray-400 w-4">E:</span>
+                            {student.endline ? (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getLevelColor(student.endline)}`}>
+                                {formatLevelName(student.endline)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-500 text-xs italic">_</span>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          student.endline === 'story' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                          student.endline === 'paragraph' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
-                          student.endline === 'beginner' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
-                          student.endline === 'word' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-                          student.endline === 'letter' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
-                          'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-                        }`}>
-                          {student.endline || "Unknown"}
-                        </span>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-gray-400 w-4">B:</span>
+                            {student.baseline_numeracy ? (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getLevelColor(student.baseline_numeracy, "numeracy")}`}>
+                                {formatLevelName(student.baseline_numeracy)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-500 text-xs italic">_</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-gray-400 w-4">M:</span>
+                            {student.midline_numeracy ? (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getLevelColor(student.midline_numeracy, "numeracy")}`}>
+                                {formatLevelName(student.midline_numeracy)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-500 text-xs italic">_</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-gray-400 w-4">E:</span>
+                            {student.endline_numeracy ? (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getLevelColor(student.endline_numeracy, "numeracy")}`}>
+                                {formatLevelName(student.endline_numeracy)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-500 text-xs italic">_</span>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        {isDuplicate ? (
-                          <span 
-                            className="px-2 py-1 bg-primary-3/20 text-primary-3 text-xs rounded-full border border-primary-3/30 cursor-help"
-                            title="Same first name, last name, grade, and gender as another student"
-                          >
-                            Potential Duplicate
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 bg-secondary-2/20 text-secondary-2 text-xs rounded-full border border-secondary-2/30">
-                            Unique
-                          </span>
-                        )}
+                        <div className="flex flex-col gap-1">
+                          {isDuplicate ? (
+                            <span 
+                              className="px-2 py-1 bg-primary-3/20 text-primary-3 text-xs rounded-full border border-primary-3/30 cursor-help"
+                              title="Same first name, last name, grade, and gender as another student"
+                            >
+                              Potential Duplicate
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 bg-secondary-2/20 text-secondary-2 text-xs rounded-full border border-secondary-2/30">
+                              Unique
+                            </span>
+                          )}
+                          {missingCount > 0 && (
+                            <span 
+                              className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded-full border border-amber-500/30 cursor-help"
+                              title={`Missing ${missingCount} assessment(s)`}
+                            >
+                              {missingCount} Missing
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-sm" onClick={(e) => e.stopPropagation()}>
                         <div className="relative action-menu-container">
@@ -521,6 +800,12 @@ export default function StudentsTable({
         onSubmit={handleModalSubmit}
         student={selectedStudent}
         isDuplicate={selectedStudent ? isDuplicateStudent(selectedStudent) : false}
+      />
+
+      {/* Guide Modal */}
+      <GuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
       />
     </>
   );
