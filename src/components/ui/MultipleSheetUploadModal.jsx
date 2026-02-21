@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useMultiSheetUpload } from "@/hooks/useMultipleSheetUpload"
-import { Download, Info, FileSpreadsheet, Users, X } from "lucide-react"
+import { useDragAndDrop } from "@/hooks/general/useDragAndDrop"
+import { Download, Info, FileSpreadsheet, Users, X, Upload, AlertCircle } from "lucide-react"
 import SchoolMatcher from "@/hooks/SchoolMatcher"
 import * as XLSX from "xlsx"
 
@@ -22,13 +23,71 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
   const [validationResults, setValidationResults] = useState(null)
   const [isValidated, setIsValidated] = useState(false)
   const [sheetNames, setSheetNames] = useState([])
-
+  
+  const fileInputRef = useRef(null)
   const { processMultiSheetFile, loading, error, progress } = useMultiSheetUpload(organizationId)
+
+  // Initialize drag and drop hook
+  const { isDragging, dragError, dragEvents, resetDragState } = useDragAndDrop({
+    onDrop: (file) => {
+      handleFileSelect(file)
+    },
+    accept: ['.xlsx', '.xls', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'],
+    maxSize: 20 * 1024 * 1024, // 20MB limit for multi-sheet files
+  })
 
   if (!isOpen) return null
 
   const handleChange = (name, value) => {
     setFormState((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleFileSelect = async (file) => {
+    // Update form state
+    setFormState((prev) => ({ ...prev, file }))
+    
+    // Update file input ref if needed for form submission
+    if (fileInputRef.current) {
+      const dataTransfer = new DataTransfer()
+      dataTransfer.items.add(file)
+      fileInputRef.current.files = dataTransfer.files
+    }
+
+    // Read sheet names for validation
+    if (file) {
+      try {
+        const arrayBuffer = await file.arrayBuffer()
+        const workbook = XLSX.read(arrayBuffer, { type: "array" })
+        setSheetNames(workbook.SheetNames)
+        setIsValidated(false)
+        resetDragState()
+      } catch (error) {
+        console.error("Error reading file:", error)
+      }
+    } else {
+      setSheetNames([])
+      setIsValidated(false)
+    }
+  }
+
+  const handleFileInputChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      await handleFileSelect(file)
+    } else {
+      handleClearFile()
+    }
+  }
+
+  const handleClearFile = () => {
+    setFormState((prev) => ({ ...prev, file: null }))
+    setSheetNames([])
+    setIsValidated(false)
+    setValidationResults(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+    resetDragState()
   }
 
   const handleSubmit = async (e) => {
@@ -91,27 +150,11 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
   const handleClose = () => {
     setUploadResults(null)
     setFormState({})
+    setSheetNames([])
+    setIsValidated(false)
+    setValidationResults(null)
+    resetDragState()
     onClose()
-  }
-
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0]
-    handleChange("file", file)
-
-    if (file) {
-      try {
-        // Preview sheet names for validation
-        const arrayBuffer = await file.arrayBuffer()
-        const workbook = XLSX.read(arrayBuffer, { type: "array" })
-        setSheetNames(workbook.SheetNames)
-        setIsValidated(false)
-      } catch (error) {
-        console.error("Error reading file:", error)
-      }
-    } else {
-      setSheetNames([])
-      setIsValidated(false)
-    }
   }
 
   const handleValidationComplete = (allMatched, results) => {
@@ -252,44 +295,106 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                   </div>
                 )}
 
-                <div className="border-dashed border-2 border-gray-500 rounded-xl p-6 text-center">
-                  <label className="cursor-pointer">
-                    <FileSpreadsheet className="w-12 h-12 text-primary-2 mx-auto mb-3" />
-                    <span className="text-primary-2 font-medium block mb-2">Click to upload Excel file</span>
-                    <span className="text-gray-300 text-xs">
-                      Support for .xlsx files with multiple sheets. Use the template for proper format.
-                    </span>
-                    <input type="file" name="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileChange} />
-                  </label>
+                {/* Enhanced drag and drop area */}
+                <div
+                  className={`relative border-2 rounded-xl p-8 text-center transition-all cursor-pointer ${
+                    isDragging 
+                      ? 'border-primary-3 bg-primary-3/10' 
+                      : 'border-dashed border-gray-500 hover:border-gray-400'
+                  } ${dragError ? 'border-red-500 bg-red-500/5' : ''}`}
+                  {...dragEvents}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <div className="flex flex-col items-center">
+                    {isDragging ? (
+                      <>
+                        <Upload className="w-12 h-12 text-primary-3 animate-bounce mb-3" />
+                        <span className="text-primary-3 font-medium">Drop your Excel file here</span>
+                      </>
+                    ) : (
+                      <>
+                        <FileSpreadsheet className="w-12 h-12 text-primary-2 mx-auto mb-3" />
+                        <span className="text-primary-2 font-medium block mb-2">
+                          Click or drag file to upload
+                        </span>
+                        <span className="text-gray-300 text-xs">
+                          Support for .xlsx files with multiple sheets (max 20MB)
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  
+                  {/* Hidden file input */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    name="file"
+                    accept=".xlsx,.xls"
+                    className="hidden"
+                    onChange={handleFileInputChange}
+                  />
                 </div>
 
-                {formState.file && sheetNames.length > 0 && (
-                  <SchoolMatcher
-                    organizationId={organizationId}
-                    projectId={projectId}
-                    sheetNames={sheetNames}
-                    onValidationComplete={handleValidationComplete}
-                  />
-                )}
-
-                {formState.file && (
-                  <div className="text-sm text-gray-300 bg-primary-2/20 p-3 rounded-xl border border-primary-2/30">
-                    <p>
-                      Selected file: <span className="font-medium text-primary-2">{formState.file.name}</span>
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      File size: {(formState.file.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                    <p className="text-xs text-primary-2 mt-1">
-                      Sheets detected: {sheetNames.join(", ")}
-                    </p>
+                {/* Drag error message */}
+                {dragError && (
+                  <div className="flex items-center gap-2 text-sm text-red-400 bg-red-400/10 p-3 rounded-xl border border-red-500/30">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <p>{dragError}</p>
                   </div>
                 )}
 
+                {/* File info and validation */}
+                {formState.file && sheetNames.length > 0 && (
+                  <>
+                    <div className="text-sm bg-primary-2/20 p-3 rounded-xl border border-primary-2/30">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <div className="bg-primary-3/20 p-1.5 rounded-lg">
+                            <FileSpreadsheet className="w-4 h-4 text-primary-3" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-foreground truncate">
+                              {formState.file.name}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {(formState.file.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleClearFile}
+                          className="p-1 hover:bg-background rounded-lg transition-colors ml-2"
+                          aria-label="Remove file"
+                        >
+                          <X className="w-4 h-4 text-gray-400 hover:text-red-400" />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-primary-2/30">
+                        <span className="text-xs text-primary-2">Sheets detected:</span>
+                        <span className="text-xs text-foreground">
+                          {sheetNames.slice(0, 3).join(", ")}
+                          {sheetNames.length > 3 && ` +${sheetNames.length - 3} more`}
+                        </span>
+                      </div>
+                    </div>
+
+                    <SchoolMatcher
+                      organizationId={organizationId}
+                      projectId={projectId}
+                      sheetNames={sheetNames}
+                      onValidationComplete={handleValidationComplete}
+                    />
+                  </>
+                )}
+
                 {error && (
-                  <div className="text-red-400 text-sm bg-red-500/20 p-3 rounded-xl border border-red-500/30">
-                    <p className="font-medium">Upload Error:</p>
-                    <p>{error}</p>
+                  <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/20 p-3 rounded-xl border border-red-500/30">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">Upload Error:</p>
+                      <p>{error}</p>
+                    </div>
                   </div>
                 )}
 

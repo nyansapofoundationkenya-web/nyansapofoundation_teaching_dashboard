@@ -1,14 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useProjectDetails } from "@/hooks/useProjectDetails"; 
-import { Download, Info } from "lucide-react";
+import { useDragAndDrop } from "@/hooks/general/useDragAndDrop";
+import { Download, Info, Upload, X } from "lucide-react";
 import * as XLSX from "xlsx";
 
 export default function SchoolModal({ isOpen, onClose, organizationId, projectId }) {
   const [formState, setFormState] = useState({});
   const [showRequirements, setShowRequirements] = useState(false);
+  const fileInputRef = useRef(null);
   const { addSchoolsByFile, loading, error } = useProjectDetails(organizationId);
+
+  // Initialize drag and drop hook
+  const { isDragging, dragError, dragEvents, resetDragState } = useDragAndDrop({
+    onDrop: (file) => {
+      handleFileSelect(file);
+    },
+    accept: ['.xlsx', '.xls', '.csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv'],
+    maxSize: 10 * 1024 * 1024, // 10MB limit
+  });
 
   if (!isOpen) return null;
 
@@ -16,11 +27,39 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
     setFormState((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleFileSelect = (file) => {
+    // Update form state
+    setFormState((prev) => ({ ...prev, file }));
+    
+    // Update file input ref if needed for form submission
+    if (fileInputRef.current) {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      fileInputRef.current.files = dataTransfer.files;
+    }
+  };
+
+  const handleFileInputChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      handleFileSelect(file);
+    }
+  };
+
+  const handleClearFile = () => {
+    setFormState((prev) => ({ ...prev, file: null }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    resetDragState();
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const file = formData.get("file");
-    if (!file) {
+    
+    if (!file || file.size === 0) {
       alert("Please select a CSV or Excel file to upload.");
       return;
     }
@@ -41,11 +80,11 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
   // Function to generate and download a template (CSV or Excel)
   const handleDownloadTemplate = (format) => {
     const data = [
-      { name: "Example School", county: "County Name" }, // Template remains unchanged
+      { name: "Example School", county: "County Name" },
     ];
 
     if (format === "csv") {
-      const csvContent = "name,county\nExample School,County Name"; // Template remains unchanged
+      const csvContent = "name,county\nExample School,County Name";
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -58,7 +97,6 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Schools");
-      
       XLSX.writeFile(wb, "school_template.xlsx");
     }
   };
@@ -157,40 +195,99 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
             </div>
           )}
 
-          <div className="text-left border-dashed border-2 border-gray-500 rounded-xl p-4 flex items-center justify-center">
-            <label className="flex flex-col items-center cursor-pointer">
-              <svg
-                className="w-8 h-8 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12a1 1 0 01-1 1H9a1 1 0 01-1-1V8a1 1 0 011-1h6a1 1 0 011 1z"
-                />
-              </svg>
-              <span className="text-primary-2 mt-2">Click or drag file to this area to upload</span>
-              <span className="text-gray-300 text-xs mt-1">Support for CSV or Excel file upload</span>
-              <input
-                type="file"
-                name="file"
-                accept=".xlsx,.xls,.csv"
-                className="hidden"
-                onChange={(e) => handleChange("file", e.target.files[0])}
-              />
-            </label>
+          {/* Enhanced drag and drop area with hook */}
+          <div
+            className={`relative text-left border-2 rounded-xl p-6 flex items-center justify-center transition-all cursor-pointer ${
+              isDragging 
+                ? 'border-primary-3 bg-primary-3/10' 
+                : 'border-dashed border-gray-500 hover:border-gray-400'
+            } ${dragError ? 'border-red-500 bg-red-500/5' : ''}`}
+            {...dragEvents}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <div className="flex flex-col items-center">
+              {isDragging ? (
+                <>
+                  <Upload className="w-10 h-10 text-primary-3 animate-bounce" />
+                  <span className="text-primary-3 mt-2 font-medium">Drop your file here</span>
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="w-10 h-10 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12a1 1 0 01-1 1H9a1 1 0 01-1-1V8a1 1 0 011-1h6a1 1 0 011 1z"
+                    />
+                  </svg>
+                  <span className="text-primary-2 mt-2 font-medium">
+                    Click or drag file to upload
+                  </span>
+                  <span className="text-gray-300 text-xs mt-1">
+                    Supports CSV or Excel files (max 10MB)
+                  </span>
+                </>
+              )}
+            </div>
+            
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              name="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              onChange={handleFileInputChange}
+            />
           </div>
 
-          {formState.file && (
-            <div className="text-left text-sm text-gray-300">
-              <p>Uploaded file: <span className="font-medium text-foreground">{formState.file.name}</span></p>
+          {/* Drag error message */}
+          {dragError && (
+            <div className="text-left text-sm text-red-400 bg-red-400/10 p-2 rounded-lg">
+              {dragError}
             </div>
           )}
 
-          {error && <p className="text-red-400 text-sm">{error}</p>}
+          {/* Selected file display */}
+          {formState.file && (
+            <div className="text-left text-sm bg-background-lighter p-3 rounded-xl border border-gray-600">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <div className="bg-primary-3/20 p-1.5 rounded-lg">
+                    <Download className="w-4 h-4 text-primary-3" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground truncate">
+                      {formState.file.name}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {(formState.file.size / 1024).toFixed(2)} KB
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClearFile}
+                  className="p-1 hover:bg-background rounded-lg transition-colors"
+                  aria-label="Remove file"
+                >
+                  <X className="w-4 h-4 text-gray-400 hover:text-red-400" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <p className="text-red-400 text-sm bg-red-400/10 p-2 rounded-lg">
+              {error}
+            </p>
+          )}
         </form>
       </div>
     </div>
