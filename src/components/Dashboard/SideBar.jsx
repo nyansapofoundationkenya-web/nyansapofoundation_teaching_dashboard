@@ -21,6 +21,19 @@ import Logo from "@/icons/logo";
 import { FileAudio } from "lucide-react";
 import { useOrganizations } from "@/hooks/useOrganization";
 
+// Define weight constants for menu items (lower number = higher position)
+const MENU_WEIGHTS = {
+  HOME: 100,
+  PROJECTS: 200,
+  SCHOOLS: 300,
+  INSTRUCTORS: 400,  
+  STUDENTS: 500,      
+  ASSESSMENTS: 600,   
+  ATTENDANCE: 700,
+  AI_ASSISTANT: 800,  
+  SURVEY: 900
+};
+
 // Skeleton Loading Component
 const SidebarSkeleton = () => {
   return (
@@ -96,97 +109,123 @@ const Sidebar = ({
     }
   };
 
+  // Define menu items with explicit weights
+  const createMenuItem = (name, icon, path, section, weight) => ({
+    name,
+    icon,
+    path,
+    section,
+    weight // Add weight property for sorting
+  });
+
+  // Base menu items with weights - Note: Instructors and Students are not in base
   const baseMenuItems = [
-    { 
-      name: "Home", 
-      icon: <FiHome size={20} />, 
-      path: `/dashboard/${organizationId}/welcome`,
-      section: "home"
-    },
-    { 
-      name: "Projects", 
-      icon: <FiFolder size={20} />, 
-      path: `/dashboard/${organizationId}/projects`,
-      section: "projects"
-    },
-    { 
-      name: "Assessments", 
-      icon: <FiClipboard size={20} />,
-      path: `/dashboard/${organizationId}/moderations`,
-      section: "assessments"
-    },
-    { 
-      name: "Schools", 
-      icon: <FiMapPin size={20} />, 
-      path: `/dashboard/${organizationId}/schools`,
-      section: "schools"
-    },
-    {
-      name: "Attendance",
-      icon: <FiCheckSquare size={20} />,
-      path: `/dashboard/${organizationId}/attendance`,
-      section: "attendance"
-    },
+    createMenuItem(
+      "Home", 
+      <FiHome size={20} />, 
+      `/dashboard/${organizationId}/welcome`,
+      "home",
+      MENU_WEIGHTS.HOME
+    ),
+    createMenuItem(
+      "Projects", 
+      <FiFolder size={20} />, 
+      `/dashboard/${organizationId}/projects`,
+      "projects",
+      MENU_WEIGHTS.PROJECTS
+    ),
+    createMenuItem(
+      "Schools", 
+      <FiMapPin size={20} />, 
+      `/dashboard/${organizationId}/schools`,
+      "schools",
+      MENU_WEIGHTS.SCHOOLS
+    ),
+    createMenuItem(
+      "Assessments", 
+      <FiClipboard size={20} />,
+      `/dashboard/${organizationId}/moderations`,
+      "assessments",
+      MENU_WEIGHTS.ASSESSMENTS
+    ),
+    createMenuItem(
+      "Attendance",
+      <FiCheckSquare size={20} />,
+      `/dashboard/${organizationId}/attendance`,
+      "attendance",
+      MENU_WEIGHTS.ATTENDANCE
+    ),
   ];
 
-  // Survey menu item - will be conditionally added based on permissions
-  const surveyMenuItem = {
-    name: "Survey",
-    icon: <FiFileText size={20} />,
-    path: `/dashboard/${organizationId}/household`,
-    section: "survey"
-  };
+  // Survey menu item with weight
+  const surveyMenuItem = createMenuItem(
+    "Survey",
+    <FiFileText size={20} />,
+    `/dashboard/${organizationId}/household`,
+    "survey",
+    MENU_WEIGHTS.SURVEY
+  );
 
-  // Admin-only menu items
+  // Admin-only menu items with weights - Now with correct order weights
   const superAdminMenuItems = [
-    {
-      name : "Ai Assistant",
-      icon: <FiMessageSquare size={20} />,
-      path: `/dashboard/${organizationId}/ai-assistant`,
-      section: "ai-assistant"
-    },
-    { 
-      name: "Instructors", 
-      icon: <FiUserCheck size={20} />, 
-      path: `/dashboard/${organizationId}/instructors`,
-      section: "instructors"
-    },
-    { 
-      name: "Students", 
-      icon: <FiUsers size={20} />, 
-      path: `/dashboard/${organizationId}/admin/students`,
-      section: "students"
-    },
+    createMenuItem(
+      "Instructors", 
+      <FiUserCheck size={20} />, 
+      `/dashboard/${organizationId}/instructors`,
+      "instructors",
+      MENU_WEIGHTS.INSTRUCTORS  // Weight 400 - after Schools
+    ),
+    createMenuItem(
+      "Students", 
+      <FiUsers size={20} />, 
+      `/dashboard/${organizationId}/admin/students`,
+      "students",
+      MENU_WEIGHTS.STUDENTS  // Weight 500 - after Instructors
+    ),
+    createMenuItem(
+      "Ai Assistant",
+      <FiMessageSquare size={20} />,
+      `/dashboard/${organizationId}/ai-assistant`,
+      "ai-assistant",
+      MENU_WEIGHTS.AI_ASSISTANT  // Weight 800 - after Attendance
+    ),
   ];
 
   const adminMenuItems = [
-    {
-      name : "Ai Assistant",
-      icon: <FiMessageSquare size={20} />,
-      path: `/dashboard/${organizationId}/ai-assistant`,
-      section: "ai-assistant"
-    },
-    { 
-      name: "Instructors", 
-      icon: <FiUserCheck size={20} />, 
-      path: `/dashboard/${organizationId}/instructors`,
-      section: "instructors"
-    },
-    { 
-      name: "Students", 
-      icon: <FiUsers size={20} />, 
-      path: `/dashboard/${organizationId}/admin/students`,
-      section: "students"
-    },
+    createMenuItem(
+      "Instructors", 
+      <FiUserCheck size={20} />, 
+      `/dashboard/${organizationId}/instructors`,
+      "instructors",
+      MENU_WEIGHTS.INSTRUCTORS  // Weight 400 - after Schools
+    ),
+    createMenuItem(
+      "Students", 
+      <FiUsers size={20} />, 
+      `/dashboard/${organizationId}/admin/students`,
+      "students",
+      MENU_WEIGHTS.STUDENTS  // Weight 500 - after Instructors
+    ),
+    createMenuItem(
+      "Ai Assistant",
+      <FiMessageSquare size={20} />,
+      `/dashboard/${organizationId}/ai-assistant`,
+      "ai-assistant",
+      MENU_WEIGHTS.AI_ASSISTANT  // Weight 800 - after Attendance
+    ),
   ];
 
   // Teacher-only menu items 
-  const teacherMenuItems = [
-  ];
+  const teacherMenuItems = [];
+
+  // Sort menu items by weight
+  const sortMenuItemsByWeight = (items) => {
+    return [...items].sort((a, b) => a.weight - b.weight);
+  };
 
   // Get menu items based on user role from Redux
   const getMenuItems = () => {
-    if (!currentUser) return baseMenuItems;
+    if (!currentUser) return sortMenuItemsByWeight(baseMenuItems);
 
     const userRole = currentUser.role;
     const hasSurveyPermission = currentUser.survey === true;
@@ -194,22 +233,29 @@ const Sidebar = ({
     // Start with base menu items
     let items = [...baseMenuItems];
 
-    // Add survey menu item if user has survey permission
+    // Add role-specific menu items
+    switch (userRole) {
+      case "super_admin":
+        items = [...items, ...superAdminMenuItems];
+        break;
+      case "admin":
+        items = [...items, ...adminMenuItems];
+        break;
+      case "teacher":
+        items = [...items, ...teacherMenuItems];
+        break;
+      default:
+        // No additional items
+        break;
+    }
+
+    // Add survey menu item if user has survey permission (always at the end with weight 900)
     if (hasSurveyPermission) {
       items.push(surveyMenuItem);
     }
 
-    // Add role-specific menu items
-    switch (userRole) {
-      case "super_admin":
-        return [...items, ...superAdminMenuItems];
-      case "admin":
-        return [...items, ...adminMenuItems];
-      case "teacher":
-        return [...items, ...teacherMenuItems];
-      default:
-        return items;
-    }
+    // Sort all items by weight before returning
+    return sortMenuItemsByWeight(items);
   };
 
   const menuItems = getMenuItems();
