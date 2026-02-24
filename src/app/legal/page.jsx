@@ -151,8 +151,6 @@ function TabButton({ active, onClick, icon, label, accent }) {
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
 export default function LegalPage() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(
@@ -166,7 +164,7 @@ export default function LegalPage() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: "#0f0f1a", color: "white" }}>
 
-      {/* ── Sticky Header ── */}
+      {/*Sticky Header*/}
       <div
         className="sticky top-0 z-10"
         style={{
@@ -206,7 +204,7 @@ export default function LegalPage() {
         </div>
       </div>
 
-      {/* ── Body ── */}
+      {/*Body*/}
       <div className="max-w-2xl mx-auto px-4 py-6">
 
         {/* Section Header */}
@@ -241,7 +239,7 @@ export default function LegalPage() {
           </p>
         </div>
 
-        {/* ── All Sections Fully Visible ── */}
+        {/*All Sections Fully Visible */}
         <div className="space-y-8">
           {sections.map((section, i) => (
             <div key={`${activeTab}-${i}`}>
@@ -274,7 +272,7 @@ export default function LegalPage() {
           ))}
         </div>
 
-        {/* ── Footer ── */}
+        {/*Footer*/}
         <div
           className="mt-12 rounded-2xl px-5 py-5 text-center"
           style={{
