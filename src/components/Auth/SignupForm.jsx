@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useFormik } from "formik";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2, ChevronDown } from "lucide-react";
+import { Eye, EyeOff, Loader2, ChevronDown, Check } from "lucide-react";
 import * as Yup from "yup";
 
-// Country codes data
+// ─── Country Codes ────────────────────────────────────────────────────────────
+
 const countryCodes = [
   { code: "+254", country: "Kenya", flag: "🇰🇪" },
   { code: "+255", country: "Tanzania", flag: "🇹🇿" },
@@ -24,35 +25,31 @@ const countryCodes = [
   { code: "+234", country: "Nigeria", flag: "🇳🇬" },
 ];
 
+// ─── Validation Schema ────────────────────────────────────────────────────────
+
 const validationSchema = Yup.object({
   name: Yup.string().required("Name is required"),
   email: Yup.string().email("Invalid email address").required("Email is required"),
   countryCode: Yup.string().required("Country code is required"),
   phoneNumber: Yup.string()
     .required("Phone number is required")
-    .test("phone-format", "Phone number must be 9-12 digits after removing leading zero", function(value) {
+    .test("phone-format", "Phone number must be 9-12 digits after removing leading zero", function (value) {
       if (!value) return true;
-      
-      // Remove any non-digit characters and leading zero
-      const cleaned = value.replace(/\D/g, '');
-      const withoutLeadingZero = cleaned.replace(/^0+/, '');
-      
-      // Check if the cleaned number (without leading zero) is 9-12 digits
+      const cleaned = value.replace(/\D/g, "");
+      const withoutLeadingZero = cleaned.replace(/^0+/, "");
       return withoutLeadingZero.length >= 9 && withoutLeadingZero.length <= 12;
     }),
   pin: Yup.string()
     .required("PIN is required")
     .matches(/^\d{6}$/, "PIN must be exactly 6 digits")
-    .test("pin-format", "PIN must contain only numbers (0-9)", (value) => {
-      return /^\d{6}$/.test(value);
-    }),
+    .test("pin-format", "PIN must contain only numbers (0-9)", (value) => /^\d{6}$/.test(value)),
   confirmPin: Yup.string()
     .required("Confirm PIN is required")
     .oneOf([Yup.ref("pin"), null], "PINs must match")
-    .test("confirm-pin-format", "Confirm PIN must be exactly 6 digits", (value) => {
-      return /^\d{6}$/.test(value);
-    }),
+    .test("confirm-pin-format", "Confirm PIN must be exactly 6 digits", (value) => /^\d{6}$/.test(value)),
 });
+
+// ─── Signup Form ──────────────────────────────────────────────────────────────
 
 export default function SignupForm() {
   const router = useRouter();
@@ -61,60 +58,57 @@ export default function SignupForm() {
   const [success, setSuccess] = useState(false);
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
 
+  // Single combined consent checkbox
+  const [agreedToAll, setAgreedToAll] = useState(false);
+  const [consentTouched, setConsentTouched] = useState(false);
+
   const formik = useFormik({
     initialValues: {
       name: "",
       email: "",
-      countryCode: "+254", // Default to Kenya
+      countryCode: "+254",
       phoneNumber: "",
       pin: "",
       confirmPin: "",
     },
     validationSchema,
     onSubmit: async (values, { setSubmitting, resetForm }) => {
+      setConsentTouched(true);
+      if (!agreedToAll) {
+        setSubmitting(false);
+        return;
+      }
+
       setApiError(null);
       setSuccess(false);
       setSubmitting(true);
 
-      // Clean the phone number - remove all non-digits and leading zeros
-      const cleanedPhone = values.phoneNumber.replace(/\D/g, '').replace(/^0+/, '');
-      
-      // Combine country code and cleaned phone number
+      const cleanedPhone = values.phoneNumber.replace(/\D/g, "").replace(/^0+/, "");
       const fullPhoneNumber = `${values.countryCode}${cleanedPhone}`;
 
       try {
         const response = await fetch("https://nyansapo-auth.vercel.app/api/auth/register", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: values.name.trim(),
             email: values.email.trim(),
-            phone: fullPhoneNumber, // Send the combined phone number
-            password: values.pin, // Send PIN as password to backend
-            confirm: values.confirmPin, // Send confirm PIN as confirm to backend
+            phone: fullPhoneNumber,
+            password: values.pin,
+            confirm: values.confirmPin,
           }),
         });
 
-        const data = await response.json().catch(() => ({})); // in case no JSON
+        const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-          // Try to get meaningful message from backend
-          const errorMsg =
-            data?.message ||
-            data?.error ||
-            `Registration failed (${response.status})`;
+          const errorMsg = data?.message || data?.error || `Registration failed (${response.status})`;
           throw new Error(errorMsg);
         }
 
-        // Success
         setSuccess(true);
         resetForm();
-
-        setTimeout(() => {
-          router.push("/"); 
-        }, 1800);
+        setTimeout(() => { router.push("/"); }, 1800);
       } catch (err) {
         console.error("Signup error:", err);
         setApiError(err.message || "Something went wrong. Please try again.");
@@ -124,55 +118,36 @@ export default function SignupForm() {
     },
   });
 
-  // Handle PIN input change - allow only numbers
   const handlePinChange = (e) => {
     const { name, value } = e.target;
-    // Remove any non-numeric characters
-    const numbersOnly = value.replace(/\D/g, '');
-    // Limit to 6 digits
-    const limitedValue = numbersOnly.slice(0, 6);
-    formik.setFieldValue(name, limitedValue);
+    formik.setFieldValue(name, value.replace(/\D/g, "").slice(0, 6));
   };
 
-  // Handle phone number change - allow numbers and show preview
   const handlePhoneNumberChange = (e) => {
-    const { value } = e.target;
-    // Allow digits only (including the leading zero)
-    const numbersOnly = value.replace(/\D/g, '');
-    // Limit to reasonable length (13 digits max to account for leading zero)
-    const limitedValue = numbersOnly.slice(0, 13);
-    formik.setFieldValue("phoneNumber", limitedValue);
+    formik.setFieldValue("phoneNumber", e.target.value.replace(/\D/g, "").slice(0, 13));
   };
 
-  // Handle regular input changes
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    
-    // For PIN fields, use special handler
-    if (name === "pin" || name === "confirmPin") {
-      handlePinChange(e);
-    } else if (name === "phoneNumber") {
-      handlePhoneNumberChange(e);
-    } else {
-      formik.handleChange(e);
-    }
+    const { name } = e.target;
+    if (name === "pin" || name === "confirmPin") handlePinChange(e);
+    else if (name === "phoneNumber") handlePhoneNumberChange(e);
+    else formik.handleChange(e);
   };
 
-  // Select country code
   const selectCountryCode = (code) => {
     formik.setFieldValue("countryCode", code);
     setIsCountryDropdownOpen(false);
   };
 
-  // Get selected country details
-  const selectedCountry = countryCodes.find(c => c.code === formik.values.countryCode) || countryCodes[0];
+  const selectedCountry = countryCodes.find((c) => c.code === formik.values.countryCode) || countryCodes[0];
 
-  // Preview the full phone number that will be sent
   const getFullPhonePreview = () => {
     if (!formik.values.phoneNumber) return "";
-    const cleaned = formik.values.phoneNumber.replace(/\D/g, '').replace(/^0+/, '');
+    const cleaned = formik.values.phoneNumber.replace(/\D/g, "").replace(/^0+/, "");
     return cleaned ? `${formik.values.countryCode}${cleaned}` : "";
   };
+
+  const consentError = consentTouched && !agreedToAll;
 
   return (
     <div className="w-full p-6 bg-background-light rounded-3xl shadow-lg border border-gray-600">
@@ -181,7 +156,6 @@ export default function SignupForm() {
           Account created successfully! Redirecting...
         </div>
       )}
-
       {apiError && (
         <div className="mb-4 p-3 bg-red-500/20 text-red-400 rounded-xl border border-red-500/30 text-center">
           {apiError}
@@ -189,29 +163,13 @@ export default function SignupForm() {
       )}
 
       <form onSubmit={formik.handleSubmit}>
-        <FormField 
-          label="Name" 
-          name="name" 
-          type="text" 
-          formik={formik} 
-          placeholder="Enter your name" 
-          onChange={handleInputChange}
-        />
-        
-        <FormField 
-          label="Email" 
-          name="email" 
-          type="email" 
-          formik={formik} 
-          placeholder="Enter email" 
-          onChange={handleInputChange}
-        />
-        
-        {/* Phone Number Field with Country Code Dropdown */}
+        <FormField label="Name" name="name" type="text" formik={formik} placeholder="Enter your name" onChange={handleInputChange} />
+        <FormField label="Email" name="email" type="email" formik={formik} placeholder="Enter email" onChange={handleInputChange} />
+
+        {/* Phone Number */}
         <div className="mb-4">
           <label className="block mb-2 font-medium text-foreground">Phone Number</label>
           <div className="flex gap-2">
-            {/* Country Code Dropdown */}
             <div className="relative w-32">
               <button
                 type="button"
@@ -222,19 +180,12 @@ export default function SignupForm() {
                     : "border-gray-500 bg-background-lighter"
                 } text-foreground hover:border-primary-3 focus:outline-none focus:ring-2 focus:ring-primary-3`}
               >
-                <span>
-                  {selectedCountry.flag} {selectedCountry.code}
-                </span>
-                <ChevronDown size={16} className={`transition-transform ${isCountryDropdownOpen ? 'rotate-180' : ''}`} />
+                <span>{selectedCountry.flag} {selectedCountry.code}</span>
+                <ChevronDown size={16} className={`transition-transform ${isCountryDropdownOpen ? "rotate-180" : ""}`} />
               </button>
-              
-              {/* Dropdown Menu */}
               {isCountryDropdownOpen && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-40"
-                    onClick={() => setIsCountryDropdownOpen(false)}
-                  />
+                  <div className="fixed inset-0 z-40" onClick={() => setIsCountryDropdownOpen(false)} />
                   <div className="absolute top-full left-0 mt-1 w-64 max-h-60 overflow-y-auto bg-background-lighter border border-gray-600 rounded-xl shadow-xl z-50">
                     {countryCodes.map((country) => (
                       <button
@@ -252,8 +203,6 @@ export default function SignupForm() {
                 </>
               )}
             </div>
-
-            {/* Phone Number Input */}
             <div className="flex-1">
               <input
                 type="text"
@@ -271,8 +220,6 @@ export default function SignupForm() {
               />
             </div>
           </div>
-          
-          {/* Validation messages and preview */}
           <div className="mt-1 space-y-1">
             {formik.touched.countryCode && formik.errors.countryCode && (
               <p className="text-red-400 text-sm">{formik.errors.countryCode}</p>
@@ -281,20 +228,14 @@ export default function SignupForm() {
               <p className="text-red-400 text-sm">{formik.errors.phoneNumber}</p>
             )}
             {!formik.touched.phoneNumber && !formik.errors.phoneNumber && (
-              <p className="text-gray-400 text-xs mt-1">
-                You can start with 0 or without (e.g., 0796175283 or 796175283)
-              </p>
+              <p className="text-gray-400 text-xs mt-1">You can start with 0 or without (e.g., 0796175283 or 796175283)</p>
             )}
-            
-            {/* Preview of full number that will be saved */}
             {formik.values.phoneNumber && !formik.errors.phoneNumber && (
-              <p className="text-green-400 text-xs mt-1">
-                Will be saved as: {getFullPhonePreview()}
-              </p>
+              <p className="text-green-400 text-xs mt-1">Will be saved as: {getFullPhonePreview()}</p>
             )}
           </div>
         </div>
-        
+
         <FormField
           label="6-Digit PIN"
           name="pin"
@@ -314,7 +255,7 @@ export default function SignupForm() {
           }
           helpText="Must be exactly 6 numbers (0-9)"
         />
-        
+
         <FormField
           label="Confirm PIN"
           name="confirmPin"
@@ -325,6 +266,62 @@ export default function SignupForm() {
           maxLength={6}
           helpText="Re-enter your 6-digit PIN"
         />
+
+        {/* ── Single Combined Consent Checkbox ── */}
+        <div className="mb-5">
+          <div
+            className="flex items-start gap-3 cursor-pointer"
+            onClick={() => {
+              setAgreedToAll((prev) => !prev);
+              setConsentTouched(true);
+            }}
+          >
+            {/* Custom Checkbox */}
+            <div
+              className="shrink-0 mt-0.5 w-5 h-5 rounded-md flex items-center justify-center transition-all duration-150"
+              style={{
+                border: agreedToAll
+                  ? "2px solid #FACC15"
+                  : consentError
+                  ? "2px solid #F87171"
+                  : "2px solid rgba(156,163,175,0.5)",
+                backgroundColor: agreedToAll ? "#FACC15" : "transparent",
+              }}
+            >
+              {agreedToAll && <Check size={12} color="#0f0f1a" strokeWidth={3} />}
+            </div>
+
+            {/* Label with links — e.stopPropagation so clicking links doesn't toggle checkbox */}
+            <span className="text-sm text-gray-300 leading-relaxed select-none">
+              I have read and agree to Nyansapo AI's{" "}
+              <Link
+                href="/legal"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="font-semibold underline underline-offset-2 text-primary-3 hover:text-yellow-400 transition-colors"
+              >
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link
+                href="/legal?tab=privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="font-semibold underline underline-offset-2 text-green-400 hover:text-green-300 transition-colors"
+              >
+                Privacy Policy
+              </Link>
+            </span>
+          </div>
+
+          {consentError && (
+            <p className="text-red-400 text-xs mt-1.5 ml-8">
+              You must agree to the Terms of Service and Privacy Policy to continue
+            </p>
+          )}
+        </div>
 
         <button
           type="submit"
@@ -344,13 +341,11 @@ export default function SignupForm() {
             "Sign Up"
           )}
         </button>
+
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-300">
             Have an Account?{" "}
-            <Link 
-              href="/" 
-              className="text-primary-2 hover:text-primary-3 font-medium transition-colors"
-            >
+            <Link href="/" className="text-primary-2 hover:text-primary-3 font-medium transition-colors">
               Sign in here
             </Link>
           </p>
@@ -360,7 +355,8 @@ export default function SignupForm() {
   );
 }
 
-// FormField component with help text support
+// ─── FormField ────────────────────────────────────────────────────────────────
+
 function FormField({ label, name, type, formik, placeholder, rightIcon = null, helpText = null, maxLength, onChange }) {
   const hasError = formik.touched[name] && formik.errors[name];
   return (
