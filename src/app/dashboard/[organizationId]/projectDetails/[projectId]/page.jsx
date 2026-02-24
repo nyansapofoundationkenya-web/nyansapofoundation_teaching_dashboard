@@ -115,7 +115,7 @@ export default function ProjectDetails() {
     loading: healthLoading,
     error: healthError,
     data: healthData,
-    fetchData: refetchHealth // Changed from refetch to fetchData
+    fetchData: refetchHealth 
   } = useAssessmentHealth({
     organizationId,
     projectId,
@@ -127,7 +127,7 @@ export default function ProjectDetails() {
     loading: attendanceLoading,
     error: attendanceError,
     data: attendanceData,
-    fetchData: refetchAttendance // Changed from refetch to fetchData
+    fetchData: refetchAttendance
   } = useAttendanceOverview({
     organizationId,
     projectId,
@@ -139,7 +139,7 @@ export default function ProjectDetails() {
     loading: impactLoading,
     error: impactError,
     data: impactData,
-    fetchData: refetchImpact // Changed from refetch to fetchData
+    fetchData: refetchImpact 
   } = useStudentImprovement({
     organizationId,
     projectId,
@@ -195,13 +195,11 @@ export default function ProjectDetails() {
 
   const handleDownload = () => {
     console.log("Download project data clicked");
-    // → Replace with your actual project export logic, e.g.:
     // window.open(`/api/export/project-performance?organization_id=${organizationId}&project_id=${projectId}`);
   };
 
   // Prepare chart data
   const chartData = (() => {
-    // Use data from new hooks first, fall back to old stats for backward compatibility
     const source = levelType === "literacy"
       ? (literacyLevelsData || studentLevelsStats?.literacy)
       : (numeracyLevelsData || studentLevelsStats?.numeracy);
