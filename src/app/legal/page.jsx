@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ScrollText, Shield } from "lucide-react";
-
-// ─── Document Content ─────────────────────────────────────────────────────────
 
 const TERMS_SECTIONS = [
   {
@@ -56,7 +54,6 @@ const TERMS_SECTIONS = [
     content: "TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL NYANSAPO AI, ITS AFFILIATES, AGENTS, DIRECTORS, EMPLOYEES, SUPPLIERS OR LICENSORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL OR EXEMPLARY DAMAGES, INCLUDING BUT NOT LIMITED TO, DAMAGES FOR LOSS OF PROFITS, GOODWILL, USE, DATA OR OTHER INTANGIBLE LOSSES (EVEN IF NYANSAPO AI HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES), RESULTING FROM: (i) THE USE OR THE INABILITY TO USE THE SERVICE; (ii) THE COST OF PROCUREMENT OF SUBSTITUTE GOODS AND SERVICES RESULTING FROM ANY GOODS, DATA, INFORMATION OR SERVICES PURCHASED OR OBTAINED OR MESSAGES RECEIVED OR TRANSACTIONS ENTERED INTO THROUGH OR FROM THE SERVICE; (iii) UNAUTHORIZED ACCESS TO OR ALTERATION OF YOUR TRANSMISSIONS OR DATA; (iv) STATEMENTS OR CONDUCT OF ANY THIRD PARTY ON THE SERVICE; OR (v) ANY OTHER MATTER RELATING TO THE SERVICE.",
   },
 ];
-
 const PRIVACY_SECTIONS = [
   {
     title: "1. Purpose of this Policy",
@@ -133,7 +130,6 @@ const PRIVACY_SECTIONS = [
 ];
 
 // ─── Tab Button ───────────────────────────────────────────────────────────────
-
 function TabButton({ active, onClick, icon, label, accent }) {
   return (
     <button
@@ -151,9 +147,8 @@ function TabButton({ active, onClick, icon, label, accent }) {
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
-export default function LegalPage() {
+// ─── Component that uses useSearchParams ─────────────────────────────────────
+function LegalContent() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(
     searchParams.get("tab") === "privacy" ? "privacy" : "terms"
@@ -164,9 +159,8 @@ export default function LegalPage() {
   const sections = isTerms ? TERMS_SECTIONS : PRIVACY_SECTIONS;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#0f0f1a", color: "white" }}>
-
-      {/* ── Sticky Header ── */}
+    <>
+      {/* Sticky Header */}
       <div
         className="sticky top-0 z-10"
         style={{
@@ -206,9 +200,8 @@ export default function LegalPage() {
         </div>
       </div>
 
-      {/* ── Body ── */}
+      {/* Body */}
       <div className="max-w-2xl mx-auto px-4 py-6">
-
         {/* Section Header */}
         <div className="mb-6 flex items-start gap-4">
           <div className="p-3 rounded-2xl shrink-0" style={{ backgroundColor: `${accent}18` }}>
@@ -241,11 +234,10 @@ export default function LegalPage() {
           </p>
         </div>
 
-        {/* ── All Sections Fully Visible ── */}
+        {/* All Sections */}
         <div className="space-y-8">
           {sections.map((section, i) => (
             <div key={`${activeTab}-${i}`}>
-              {/* Section title with accent left border */}
               <div
                 className="flex items-center gap-3 mb-3"
                 style={{ borderLeft: `3px solid ${accent}`, paddingLeft: "12px" }}
@@ -254,16 +246,12 @@ export default function LegalPage() {
                   {section.title}
                 </h3>
               </div>
-
-              {/* Section content */}
               <p
                 className="text-sm leading-7 whitespace-pre-line"
                 style={{ color: "rgba(255,255,255,0.65)", paddingLeft: "15px" }}
               >
                 {section.content}
               </p>
-
-              {/* Divider — skip after last */}
               {i < sections.length - 1 && (
                 <div
                   className="mt-8"
@@ -274,7 +262,7 @@ export default function LegalPage() {
           ))}
         </div>
 
-        {/* ── Footer ── */}
+        {/* Footer */}
         <div
           className="mt-12 rounded-2xl px-5 py-5 text-center"
           style={{
@@ -297,6 +285,24 @@ export default function LegalPage() {
           </p>
         </div>
       </div>
+    </>
+  );
+}
+
+// ─── Main Page with Proper Suspense ──────────────────────────────────────────
+export default function LegalPage() {
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: "#0f0f1a", color: "white" }}>
+      <Suspense fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-sm" style={{ color: "rgba(255,255,255,0.65)" }}>Loading legal documents...</p>
+          </div>
+        </div>
+      }>
+        <LegalContent />
+      </Suspense>
     </div>
   );
 }
