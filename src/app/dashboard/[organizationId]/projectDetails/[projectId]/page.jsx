@@ -97,18 +97,17 @@ export default function ProjectDetails() {
   const [levelType, setLevelType] = useState("literacy");
   const dropdownRef = useRef(null);
 
-  // Key Barriers - Fix: Change assessmentType to lowercase and use 'type' parameter
-  const [assessmentType, setAssessmentType] = useState("literacy"); // Changed from "Literacy" to "literacy"
+  const [assessmentType, setAssessmentType] = useState("Literacy") 
   const {
     loading: barrierLoading,
     error: barrierError,
     data: barriersData,
-    fetchData: refetchBarriers // Changed from refetch to fetchData
+    fetchData: refetchBarriers 
   } = useBarriers({
     organizationId,
     projectId,
     schoolId: null,
-    type: assessmentType // Now using lowercase
+    type: assessmentType.toLocaleLowerCase()
   });
 
   // Assessment Health

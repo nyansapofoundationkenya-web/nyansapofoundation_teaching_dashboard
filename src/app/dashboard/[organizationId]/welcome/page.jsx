@@ -138,8 +138,8 @@ export default function WelcomePage() {
   const [levelType, setLevelType] = useState("literacy")
   const [downloadLoading, setDownloadLoading] = useState(false)
 
-  // Key Barriers - fix the parameter name from assessmentType to type
-  const [assessmentType, setAssessmentType] = useState("literacy") // Changed from "Literacy" to "literacy"
+  
+  const [assessmentType, setAssessmentType] = useState("Literacy") 
   const {
     loading: barrierLoading,
     error: barrierError,
@@ -147,7 +147,7 @@ export default function WelcomePage() {
     fetchData: refetchBarriers
   } = useBarriers({
     organizationId,
-    type: assessmentType.toLowerCase(), // Ensure lowercase
+    type: assessmentType.toLowerCase(), 
     projectId: null,
     schoolId: null
   })
@@ -365,7 +365,7 @@ export default function WelcomePage() {
                 loading={barrierLoading}
                 error={barrierError}
                 barriersData={barriersData}
-                assessmentType={assessmentType}
+                assessmentType={assessmentType} 
                 onAssessmentTypeChange={setAssessmentType}
                 onFetchData={refetchBarriers}
               />
@@ -412,7 +412,6 @@ export default function WelcomePage() {
         </main>
 
         {/* Quick guide modal */}
-        {/* jhajekoqjqm;q lwlmqw */}
         {showGuide && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="bg-background-lighter rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-gray-700 flex flex-col">

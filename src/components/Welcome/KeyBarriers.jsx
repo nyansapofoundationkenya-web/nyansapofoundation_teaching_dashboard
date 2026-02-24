@@ -15,28 +15,17 @@ export default function KeyBarriers({
     onFetchData(assessmentType)
   }, [organizationId, assessmentType])
 
-  // --- UI States ---
-  if (loading) {
-    return (
-      <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700 h-full flex items-center justify-center">
-        <div className="text-gray-400">Loading {assessmentType} data...</div>
-      </div>
-    )
+  // Create empty data structure for when no data exists
+  const getEmptyTopItems = () => {
+    return assessmentType === "Literacy" 
+      ? [{ value: "?" }, { value: "?" }, { value: "?" }]
+      : [{ value: "?" }, { value: "?" }, { value: "?" }]
   }
 
-  if (error) {
-    return (
-      <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700 h-full flex items-center justify-center">
-        <div className="text-red-400">{error}</div>
-      </div>
-    )
-  }
-
-  // --- Extract data ---
-  const topItems =
-    assessmentType === "Literacy"
-      ? barriersData?.top_3_missed?.map((i) => ({ value: i.letter }))
-      : barriersData?.top_3_missed?.map((i) => ({ value: i.number }))
+  // Extract data with fallbacks
+  const topItems = barriersData?.top_3_missed?.map((i) => ({ 
+    value: assessmentType === "Literacy" ? i.letter : i.number 
+  })) || getEmptyTopItems()
 
   const accuracy = barriersData?.stats?.success_rate || 0
   const missedCount = barriersData?.stats?.total_missed || 0
@@ -45,7 +34,40 @@ export default function KeyBarriers({
   const circumference = 2 * Math.PI * radius
   const offset = circumference - (accuracy / 100) * circumference
 
-  // --- Render ---
+  // Determine if we have real data
+  const hasRealData = barriersData?.top_3_missed?.length > 0 && barriersData?.stats?.success_rate !== undefined
+
+  // --- UI States ---
+  if (loading) {
+    return (
+      <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700 flex flex-col gap-8">
+        {/* Header Skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="h-6 w-24 bg-gray-700 rounded animate-pulse"></div>
+          <div className="h-8 w-28 bg-gray-700 rounded animate-pulse"></div>
+        </div>
+
+        {/* Content Skeleton */}
+        <div className="flex flex-col gap-6">
+          <div className="border border-gray-600 rounded-xl p-6">
+            <div className="h-4 w-32 bg-gray-700 rounded animate-pulse mx-auto mb-4"></div>
+            <div className="flex justify-center gap-4 mb-4">
+              <div className="h-12 w-12 bg-gray-700 rounded animate-pulse"></div>
+              <div className="h-12 w-12 bg-gray-700 rounded animate-pulse"></div>
+              <div className="h-12 w-12 bg-gray-700 rounded animate-pulse"></div>
+            </div>
+          </div>
+          
+          <div className="border border-gray-600 rounded-xl p-6">
+            <div className="h-4 w-24 bg-gray-700 rounded animate-pulse mx-auto mb-4"></div>
+            <div className="w-40 h-40 bg-gray-700 rounded-full animate-pulse mx-auto"></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // --- Render with empty states (no error message) ---
   return (
     <div className="bg-background-lighter rounded-2xl p-6 md:p-8 border border-gray-700 flex flex-col gap-8">
       {/* Header + Dropdown */}
@@ -64,7 +86,7 @@ export default function KeyBarriers({
         </select>
       </div>
 
-      {/* CONTENT (2 rows, 1 column) */}
+      {/* CONTENT (2 rows, 1 column) - No error overlay */}
       <div className="flex flex-col gap-6">
         {/* ROW 1 — Missed Letters/Numbers */}
         <div className="border border-gray-600 rounded-xl p-6 flex flex-col items-center justify-center text-center">
@@ -73,37 +95,44 @@ export default function KeyBarriers({
           </h4>
 
           <div className="flex items-center justify-center flex-wrap gap-4 mb-4">
-            {topItems?.length > 0 ? (
-              topItems.map((item, index) => (
-                <div key={index} className="flex items-center">
+            {topItems.map((item, index) => (
+              <div key={index} className="flex items-center">
+                <span
+                  className={`font-bold leading-none ${
+                    !hasRealData || item.value === "?" 
+                      ? "text-gray-600" 
+                      : "text-secondary-1"
+                  }`}
+                  style={{
+                    fontSize: "clamp(2rem, 6vmin, 3rem)",
+                  }}
+                >
+                  {item.value?.toString().toUpperCase() || item.value}
+                </span>
+                {index < topItems.length - 1 && (
                   <span
-                    className="text-secondary-1 font-bold leading-none"
+                    className={`font-bold leading-none mx-2 ${
+                      !hasRealData || item.value === "?" 
+                        ? "text-gray-600" 
+                        : "text-secondary-1"
+                    }`}
                     style={{
                       fontSize: "clamp(2rem, 6vmin, 3rem)",
                     }}
                   >
-                    {item.value?.toString().toUpperCase() || item.value}
+                    ,
                   </span>
-                  {index < topItems.length - 1 && (
-                    <span
-                      className="text-secondary-1 font-bold leading-none mx-2"
-                      style={{
-                        fontSize: "clamp(2rem, 6vmin, 3rem)",
-                      }}
-                    >
-                      ,
-                    </span>
-                  )}
-                </div>
-              ))
-            ) : (
-              <span className="text-gray-400 text-sm">No data available</span>
-            )}
+                )}
+              </div>
+            ))}
           </div>
 
-          {/* <p className="text-gray-300 text-sm md:text-base">
-            {missedCount} Total Missed
-          </p> */}
+          {/* Show missed count only if we have real data */}
+          {hasRealData && missedCount > 0 && (
+            <p className="text-gray-300 text-sm md:text-base">
+              {missedCount} Total Missed
+            </p>
+          )}
         </div>
 
         {/* ROW 2 — Accuracy */}
@@ -114,6 +143,7 @@ export default function KeyBarriers({
 
           <div className="relative w-40 h-40">
             <svg width="160" height="160" className="transform -rotate-90">
+              {/* Background circle */}
               <circle
                 cx="80"
                 cy="80"
@@ -122,26 +152,33 @@ export default function KeyBarriers({
                 strokeWidth="16"
                 fill="none"
               />
+              
+              {/* Progress circle - if no data, show 0% progress */}
               <circle
                 cx="80"
                 cy="80"
                 r={radius}
-                stroke="#4caf50"
+                stroke={hasRealData ? "#4caf50" : "#4b5563"}
                 strokeWidth="16"
                 fill="none"
                 strokeDasharray={circumference}
-                strokeDashoffset={offset}
+                strokeDashoffset={hasRealData ? offset : circumference}
                 strokeLinecap="round"
                 style={{ transition: "stroke-dashoffset 1s ease-in-out" }}
+                opacity={hasRealData ? 1 : 0.3}
               />
             </svg>
 
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
-                <div className="text-3xl font-bold text-foreground">
-                  {Math.round(accuracy)}%
+                <div className={`text-3xl font-bold ${
+                  hasRealData ? "text-foreground" : "text-gray-600"
+                }`}>
+                  {hasRealData ? Math.round(accuracy) : "—"}%
                 </div>
-                <div className="text-xs text-gray-400 mt-1">Success Rate</div>
+                <div className="text-xs text-gray-400 mt-1">
+                  {hasRealData ? "Success Rate" : "No data"}
+                </div>
               </div>
             </div>
           </div>
