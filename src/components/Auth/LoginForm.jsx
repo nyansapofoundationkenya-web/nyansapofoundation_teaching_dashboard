@@ -30,7 +30,7 @@ const validationSchema = Yup.object({
   countryCode: Yup.string().required("Country code is required"),
   phoneNumber: Yup.string()
     .required("Phone number is required")
-    .test("phone-format", "Phone number must be 9-12 digits after removing leading zero", function(value) {
+    .test("phone-format", "Phone number must be 9-10 digits after removing leading zero", function(value) {
       if (!value) return true;
       
       // Remove any non-digit characters and leading zero
@@ -38,7 +38,7 @@ const validationSchema = Yup.object({
       const withoutLeadingZero = cleaned.replace(/^0+/, '');
       
       // Check if the cleaned number (without leading zero) is 9-12 digits
-      return withoutLeadingZero.length >= 9 && withoutLeadingZero.length <= 12;
+      return withoutLeadingZero.length >= 9 && withoutLeadingZero.length <= 10;
     }),
   pin: Yup.string()
     .required("PIN is required")

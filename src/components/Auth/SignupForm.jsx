@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2, ChevronDown, Check } from "lucide-react";
 import * as Yup from "yup";
 
-// ─── Country Codes ────────────────────────────────────────────────────────────
 
 const countryCodes = [
   { code: "+254", country: "Kenya", flag: "🇰🇪" },
@@ -25,19 +24,17 @@ const countryCodes = [
   { code: "+234", country: "Nigeria", flag: "🇳🇬" },
 ];
 
-// ─── Validation Schema ────────────────────────────────────────────────────────
-
 const validationSchema = Yup.object({
   name: Yup.string().required("Name is required"),
   email: Yup.string().email("Invalid email address").required("Email is required"),
   countryCode: Yup.string().required("Country code is required"),
   phoneNumber: Yup.string()
     .required("Phone number is required")
-    .test("phone-format", "Phone number must be 9-12 digits after removing leading zero", function (value) {
+    .test("phone-format", "Phone number must be 9-10 digits after removing leading zero", function (value) {
       if (!value) return true;
       const cleaned = value.replace(/\D/g, "");
       const withoutLeadingZero = cleaned.replace(/^0+/, "");
-      return withoutLeadingZero.length >= 9 && withoutLeadingZero.length <= 12;
+      return withoutLeadingZero.length >= 9 && withoutLeadingZero.length <= 10;
     }),
   pin: Yup.string()
     .required("PIN is required")
@@ -48,8 +45,6 @@ const validationSchema = Yup.object({
     .oneOf([Yup.ref("pin"), null], "PINs must match")
     .test("confirm-pin-format", "Confirm PIN must be exactly 6 digits", (value) => /^\d{6}$/.test(value)),
 });
-
-// ─── Signup Form ──────────────────────────────────────────────────────────────
 
 export default function SignupForm() {
   const router = useRouter();
@@ -354,8 +349,6 @@ export default function SignupForm() {
     </div>
   );
 }
-
-// ─── FormField ────────────────────────────────────────────────────────────────
 
 function FormField({ label, name, type, formik, placeholder, rightIcon = null, helpText = null, maxLength, onChange }) {
   const hasError = formik.touched[name] && formik.errors[name];
