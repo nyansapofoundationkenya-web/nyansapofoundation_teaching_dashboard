@@ -4,6 +4,7 @@ import { doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, increment } from 'f
 import { deleteUser } from 'firebase/auth';
 import { db, auth } from '@/firebase/config';
 
+
 export function useInstructorActions() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -90,29 +91,39 @@ export function useInstructorActions() {
     }
   };
 
-  // Delete instructor completely (both Firestore and Auth)
-  const deleteInstructor = async (instructorId) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // First delete from Firestore
-      const instructorRef = doc(db, 'user', instructorId);
-      await deleteDoc(instructorRef);
-      
-      // Then delete from Authentication (this requires admin privileges or the user to be signed in)
-      // Note: This might require a Cloud Function if you don't have admin SDK access
-      console.log('Instructor deleted from Firestore. Auth deletion might require Cloud Function.');
-      
-      return { success: true };
-    } catch (err) {
-      console.error('Error deleting instructor:', err);
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
+// Delete instructor completely (both Firestore and Auth)
+const deleteInstructor = async (instructorId) => {
+  setLoading(true);
+  setError(null);
+
+  try {
+    const response = await fetch(
+      "https://us-east1-nyansapoai-v2.cloudfunctions.net/delete_instructor_account",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ instructorId }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to delete instructor");
     }
-  };
+
+    const data = await response.json();
+    console.log(data.message);
+    return { success: true };
+  } catch (err) {
+    console.error("Error deleting instructor:", err);
+    setError(err.message);
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
 
   return {
     loading,
