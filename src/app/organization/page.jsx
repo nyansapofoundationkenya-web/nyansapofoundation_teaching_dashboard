@@ -120,7 +120,7 @@ export default function OrganizationPage({
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
 
-      {/* ── Sticky top: greeting + search ── */}
+      {/* Sticky top: greeting + search */}
       <div className="sticky top-0 z-20 bg-background pt-6 pb-3 px-6">
         <div className="max-w-5xl mx-auto">
 
@@ -185,7 +185,7 @@ export default function OrganizationPage({
         </div>
       </div>
 
-      {/* ── Scrollable cards ── */}
+      {/* Scrollable cards */}
       <main className="flex-1 px-6 py-4 overflow-y-auto">
         <div className="max-w-5xl mx-auto">
 
@@ -235,7 +235,7 @@ export default function OrganizationPage({
         </div>
       </main>
 
-      {/* ── Sticky bottom: compact Add button, admin only ── */}
+      {/* Sticky bottom: compact Add button, admin only */}
       {isAdmin && (
         <div className="sticky bottom-0 z-20 px-6 py-3 bg-background/95 backdrop-blur-sm border-t border-white/5">
           <div className="max-w-5xl mx-auto flex justify-center">
@@ -250,7 +250,7 @@ export default function OrganizationPage({
         </div>
       )}
 
-      {/* ── User Profile Modal ── */}
+      {/* User Profile Modal */}
       <UserProfileModal
         user={currentUser}
         isOpen={isProfileModalOpen}
@@ -258,7 +258,7 @@ export default function OrganizationPage({
         onUpdate={async (data) => console.log("Updating profile:", data)}
       />
 
-      {/* ── Add Organization Modal ── */}
+      {/* Add Organization Modal */}
       {showAddModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -337,7 +337,7 @@ export default function OrganizationPage({
   );
 }
 
-// ─── Org Card ─────────────────────────────────────────────────────────────────
+// Org Card
 
 function OrgCard({ org, formatDate, onClick }) {
   const [hovered, setHovered] = useState(false);
