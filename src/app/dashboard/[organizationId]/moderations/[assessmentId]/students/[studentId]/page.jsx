@@ -3,17 +3,19 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import StudentChart from "@/components/Students/StudentChart";
-import MediaUploadProgress from "@/components/Moderations/MediaUploadProgress"; // ← new import
+import MediaUploadProgress from "@/components/Moderations/MediaUploadProgress";
 import StudentAssessmentResults from "@/components/Moderations/StudentAssessmentResults";
 import DashboardLayout from "@/app/dashboard/[organizationId]/DashboardLayout";
 import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, User } from "lucide-react";
 
 export default function StudentDetailsPage() {
   const { organizationId, assessmentId, studentId } = useParams();
   const [student, setStudent] = useState(null);
   const [assessment, setAssessment] = useState(null);
+  const [instructorName, setInstructorName] = useState(null);
+  const [showAssessedBy, setShowAssessedBy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const router = useRouter();
@@ -23,6 +25,7 @@ export default function StudentDetailsPage() {
       try {
         setLoading(true);
 
+        // Fetch assessment document
         const assessmentRef = doc(db, "assessments", assessmentId);
         const assessmentSnap = await getDoc(assessmentRef);
 
@@ -30,6 +33,34 @@ export default function StudentDetailsPage() {
         const assessmentData = assessmentSnap.data();
         setAssessment(assessmentData);
 
+        // Fetch assessment result to get instructorId
+        const resultId = `${assessmentId}_${studentId}`;
+        const resultRef = doc(db, "assessments", assessmentId, "assessments-results", resultId);
+        const resultSnap = await getDoc(resultRef);
+        
+        if (resultSnap.exists()) {
+          const resultData = resultSnap.data();
+          const instructorId = resultData.instructorId;
+          
+          // Only show assessed by if instructorId exists
+          if (instructorId) {
+            try {
+              const userRef = doc(db, "user", instructorId);
+              const userSnap = await getDoc(userRef);
+              
+              if (userSnap.exists()) {
+                const userData = userSnap.data();
+                const fullName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim();
+                setInstructorName(fullName || userData.email || 'Unknown Instructor');
+                setShowAssessedBy(true);
+              }
+            } catch (instructorErr) {
+              console.error("Error fetching instructor:", instructorErr);
+            }
+          }
+        }
+        
+        // Get student info from assessment's assigned_students
         const assignedStudents = assessmentData.assigned_students || [];
         const foundStudent = assignedStudents.find((s) => s.id === studentId);
 
@@ -111,6 +142,17 @@ export default function StudentDetailsPage() {
             <h2 className="text-lg text-gray-300 mt-1 font-medium">
               Baseline: {baseline || "Not assessed"}
             </h2>
+            
+            {/* Assessed By Section - Only show if we have instructor info */}
+            {showAssessedBy && instructorName && (
+              <div className="mt-3 flex items-center gap-2 text-gray-300">
+                <User size={16} className="text-gray-400" />
+                <span className="text-sm">
+                  <span className="font-medium">Assessed by:</span> {instructorName}
+                </span>
+              </div>
+            )}
+            
             <div className="mt-3 flex flex-wrap gap-2">
               <span className="inline-block bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
                 {assessmentType.charAt(0).toUpperCase() + assessmentType.slice(1)} Assessment

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
 import Search from "@/components/Assessments/Search";
 import GradeFilter from "@/components/Assessments/GradeFIlter";
 import StudentsList from "@/components/Assessments/StudentsList";
@@ -9,17 +10,21 @@ import StudentMetrics from "@/components/Assessments/StudentMetrics";
 import DashboardLayout from "@/app/dashboard/[organizationId]/DashboardLayout";
 import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RotateCw } from "lucide-react";
 
 export default function AssessmentDetailsPage() {
   const { organizationId, assessmentId } = useParams();
   const router = useRouter();
+  const { user: currentUser } = useSelector((state) => state.auth);
+  const userRole = currentUser?.role;
 
   const [assessment, setAssessment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [gradeFilter, setGradeFilter] = useState("All Grades");
+  const [isReprocessing, setIsReprocessing] = useState(false);
+  const [reprocessMessage, setReprocessMessage] = useState(null);
   const backUrl = `/dashboard/${organizationId}/moderations`;
 
   // Fetch the assessment from Firestore
@@ -61,6 +66,45 @@ export default function AssessmentDetailsPage() {
       return matchesSearch && matchesGrade;
     });
   }, [assessment?.assigned_students, searchQuery, gradeFilter]);
+
+  // Handle reprocess assessment (super admin only)
+  const handleReprocessAssessment = async () => {
+    if (!confirm("Are you sure you want to reprocess this assessment? This will recalculate all student results.")) {
+      return;
+    }
+
+    setIsReprocessing(true);
+    setReprocessMessage(null);
+
+    try {
+      const response = await fetch("https://us-east1-nyansapoai-v2.cloudfunctions.net/reprocess_assessment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ assessmentId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(errorData || "Failed to reprocess assessment");
+      }
+
+      const result = await response.json();
+      setReprocessMessage({ type: "success", text: "Assessment reprocessed successfully!" });
+      
+      // Refresh assessment data after reprocessing
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+      
+    } catch (err) {
+      console.error("Reprocess error:", err);
+      setReprocessMessage({ type: "error", text: `Error: ${err.message}` });
+    } finally {
+      setIsReprocessing(false);
+    }
+  };
 
   // Loading state
   if (loading) {
@@ -125,8 +169,24 @@ export default function AssessmentDetailsPage() {
               <h1 className="text-xl font-semibold text-foreground">{assessment.name}</h1>
             </div>
 
-            {/* Right Section (Filters + Search) */}
+            {/* Right Section (Reprocess Button + Filters + Search) */}
             <div className="flex items-center gap-4">
+              {/* Reprocess Button - Only visible to super_admin */}
+              {userRole === 'super_admin' && (
+                <button
+                  onClick={handleReprocessAssessment}
+                  disabled={isReprocessing}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 ${
+                    isReprocessing
+                      ? "bg-gray-600 cursor-not-allowed opacity-50"
+                      : "bg-amber-600 hover:bg-amber-700 text-white shadow-lg hover:shadow-xl"
+                  }`}
+                >
+                  <RotateCw size={18} className={isReprocessing ? "animate-spin" : ""} />
+                  {isReprocessing ? "Reprocessing..." : "Reprocess Assessment"}
+                </button>
+              )}
+              
               <GradeFilter
                 selectedGrade={gradeFilter}
                 onGradeChange={handleGradeFilterChange}
@@ -138,6 +198,17 @@ export default function AssessmentDetailsPage() {
               />
             </div>
           </div>
+          
+          {/* Reprocess Message */}
+          {reprocessMessage && (
+            <div className={`mt-4 p-3 rounded-xl text-sm ${
+              reprocessMessage.type === "success" 
+                ? "bg-green-500/20 text-green-300 border border-green-500/30" 
+                : "bg-red-500/20 text-red-300 border border-red-500/30"
+            }`}>
+              {reprocessMessage.text}
+            </div>
+          )}
         </div>
 
         {/* Student metrics */}
