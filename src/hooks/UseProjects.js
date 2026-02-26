@@ -20,11 +20,15 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { useSelector } from 'react-redux';
 
 export function useProjects(organizationId) {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
+  const role = currentUser?.role;
+
 
   const getProjectsCollectionRef = () => {
     return collection(db, `organization/${organizationId}/projects`);
@@ -63,47 +67,105 @@ export function useProjects(organizationId) {
     }
   };
 
-  const fetchRecentProjects = async () => {
-    if (!organizationId) throw new Error("Missing organization ID");
+  //Fetch All Projects (role-aware)
+const fetchAllProjects = async () => {
+  if (!organizationId) throw new Error("Missing organization ID");
+  if (userLoading || !currentUser) return [];
 
-    setLoading(true);
-    try {
-      const q = query(getProjectsCollectionRef(), orderBy('createdAt', 'desc'), limit(2));
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setProjects(data);
-      return data;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
+  setLoading(true);
+  try {
 
-  const fetchAllProjects = async () => {
-    if (!organizationId) throw new Error("Missing organization ID");
-  
-    setLoading(true);
-    try {
+    // super_admin & admin → fetch all projects in the org
+    if (role === "super_admin" || role === "admin") {
       const snapshot = await getDocs(getProjectsCollectionRef());
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       setProjects(data);
       return data;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
     }
-  };
 
+    // Everyone else (project_manager, school_head, teacher, etc.)
+    // → fetch only their assigned projects
+    const userOrg = (currentUser.organizations || []).find((o) => o.id === organizationId);
+    const assignedProjectIds = (userOrg?.projects || []).map((p) => p.id ?? p);
+
+    if (!assignedProjectIds.length) {
+      setProjects([]);
+      return [];
+    }
+
+    const projectDocs = await Promise.all(
+      assignedProjectIds.map((pid) =>
+        getDoc(doc(db, "organization", organizationId, "projects", pid))
+      )
+    );
+
+    const data = projectDocs
+      .filter((d) => d.exists())
+      .map((d) => ({ id: d.id, ...d.data() }));
+
+    setProjects(data);
+    return data;
+
+  } catch (err) {
+    setError(err.message);
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
+
+//Fetch Recent Projects (role-aware) 
+const fetchRecentProjects = async () => {
+  if (!organizationId) throw new Error("Missing organization ID");
+  if (userLoading || !currentUser) return [];
+
+  setLoading(true);
+  try {
+
+    // super_admin & admin → fetch 2 most recent from the org
+    if (role === "super_admin" || role === "admin") {
+      const q = query(getProjectsCollectionRef(), orderBy("createdAt", "desc"), limit(2));
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setProjects(data);
+      return data;
+    }
+
+    // Everyone else → fetch only their assigned projects, then slice 2 most recent
+    const userOrg = (currentUser.organizations || []).find((o) => o.id === organizationId);
+    const assignedProjectIds = (userOrg?.projects || []).map((p) => p.id ?? p);
+
+    if (!assignedProjectIds.length) {
+      setProjects([]);
+      return [];
+    }
+
+    const projectDocs = await Promise.all(
+      assignedProjectIds.map((pid) =>
+        getDoc(doc(db, "organization", organizationId, "projects", pid))
+      )
+    );
+
+    const data = projectDocs
+      .filter((d) => d.exists())
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => {
+        const dateA = a.createdAt?.toDate?.() ?? new Date(a.createdAt ?? 0);
+        const dateB = b.createdAt?.toDate?.() ?? new Date(b.createdAt ?? 0);
+        return dateB - dateA;
+      })
+      .slice(0, 2);
+
+    setProjects(data);
+    return data;
+
+  } catch (err) {
+    setError(err.message);
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
   const addProjectManager = async ({ name, email, phone, selectedProjectIds }) => {
     if (!organizationId) throw new Error("Missing organization ID");
   
@@ -350,8 +412,8 @@ const deleteProject = async (projectId) => {
     fetchRecentProjects,
     fetchAllProjects,
     addProjectManager,
-    deleteProject, // Full delete with nested data
-    deleteProjectWithConfirmation, // Optional nested data deletion
-    simpleDeleteProject // Simple delete without nested data
+    deleteProject, 
+    deleteProjectWithConfirmation, 
+    simpleDeleteProject 
   };
 }

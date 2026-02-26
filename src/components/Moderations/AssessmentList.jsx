@@ -21,10 +21,12 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
   }, [organizationId, filters.projectId, filters.schoolId, filters.type, filters.level])
 
   const fetchAssessments = async () => {
-    try {
-      setLoading(true)
-      setError(null)
+  try {
+    setLoading(true)
+    setError(null)
 
+    // super_admin & admin → fetch all assessments for the org
+    if (userRole === "super_admin" || userRole === "admin") {
       let q = query(
         collection(db, "assessments"),
         where("organization_id", "==", organizationId)
@@ -34,28 +36,65 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
       if (filters.schoolId) q = query(q, where("school_id", "==", filters.schoolId))
 
       const snapshot = await getDocs(q)
-      
-      let assessmentsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
-
-      // Sort by created_at descending (most recent first)
-      assessmentsData.sort((a, b) => {
-        const dateA = a.created_at ? new Date(a.created_at) : new Date(0);
-        const dateB = b.created_at ? new Date(b.created_at) : new Date(0);
-        return dateB - dateA; // newest first
-      })
-
+      let assessmentsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      assessmentsData.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
       setAssessments(assessmentsData)
-    } catch (err) {
-      console.error(err)
-      setError("Failed to load assessments")
-    } finally {
-      setLoading(false)
+      return
     }
-  }
 
+    // project_manager → only assessments in their assigned projects
+    if (userRole === "project_manager") {
+      const userOrg = (currentUser?.organizations || []).find((o) => o.id === organizationId)
+      const assignedProjectIds = (userOrg?.projects || []).map((p) => p.id ?? p)
+
+      if (!assignedProjectIds.length) { setAssessments([]); return }
+
+      let q = query(
+        collection(db, "assessments"),
+        where("organization_id", "==", organizationId)
+      )
+
+      if (filters.schoolId) q = query(q, where("school_id", "==", filters.schoolId))
+
+      const snapshot = await getDocs(q)
+      let assessmentsData = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(a => assignedProjectIds.includes(a.project_id)) // scope to assigned projects
+      
+      assessmentsData.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+      setAssessments(assessmentsData)
+      return
+    }
+
+    // school_head & teacher → only assessments for their assigned schools
+    const userOrg = (currentUser?.organizations || []).find((o) => o.id === organizationId)
+    const assignedProjectIds = (userOrg?.projects || []).map((p) => p.id ?? p)
+    const assignedSchoolIds = (userOrg?.projects || []).flatMap((p) =>
+      (p.schools || []).map((s) => s.id ?? s)
+    )
+
+    if (!assignedSchoolIds.length) { setAssessments([]); return }
+
+    let q = query(
+      collection(db, "assessments"),
+      where("organization_id", "==", organizationId)
+    )
+
+    const snapshot = await getDocs(q)
+    let assessmentsData = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(a => assignedSchoolIds.includes(a.school_id)) // scope to assigned schools
+
+    assessmentsData.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+    setAssessments(assessmentsData)
+
+  } catch (err) {
+    console.error(err)
+    setError("Failed to load assessments")
+  } finally {
+    setLoading(false)
+  }
+}
   // Count students who have a valid baseline (no has_done check)
   const countDone = (students) => {
     if (!Array.isArray(students)) return 0

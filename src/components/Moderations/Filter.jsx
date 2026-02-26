@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSelector } from "react-redux"
 import { collection, getDocs, query, where, onSnapshot, doc, getDoc } from "firebase/firestore"
 import { db } from "@/firebase/config"
 import { ChevronDown, FolderOpen, GraduationCap, X, Filter as FilterIcon } from "lucide-react"
@@ -10,37 +11,38 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
   const [projects, setProjects] = useState([])
   const [selectedProject, setSelectedProject] = useState(null)
   const [selectedSchool, setSelectedSchool] = useState(null)
-  const [type, setType] = useState(currentFilters?.type || "all") // Default: Literacy
-  const [level, setLevel] = useState(currentFilters?.level || "all") // Default: All Levels (changed from "All Levels" to "all" for consistency)
+  const [type, setType] = useState(currentFilters?.type || "all")
+  const [level, setLevel] = useState(currentFilters?.level || "all")
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [assessmentData, setAssessmentData] = useState([])
   const [loadingData, setLoadingData] = useState(true)
 
+  const { user: currentUser } = useSelector((state) => state.auth)
+  const userRole = currentUser?.role
+
   useEffect(() => {
     fetchProjects()
   }, [organizationId])
 
-  // Update local state when currentFilters prop changes
   useEffect(() => {
     if (currentFilters) {
       setSelectedProject(currentFilters.projectId || null)
       setSelectedSchool(currentFilters.schoolId || null)
       setType(currentFilters.type || "all")
-      setLevel(currentFilters.level || "all") // Changed to "all"
+      setLevel(currentFilters.level || "all")
     }
   }, [currentFilters])
 
-  // Notify parent component of filter changes on mount and when filters change
   useEffect(() => {
-    onFilterChange({ 
-      projectId: selectedProject, 
+    onFilterChange({
+      projectId: selectedProject,
       schoolId: selectedSchool,
       type: type,
-      level: level === "all" ? null : level // Send null when "all" is selected
+      level: level === "all" ? null : level
     })
   }, [selectedProject, selectedSchool, type, level])
-  // Real-time listener for daily assessment counts from cloud function
+
   useEffect(() => {
     if (!organizationId) {
       setAssessmentData([])
@@ -53,43 +55,48 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
       collection(db, "assessments"),
       where("organization_id", "==", organizationId)
     )
-    
-    const unsubscribe = onSnapshot(assessmentsQuery, async (snapshot) => {
-      const assessmentsByDate = {}
-      
-      // Get all assessments
-      const assessments = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
 
-      // For each assessment, fetch daily_assessment_counts subcollection
+    const unsubscribe = onSnapshot(assessmentsQuery, async (snapshot) => {
+      let assessments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+
+      // ─── Scope assessments based on role ──────────────────────────────────
+      if (userRole !== "super_admin" && userRole !== "admin") {
+        const userOrg = (currentUser?.organizations || []).find((o) => o.id === organizationId)
+        const assignedProjectIds = (userOrg?.projects || []).map((p) => p.id ?? p)
+
+        if (userRole === "project_manager") {
+          assessments = assessments.filter(a => assignedProjectIds.includes(a.project_id))
+        } else {
+          // school_head & teacher → scope to assigned schools
+          const assignedSchoolIds = (userOrg?.projects || []).flatMap((p) =>
+            (p.schools || []).map((s) => s.id ?? s)
+          )
+          assessments = assessments.filter(a => assignedSchoolIds.includes(a.school_id))
+        }
+      }
+
+      const assessmentsByDate = {}
+
       for (const assessment of assessments) {
         try {
           const dailyCountsRef = collection(db, `assessments/${assessment.id}/daily_assessment_counts`)
           const dailyCountsSnapshot = await getDocs(dailyCountsRef)
 
-          // Process each daily count
           dailyCountsSnapshot.docs.forEach(doc => {
-            const dailyData = doc.to_dict ? doc.to_dict() : doc.data()
-            const date = dailyData.date || doc.id // date should be YYYY-MM-DD format
-
-            // Determine which count field to use based on assessment type
+            const dailyData = doc.data()
+            const date = dailyData.date || doc.id
             const assessmentType = (assessment.type || "Literacy").toLowerCase()
             const countField = `${assessmentType}_student_count`
             const count = dailyData[countField] || 0
 
             if (count > 0) {
-              if (!assessmentsByDate[date]) {
-                assessmentsByDate[date] = []
-              }
-
+              if (!assessmentsByDate[date]) assessmentsByDate[date] = []
               assessmentsByDate[date].push({
                 id: assessment.id,
                 completedCount: count,
                 name: assessment.name || "Unnamed Assessment",
                 created_at: assessment.created_at,
-                date: date,
+                date,
                 type: assessment.type || "Literacy",
                 level: assessment.level || "Baseline"
               })
@@ -100,9 +107,7 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
         }
       }
 
-      // Get dates with assessments and sort them (most recent first)
-      const datesWithAssessments = Object.keys(assessmentsByDate)
-        .sort((a, b) => new Date(b) - new Date(a))
+      const datesWithAssessments = Object.keys(assessmentsByDate).sort((a, b) => new Date(b) - new Date(a))
 
       if (datesWithAssessments.length === 0) {
         setAssessmentData([])
@@ -110,54 +115,101 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
         return
       }
 
-      // Take only the last 10 dates that have assessments
       const last10Dates = datesWithAssessments.slice(0, 10)
-      
-      // Build the assessment data structure
+
       const assessmentDataList = last10Dates.map(dateStr => ({
         date: dateStr,
         displayDate: new Date(dateStr),
         assessments: assessmentsByDate[dateStr]
           .filter(assessment => {
-            // Filter by type (default is "Literacy")
             if (type && type !== "all" && assessment.type !== type) return false
-            // Filter by level (don't filter if "all" is selected)
             if (level && level !== "all" && assessment.level !== level) return false
             return true
           })
           .sort((a, b) => b.completedCount - a.completedCount)
-      })).filter(dateData => dateData.assessments.length > 0) // Only include dates with assessments after filtering
+      })).filter(dateData => dateData.assessments.length > 0)
 
-      // Reverse to show from oldest to most recent (left to right)
       setAssessmentData(assessmentDataList.reverse())
       setLoadingData(false)
     })
 
     return () => unsubscribe()
-  }, [organizationId, type, level])
+  }, [organizationId, type, level, userRole, currentUser])
 
+  // ─── Fetch Projects (role-aware) ─────────────────────────────────────────────
   const fetchProjects = async () => {
     try {
       setLoading(true)
-      const projectsRef = collection(db, `organization/${organizationId}/projects`)
-      const projectsSnapshot = await getDocs(projectsRef)
+
+      // super_admin & admin → all projects with their schools
+      if (userRole === "super_admin" || userRole === "admin") {
+        const projectsSnapshot = await getDocs(
+          collection(db, `organization/${organizationId}/projects`)
+        )
+
+        const projectsData = await Promise.all(
+          projectsSnapshot.docs.map(async (projectDoc) => {
+            const schoolsSnapshot = await getDocs(
+              collection(db, `organization/${organizationId}/projects`, projectDoc.id, "schools")
+            )
+            return {
+              id: projectDoc.id,
+              ...projectDoc.data(),
+              schools: schoolsSnapshot.docs.map((s) => ({ id: s.id, ...s.data() }))
+            }
+          })
+        )
+
+        setProjects(projectsData)
+        return
+      }
+
+      // Everyone else → only assigned projects and their assigned schools
+      const userOrg = (currentUser?.organizations || []).find((o) => o.id === organizationId)
+      const assignedProjects = userOrg?.projects || []
+
+      if (!assignedProjects.length) { setProjects([]); return }
 
       const projectsData = await Promise.all(
-        projectsSnapshot.docs.map(async (projectDoc) => {
-          const projectData = { id: projectDoc.id, ...projectDoc.data() }
+        assignedProjects.map(async (assignedProject) => {
+          const projectSnap = await getDoc(
+            doc(db, "organization", organizationId, "projects", assignedProject.id)
+          )
+          if (!projectSnap.exists()) return null
 
-          const schoolsRef = collection(db, `organization/${organizationId}/projects`, projectDoc.id, "schools")
-          const schoolsSnapshot = await getDocs(schoolsRef)
-          const schools = schoolsSnapshot.docs.map((schoolDoc) => ({
-            id: schoolDoc.id,
-            ...schoolDoc.data(),
-          }))
+          // project_manager → all schools in the project
+          if (userRole === "project_manager") {
+            const schoolsSnapshot = await getDocs(
+              collection(db, `organization/${organizationId}/projects`, assignedProject.id, "schools")
+            )
+            return {
+              id: projectSnap.id,
+              ...projectSnap.data(),
+              schools: schoolsSnapshot.docs.map((s) => ({ id: s.id, ...s.data() }))
+            }
+          }
 
-          return { ...projectData, schools }
-        }),
+          // school_head & teacher → only their assigned schools
+          const assignedSchoolIds = (assignedProject.schools || []).map((s) => s.id ?? s)
+
+          const schoolDocs = await Promise.all(
+            assignedSchoolIds.map((sid) =>
+              getDoc(doc(db, `organization/${organizationId}/projects/${assignedProject.id}/schools`, sid))
+            )
+          )
+
+          return {
+            id: projectSnap.id,
+            ...projectSnap.data(),
+            schools: schoolDocs
+              .filter((d) => d.exists())
+              .map((d) => ({ id: d.id, ...d.data() }))
+          }
+        })
       )
 
-      setProjects(projectsData)
+      setProjects(projectsData.filter(Boolean))
+
     } catch (error) {
       console.error("Error fetching projects:", error)
     } finally {
@@ -177,42 +229,26 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
     setIsOpen(false)
   }
 
-  const handleTypeChange = (value) => {
-    setType(value)
-  }
-
-  const handleLevelChange = (value) => {
-    setLevel(value)
-  }
+  const handleTypeChange = (value) => setType(value)
+  const handleLevelChange = (value) => setLevel(value)
 
   const clearAllFilters = () => {
     setSelectedProject(null)
     setSelectedSchool(null)
-    // Reset to defaults
     setType("Literacy")
-    setLevel("all") // Changed to "all"
+    setLevel("all")
   }
 
   const clearSpecificFilter = (filterType) => {
-    switch(filterType) {
-      case 'type':
-        setType("Literacy") // Reset to default
-        break;
-      case 'level':
-        setLevel("all") // Reset to "all"
-        break;
-      case 'project':
-        setSelectedProject(null)
-        break;
-      case 'school':
-        setSelectedSchool(null)
-        break;
+    switch (filterType) {
+      case 'type': setType("Literacy"); break
+      case 'level': setLevel("all"); break
+      case 'project': setSelectedProject(null); break
+      case 'school': setSelectedSchool(null); break
     }
   }
 
-  const getProjectName = (projectId) => {
-    return projects.find((p) => p.id === projectId)?.name || ""
-  }
+  const getProjectName = (projectId) => projects.find((p) => p.id === projectId)?.name || ""
 
   const getSchoolName = (schoolId) => {
     for (const project of projects) {
@@ -228,15 +264,11 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
 
   return (
     <div className="w-full">
-      {/* Filters Section (Above the Graph) */}
       <div className="mb-6">
-        {/* Quick Filters Row */}
         <div className="flex flex-wrap gap-3 mb-4">
           {/* Type Filter */}
           <div className="flex-1 sm:flex-none sm:w-40">
-            <label className="block text-xs font-medium text-gray-300 mb-1">
-              Type
-            </label>
+            <label className="block text-xs font-medium text-gray-300 mb-1">Type</label>
             <select
               value={type}
               onChange={(e) => handleTypeChange(e.target.value)}
@@ -248,11 +280,9 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
             </select>
           </div>
 
-          {/* Level Filter - Make sure "All Levels" is first */}
+          {/* Level Filter */}
           <div className="flex-1 sm:flex-none sm:w-40">
-            <label className="block text-xs font-medium text-gray-300 mb-1">
-              Level
-            </label>
+            <label className="block text-xs font-medium text-gray-300 mb-1">Level</label>
             <select
               value={level}
               onChange={(e) => handleLevelChange(e.target.value)}
@@ -267,9 +297,7 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
 
           {/* Project/School Filter Button */}
           <div className="relative">
-            <label className="block text-xs font-medium text-gray-300 mb-1">
-              Project & School
-            </label>
+            <label className="block text-xs font-medium text-gray-300 mb-1">Project & School</label>
             <button
               onClick={() => setIsOpen(!isOpen)}
               className="flex items-center gap-2 px-4 py-2 border border-gray-500 rounded-xl bg-background-light hover:bg-background-lighter transition-colors text-gray-300 text-sm shadow-md hover:shadow-lg min-w-[140px] justify-center"
@@ -316,7 +344,6 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
               </div>
             )}
 
-            {/* Backdrop */}
             {isOpen && <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />}
           </div>
         </div>
@@ -325,8 +352,7 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
         {(selectedProject || selectedSchool || type !== "Literacy" || level !== "all") && (
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-sm text-gray-300 font-medium">Active filters:</span>
-            
-            {/* Show Type filter if it's not the default (Literacy) */}
+
             {type !== "Literacy" && (
               <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-500/20 text-blue-300 rounded-lg text-sm border border-blue-500/30">
                 Type: {type === "all" ? "All Types" : type}
@@ -335,8 +361,7 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
                 </button>
               </span>
             )}
-            
-            {/* Show Level filter if it's not the default (all) */}
+
             {level !== "all" && (
               <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-500/20 text-purple-300 rounded-lg text-sm border border-purple-500/30">
                 Level: {level}
@@ -345,7 +370,7 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
                 </button>
               </span>
             )}
-            
+
             {selectedProject && (
               <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-2/20 text-primary-2 rounded-lg text-sm border border-primary-2/30">
                 <FolderOpen className="w-3 h-3" />
@@ -357,6 +382,7 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
                 )}
               </span>
             )}
+
             {selectedSchool && (
               <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-secondary-2/20 text-secondary-2 rounded-lg text-sm border border-secondary-2/30">
                 <GraduationCap className="w-3 h-3" />
@@ -366,21 +392,15 @@ export default function Filter({ organizationId, onFilterChange, currentFilters 
                 </button>
               </span>
             )}
-            
-            {(selectedProject || selectedSchool || type !== "Literacy" || level !== "all") && (
-              <button
-                onClick={clearAllFilters}
-                className="text-sm text-red-400 hover:text-red-300 underline ml-2"
-              >
-                Clear all
-              </button>
-            )}
+
+            <button onClick={clearAllFilters} className="text-sm text-red-400 hover:text-red-300 underline ml-2">
+              Clear all
+            </button>
           </div>
         )}
       </div>
 
-      {/* Graph Component */}
-      <AssessmentGraph 
+      <AssessmentGraph
         organizationId={organizationId}
         assessmentData={assessmentData}
         loading={loadingData}

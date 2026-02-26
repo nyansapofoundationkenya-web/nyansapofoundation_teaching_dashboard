@@ -2,6 +2,7 @@
 "use client"
 
 import { useState } from "react"
+import { useSelector } from "react-redux"
 import {
   BarChart,
   Bar,
@@ -20,8 +21,8 @@ export default function StudentLevelsChart({
   chartData,
   loading,
   error,
-  onRefresh,  // Kept for future use
-  onDownload, // Keep for backward compatibility
+  onRefresh,
+  onDownload,
   downloadLoading,
   isSuperAdmin,
   organizationId,
@@ -30,17 +31,15 @@ export default function StudentLevelsChart({
 }) {
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false)
 
-  // Create empty data structure for all possible levels
+  const { user: currentUser } = useSelector((state) => state.auth)
+  const userRole = currentUser?.role
+  const canExport = userRole === "super_admin" || userRole === "admin"
+
   const getAllLevels = () => {
     const levels = ['Beginning', 'Developing', 'Expanding', 'Proficient', 'Exemplary']
-    return levels.map(level => ({
-      level,
-      baseline: 0,
-      current: 0
-    }))
+    return levels.map(level => ({ level, baseline: 0, current: 0 }))
   }
 
-  // Use actual data if available, otherwise use empty data
   const displayData = chartData && chartData.length > 0 ? chartData : getAllLevels()
 
   const CustomTooltip = ({ active, payload }) => {
@@ -75,55 +74,59 @@ export default function StudentLevelsChart({
       </h2>
 
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          onClick={handleDownloadClick}
-          disabled={downloadLoading || loading || !chartData || chartData.length === 0}
-          className={`
-            px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors
-            ${downloadLoading || loading || !chartData || chartData.length === 0
-              ? "bg-gray-700 text-gray-400 cursor-not-allowed opacity-50"
-              : "bg-green-600 hover:bg-green-700 text-white"
-            }
-          `}
-          title={!chartData || chartData.length === 0 ? "No data to export" : "Export students"}
-        >
-          {downloadLoading ? (
-            <>
-              <svg
-                className="animate-spin h-4 w-4 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-              Downloading...
-            </>
-          ) : (
-            <>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              Export Students
-            </>
-          )}
-        </button>
+
+        {/* Export button — super_admin & admin only */}
+        {canExport && (
+          <button
+            onClick={handleDownloadClick}
+            disabled={downloadLoading || loading || !chartData || chartData.length === 0}
+            className={`
+              px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors
+              ${downloadLoading || loading || !chartData || chartData.length === 0
+                ? "bg-gray-700 text-gray-400 cursor-not-allowed opacity-50"
+                : "bg-green-600 hover:bg-green-700 text-white"
+              }
+            `}
+            title={!chartData || chartData.length === 0 ? "No data to export" : "Export students"}
+          >
+            {downloadLoading ? (
+              <>
+                <svg
+                  className="animate-spin h-4 w-4 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                Downloading...
+              </>
+            ) : (
+              <>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                Export Students
+              </>
+            )}
+          </button>
+        )}
 
         <select
           value={levelType}
@@ -138,7 +141,6 @@ export default function StudentLevelsChart({
     </div>
   )
 
-  // Show loading state
   if (loading && !chartData) {
     return (
       <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700">
@@ -156,7 +158,6 @@ export default function StudentLevelsChart({
     )
   }
 
-  // Show empty chart with zero bars (even on error or no data)
   return (
     <>
       <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700">
@@ -187,22 +188,21 @@ export default function StudentLevelsChart({
                   </span>
                 )}
               />
-              <Bar 
-                dataKey="baseline" 
-                fill="#6B7280" 
-                radius={[0, 4, 4, 0]} 
+              <Bar
+                dataKey="baseline"
+                fill="#6B7280"
+                radius={[0, 4, 4, 0]}
                 opacity={chartData && chartData.length > 0 ? 1 : 0.3}
               />
-              <Bar 
-                dataKey="current" 
-                fill="#60A5FA" 
-                radius={[0, 4, 4, 0]} 
+              <Bar
+                dataKey="current"
+                fill="#60A5FA"
+                radius={[0, 4, 4, 0]}
                 opacity={chartData && chartData.length > 0 ? 1 : 0.3}
               />
             </BarChart>
           </ResponsiveContainer>
 
-          {/* Overlay message when there's an error or no data */}
           {(error || !chartData || chartData.length === 0) && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="bg-background-lighter/90 rounded-lg p-4 text-center max-w-md">
@@ -210,7 +210,7 @@ export default function StudentLevelsChart({
                   <>
                     <p className="text-yellow-400 font-medium mb-1">Unable to load data</p>
                     <p className="text-sm text-gray-400">
-                      {error.includes("Failed to fetch") 
+                      {error.includes("Failed to fetch")
                         ? "Connection issue. Showing empty chart."
                         : "Showing empty chart template."}
                     </p>
@@ -228,7 +228,6 @@ export default function StudentLevelsChart({
           )}
         </div>
 
-        {/* Optional: Add a subtle hint at the bottom */}
         {(!chartData || chartData.length === 0) && !error && (
           <div className="mt-4 text-center">
             <p className="text-xs text-gray-500">
@@ -238,8 +237,7 @@ export default function StudentLevelsChart({
         )}
       </div>
 
-      {/* Download Level Modal - Only show if we have organizationId */}
-      {organizationId && chartData && chartData.length > 0 && (
+      {canExport && organizationId && chartData && chartData.length > 0 && (
         <DownloadLevelModal
           isOpen={isDownloadModalOpen}
           onClose={() => setIsDownloadModalOpen(false)}

@@ -14,74 +14,124 @@ import {
   increment,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
+import { useSelector } from "react-redux";
 
 export function useInstructors(organizationId, userRole) {
   const [instructors, setInstructors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const { user: currentUser } = useSelector((state) => state.auth);
+
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
+  const getAssignedProjectIds = () => {
+    const userOrg = (currentUser?.organizations || []).find((o) => o.id === organizationId);
+    return (userOrg?.projects || []).map((p) => p.id ?? p);
+  };
+
+  const getAssignedSchoolIds = () => {
+    const userOrg = (currentUser?.organizations || []).find((o) => o.id === organizationId);
+    return (userOrg?.projects || []).flatMap((p) =>
+      (p.schools || []).map((s) => s.id ?? s)
+    );
+  };
+
+  // ─── Build instructor stats ───────────────────────────────────────────────────
+  const buildInstructor = (docSnap) => {
+    const user = { id: docSnap.id, ...docSnap.data() };
+    const orgCount = user.organizations?.length || 0;
+    let projectCount = 0;
+    let schoolCount = 0;
+    user.organizations?.forEach((org) => {
+      org.projects?.forEach((project) => {
+        projectCount += 1;
+        schoolCount += project.schools?.length || 0;
+      });
+    });
+    return { ...user, orgCount, projectCount, schoolCount };
+  };
+
   const fetchInstructors = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const usersRef = collection(db, "user");
-      const snapshot = await getDocs(usersRef);
+      const snapshot = await getDocs(collection(db, "user"));
 
-      const instructorsData = [];
-
-      snapshot.forEach((doc) => {
-        const user = { id: doc.id, ...doc.data() };
-
-        // Only include teachers and admins
-        if (user.role === 'teacher' || user.role === 'admin') {
-          // Count organizations
-          const orgCount = user.organizations?.length || 0;
-
-          // Count projects and schools across all orgs
-          let projectCount = 0;
-          let schoolCount = 0;
-
-          user.organizations?.forEach((org) => {
-            org.projects?.forEach((project) => {
-              projectCount += 1;
-              schoolCount += project.schools?.length || 0;
-            });
-          });
-
-          instructorsData.push({
-            ...user,
-            orgCount,
-            projectCount,
-            schoolCount,
-          });
+      // Only include teachers, admins, project_managers, school_heads
+      const allInstructors = [];
+      snapshot.forEach((docSnap) => {
+        const user = docSnap.data();
+        const includedRoles = ["teacher", "admin", "project_manager", "school_head"]
+        if (includedRoles.includes(user.role)) {
+          allInstructors.push(buildInstructor(docSnap));
         }
       });
 
-      // Filter based on user role
-      let filteredInstructors = instructorsData;
-      
-      if (userRole === 'admin' && organizationId) {
-        // Admin can only see instructors in their organization OR unassigned instructors
-        filteredInstructors = instructorsData.filter(instructor => {
-          const hasOrganization = instructor.organizations?.length > 0;
-          const inCurrentOrg = instructor.organizations?.some(org => org.id === organizationId);
-          
-          // Show instructors who are in current org OR have no organizations (unassigned)
-          return inCurrentOrg || !hasOrganization;
+      let filtered = allInstructors;
+
+      // ─── super_admin → sees everyone ────────────────────────────────────────
+      if (userRole === "super_admin") {
+        filtered = allInstructors;
+      }
+
+      // ─── admin → sees instructors in their org or unassigned ────────────────
+      else if (userRole === "admin") {
+        filtered = allInstructors.filter((instructor) => {
+          const inCurrentOrg = instructor.organizations?.some((org) => org.id === organizationId);
+          const hasNoOrg = !instructor.organizations?.length;
+          return inCurrentOrg || hasNoOrg;
         });
       }
-      // super_admin can see all instructors (no filtering)
 
-      setInstructors(filteredInstructors);
+      // ─── project_manager → only instructors in their assigned projects/schools
+      else if (userRole === "project_manager") {
+        const assignedProjectIds = getAssignedProjectIds();
+        const assignedSchoolIds = getAssignedSchoolIds();
+
+        filtered = allInstructors.filter((instructor) => {
+          return instructor.organizations?.some((org) => {
+            if (org.id !== organizationId) return false;
+            return org.projects?.some((project) => {
+              if (!assignedProjectIds.includes(project.id)) return false;
+              return project.schools?.some((school) =>
+                assignedSchoolIds.includes(school.id ?? school)
+              );
+            });
+          });
+        });
+      }
+
+      // ─── school_head → only instructors in their assigned schools ────────────
+      else if (userRole === "school_head") {
+        const assignedSchoolIds = getAssignedSchoolIds();
+
+        filtered = allInstructors.filter((instructor) => {
+          return instructor.organizations?.some((org) => {
+            if (org.id !== organizationId) return false;
+            return org.projects?.some((project) =>
+              project.schools?.some((school) =>
+                assignedSchoolIds.includes(school.id ?? school)
+              )
+            );
+          });
+        });
+      }
+
+      // ─── teacher → only their own profile ───────────────────────────────────
+      else if (userRole === "teacher") {
+        filtered = allInstructors.filter((instructor) => instructor.id === currentUser?.uid);
+      }
+
+      setInstructors(filtered);
     } catch (err) {
       setError(`Failed to fetch instructors: ${err.message}`);
     } finally {
       setLoading(false);
     }
-  }, [organizationId, userRole]);
+  }, [organizationId, userRole, currentUser]);
 
-  // Check if UID already exists in a collection
+  // ─── Check if UID already exists ─────────────────────────────────────────────
   const checkUIDExists = async (collectionPath, uid) => {
     try {
       const ref = doc(db, collectionPath);
@@ -93,25 +143,24 @@ export function useInstructors(organizationId, userRole) {
     }
   };
 
+  // ─── Update Instructor (unchanged) ───────────────────────────────────────────
   const updateInstructor = async (
     instructorId,
     organizationId,
     projectId,
-    schoolIds, // Now accepts array of school IDs
+    schoolIds,
     { name, email, phone }
   ) => {
     if (!organizationId || !projectId || !schoolIds?.length || !name || !email || !phone) {
       setError("Missing required instructor details");
       return;
     }
-    console.log(organizationId,projectId,schoolIds,name,email,phone)
 
     setLoading(true);
     try {
       const organizationRef = doc(db, "organization", organizationId);
       const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
       
-      // Fetch organization and project data
       const [organizationSnap, projectSnap] = await Promise.all([
         getDoc(organizationRef),
         getDoc(projectRef),
@@ -125,7 +174,6 @@ export function useInstructors(organizationId, userRole) {
       const organizationData = organizationSnap.data();
       const projectData = projectSnap.data();
 
-      // Fetch all selected schools data
       const schoolPromises = schoolIds.map(schoolId => 
         getDoc(doc(db, `organization/${organizationId}/projects/${projectId}/schools`, schoolId))
       );
@@ -149,40 +197,29 @@ export function useInstructors(organizationId, userRole) {
       let uid;
 
       if (instructorId) {
-        // Update existing instructor
         userRef = doc(db, "user", instructorId);
         const userSnap = await getDoc(userRef);
-        if (!userSnap.exists()) {
-          setError("Instructor not found");
-          return;
-        }
+        if (!userSnap.exists()) { setError("Instructor not found"); return; }
 
         const existingData = userSnap.data();
         uid = instructorId;
 
-        // Find existing organization or create new one
         const existingOrgIndex = existingData.organizations?.findIndex(org => org.id === organizationId) ?? -1;
         
         let updatedOrganizations;
         if (existingOrgIndex >= 0) {
-          // Update existing organization
           updatedOrganizations = [...existingData.organizations];
           const existingOrg = updatedOrganizations[existingOrgIndex];
-          
-          // Find existing project or create new one
           const existingProjectIndex = existingOrg.projects?.findIndex(proj => proj.id === projectId) ?? -1;
           
           if (existingProjectIndex >= 0) {
-            // Update existing project with new schools (avoid duplicates)
             const existingProject = existingOrg.projects[existingProjectIndex];
             const existingSchoolIds = existingProject.schools?.map(s => s.id) || [];
             const newSchools = schoolsData
               .filter(school => !existingSchoolIds.includes(school.id))
               .map(school => ({ id: school.id, name: school.name }));
-            
             existingProject.schools = [...(existingProject.schools || []), ...newSchools];
           } else {
-            // Add new project
             existingOrg.projects = [
               ...(existingOrg.projects || []),
               {
@@ -193,7 +230,6 @@ export function useInstructors(organizationId, userRole) {
             ];
           }
         } else {
-          // Add new organization
           updatedOrganizations = [
             ...(existingData.organizations || []),
             {
@@ -210,19 +246,13 @@ export function useInstructors(organizationId, userRole) {
           ];
         }
 
-        instructorData = {
-          ...existingData,
-          ...instructorData,
-          organizations: updatedOrganizations
-        };
-
+        instructorData = { ...existingData, ...instructorData, organizations: updatedOrganizations };
         await setDoc(userRef, instructorData, { merge: true });
       } else {
-        // Create new instructor
         uid = doc(collection(db, "user")).id;
         instructorData = {
           ...instructorData,
-          uid: uid,
+          uid,
           createdAt: new Date().toISOString(),
           organizations: [
             {
@@ -238,49 +268,27 @@ export function useInstructors(organizationId, userRole) {
             }
           ]
         };
-
         userRef = doc(db, "user", uid);
         await setDoc(userRef, instructorData);
       }
 
-      // Update counters and teacher arrays without duplicates
       const updatePromises = [];
 
-      // Update organization teachers (check for duplicate)
       if (!(await checkUIDExists(`organization/${organizationId}`, uid))) {
-        updatePromises.push(
-          updateDoc(organizationRef, { 
-            teachers: arrayUnion(uid),
-            total_teachers: increment(1)
-          })
-        );
+        updatePromises.push(updateDoc(organizationRef, { teachers: arrayUnion(uid), total_teachers: increment(1) }));
       }
-
-      // Update project teachers (check for duplicate)
       if (!(await checkUIDExists(`organization/${organizationId}/projects/${projectId}`, uid))) {
-        updatePromises.push(
-          updateDoc(projectRef, { 
-            teachers: arrayUnion(uid),
-            total_teachers: increment(1)
-          })
-        );
+        updatePromises.push(updateDoc(projectRef, { teachers: arrayUnion(uid), total_teachers: increment(1) }));
       }
-
-      // Update each school teachers (check for duplicates)
       for (const schoolId of schoolIds) {
         const schoolRef = doc(db, `organization/${organizationId}/projects/${projectId}/schools`, schoolId);
         if (!(await checkUIDExists(`organization/${organizationId}/projects/${projectId}/schools/${schoolId}`, uid))) {
-          updatePromises.push(
-            updateDoc(schoolRef, { 
-              teachers: arrayUnion(uid),
-              total_teachers: increment(1)
-            })
-          );
+          updatePromises.push(updateDoc(schoolRef, { teachers: arrayUnion(uid), total_teachers: increment(1) }));
         }
       }
 
       await Promise.all(updatePromises);
-      await fetchInstructors(); // Refresh list
+      await fetchInstructors();
       return { success: true, instructorId: uid };
     } catch (err) {
       setError(`Failed to update instructor: ${err.message}`);
@@ -289,160 +297,113 @@ export function useInstructors(organizationId, userRole) {
       setLoading(false);
     }
   };
-  const updateInstructorAssignment = async (
-  instructorId,
-  organizationId,
-  projectId,
-  schoolIds
-) => {
-  if (!instructorId || !organizationId || !projectId || !schoolIds?.length) {
-    setError("Missing required assignment details");
-    return;
-  }
 
-  setLoading(true);
-  try {
-    const organizationRef = doc(db, "organization", organizationId);
-    const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
-    
-    // Fetch organization, project, and instructor data
-    const [organizationSnap, projectSnap, instructorSnap] = await Promise.all([
-      getDoc(organizationRef),
-      getDoc(projectRef),
-      getDoc(doc(db, "user", instructorId))
-    ]);
-
-    if (!organizationSnap.exists() || !projectSnap.exists()) {
-      setError("Organization or Project not found.");
+  // ─── Update Instructor Assignment (unchanged) ─────────────────────────────────
+  const updateInstructorAssignment = async (instructorId, organizationId, projectId, schoolIds) => {
+    if (!instructorId || !organizationId || !projectId || !schoolIds?.length) {
+      setError("Missing required assignment details");
       return;
     }
 
-    if (!instructorSnap.exists()) {
-      setError("Instructor not found");
-      return;
-    }
-
-    const organizationData = organizationSnap.data();
-    const projectData = projectSnap.data();
-    const existingInstructorData = instructorSnap.data();
-
-    // Fetch all selected schools data
-    const schoolPromises = schoolIds.map(schoolId => 
-      getDoc(doc(db, `organization/${organizationId}/projects/${projectId}/schools`, schoolId))
-    );
-    const schoolSnaps = await Promise.all(schoolPromises);
-    
-    const schoolsData = schoolSnaps.map((snap, index) => ({
-      id: schoolIds[index],
-      name: snap.exists() ? snap.data().name || `School ${schoolIds[index].slice(0, 8)}` : `School ${schoolIds[index].slice(0, 8)}`,
-      exists: snap.exists()
-    }));
-
-    // Update organizations array
-    const existingOrgIndex = existingInstructorData.organizations?.findIndex(org => org.id === organizationId) ?? -1;
-    
-    let updatedOrganizations;
-    if (existingOrgIndex >= 0) {
-      // Update existing organization
-      updatedOrganizations = [...existingInstructorData.organizations];
-      const existingOrg = updatedOrganizations[existingOrgIndex];
+    setLoading(true);
+    try {
+      const organizationRef = doc(db, "organization", organizationId);
+      const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
       
-      // Find existing project or create new one
-      const existingProjectIndex = existingOrg.projects?.findIndex(proj => proj.id === projectId) ?? -1;
+      const [organizationSnap, projectSnap, instructorSnap] = await Promise.all([
+        getDoc(organizationRef),
+        getDoc(projectRef),
+        getDoc(doc(db, "user", instructorId))
+      ]);
+
+      if (!organizationSnap.exists() || !projectSnap.exists()) { setError("Organization or Project not found."); return; }
+      if (!instructorSnap.exists()) { setError("Instructor not found"); return; }
+
+      const organizationData = organizationSnap.data();
+      const projectData = projectSnap.data();
+      const existingInstructorData = instructorSnap.data();
+
+      const schoolPromises = schoolIds.map(schoolId => 
+        getDoc(doc(db, `organization/${organizationId}/projects/${projectId}/schools`, schoolId))
+      );
+      const schoolSnaps = await Promise.all(schoolPromises);
+      const schoolsData = schoolSnaps.map((snap, index) => ({
+        id: schoolIds[index],
+        name: snap.exists() ? snap.data().name || `School ${schoolIds[index].slice(0, 8)}` : `School ${schoolIds[index].slice(0, 8)}`,
+        exists: snap.exists()
+      }));
+
+      const existingOrgIndex = existingInstructorData.organizations?.findIndex(org => org.id === organizationId) ?? -1;
       
-      if (existingProjectIndex >= 0) {
-        // Update existing project with new schools (replace all schools)
-        const existingProject = existingOrg.projects[existingProjectIndex];
-        existingProject.schools = schoolsData.map(school => ({ id: school.id, name: school.name }));
-      } else {
-        // Add new project to existing organization
-        existingOrg.projects = [
-          ...(existingOrg.projects || []),
-          {
-            name: projectData.name || "Unknown Project",
-            id: projectId,
-            schools: schoolsData.map(school => ({ id: school.id, name: school.name }))
-          }
-        ];
-      }
-    } else {
-      // Add new organization
-      updatedOrganizations = [
-        ...(existingInstructorData.organizations || []),
-        {
-          name: organizationData.name || "Unknown Organization",
-          id: organizationId,
-          projects: [
+      let updatedOrganizations;
+      if (existingOrgIndex >= 0) {
+        updatedOrganizations = [...existingInstructorData.organizations];
+        const existingOrg = updatedOrganizations[existingOrgIndex];
+        const existingProjectIndex = existingOrg.projects?.findIndex(proj => proj.id === projectId) ?? -1;
+        
+        if (existingProjectIndex >= 0) {
+          existingOrg.projects[existingProjectIndex].schools = schoolsData.map(school => ({ id: school.id, name: school.name }));
+        } else {
+          existingOrg.projects = [
+            ...(existingOrg.projects || []),
             {
               name: projectData.name || "Unknown Project",
               id: projectId,
               schools: schoolsData.map(school => ({ id: school.id, name: school.name }))
             }
-          ]
+          ];
         }
-      ];
-    }
-
-    // Update instructor document - only update organizations and lastUpdated
-    const updatedInstructorData = {
-      ...existingInstructorData,
-      organizations: updatedOrganizations,
-      lastUpdated: new Date().toISOString(),
-    };
-
-    const userRef = doc(db, "user", instructorId);
-    await setDoc(userRef, updatedInstructorData, { merge: true });
-
-    // Update counters and teacher arrays (your existing logic)
-    const updatePromises = [];
-
-    // Update organization teachers (check for duplicate)
-    if (!(await checkUIDExists(`organization/${organizationId}`, instructorId))) {
-      updatePromises.push(
-        updateDoc(organizationRef, { 
-          teachers: arrayUnion(instructorId),
-          total_teachers: increment(1)
-        })
-      );
-    }
-
-    // Update project teachers (check for duplicate)
-    if (!(await checkUIDExists(`organization/${organizationId}/projects/${projectId}`, instructorId))) {
-      updatePromises.push(
-        updateDoc(projectRef, { 
-          teachers: arrayUnion(instructorId),
-          total_teachers: increment(1)
-        })
-      );
-    }
-
-    // Update each school teachers (check for duplicates)
-    for (const schoolId of schoolIds) {
-      const schoolRef = doc(db, `organization/${organizationId}/projects/${projectId}/schools`, schoolId);
-      if (!(await checkUIDExists(`organization/${organizationId}/projects/${projectId}/schools/${schoolId}`, instructorId))) {
-        updatePromises.push(
-          updateDoc(schoolRef, { 
-            teachers: arrayUnion(instructorId),
-            total_teachers: increment(1)
-          })
-        );
+      } else {
+        updatedOrganizations = [
+          ...(existingInstructorData.organizations || []),
+          {
+            name: organizationData.name || "Unknown Organization",
+            id: organizationId,
+            projects: [
+              {
+                name: projectData.name || "Unknown Project",
+                id: projectId,
+                schools: schoolsData.map(school => ({ id: school.id, name: school.name }))
+              }
+            ]
+          }
+        ];
       }
-    }
 
-    await Promise.all(updatePromises);
-    await fetchInstructors(); // Refresh list
-    return { success: true, instructorId };
-  } catch (err) {
-    setError(`Failed to update instructor assignment: ${err.message}`);
-    throw err;
-  } finally {
-    setLoading(false);
-  }
-};
+      await setDoc(doc(db, "user", instructorId), {
+        ...existingInstructorData,
+        organizations: updatedOrganizations,
+        lastUpdated: new Date().toISOString(),
+      }, { merge: true });
+
+      const updatePromises = [];
+      if (!(await checkUIDExists(`organization/${organizationId}`, instructorId))) {
+        updatePromises.push(updateDoc(organizationRef, { teachers: arrayUnion(instructorId), total_teachers: increment(1) }));
+      }
+      if (!(await checkUIDExists(`organization/${organizationId}/projects/${projectId}`, instructorId))) {
+        updatePromises.push(updateDoc(projectRef, { teachers: arrayUnion(instructorId), total_teachers: increment(1) }));
+      }
+      for (const schoolId of schoolIds) {
+        const schoolRef = doc(db, `organization/${organizationId}/projects/${projectId}/schools`, schoolId);
+        if (!(await checkUIDExists(`organization/${organizationId}/projects/${projectId}/schools/${schoolId}`, instructorId))) {
+          updatePromises.push(updateDoc(schoolRef, { teachers: arrayUnion(instructorId), total_teachers: increment(1) }));
+        }
+      }
+
+      await Promise.all(updatePromises);
+      await fetchInstructors();
+      return { success: true, instructorId };
+    } catch (err) {
+      setError(`Failed to update instructor assignment: ${err.message}`);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchInstructors();
   }, [fetchInstructors]);
 
-  return { instructors, loading, error, refetchInstructors: fetchInstructors, updateInstructor ,  updateInstructorAssignment };
+  return { instructors, loading, error, refetchInstructors: fetchInstructors, updateInstructor, updateInstructorAssignment };
 }

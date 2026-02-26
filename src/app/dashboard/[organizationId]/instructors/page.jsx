@@ -42,17 +42,21 @@ export default function InstructorsPage() {
   const canUpdateRoles = userRole === 'super_admin';
 
   const getRoleBadgeColor = (role) => {
-    switch (role) {
-      case 'super_admin':
-        return 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-sm';
-      case 'admin':
-        return 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-sm';
-      case 'teacher':
-        return 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm';
-      default:
-        return 'bg-gradient-to-r from-gray-500 to-gray-600 text-white shadow-sm';
-    }
-  };
+  switch (role) {
+    case 'super_admin':
+      return 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-sm';
+    case 'admin':
+      return 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-sm';
+    case 'project_manager':
+      return 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-sm';
+    case 'school_head':
+      return 'bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-sm';
+    case 'teacher':
+      return 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm';
+    default:
+      return 'bg-gradient-to-r from-gray-500 to-gray-600 text-white shadow-sm';
+  }
+};
 
   useEffect(() => {
     const fetchData = async () => {
@@ -200,12 +204,16 @@ export default function InstructorsPage() {
       return [
         { value: 'super_admin', label: 'Super Admin' },
         { value: 'admin', label: 'Admin' },
+        {value: 'project_manager', label: 'Project Manager'},
+        {value: 'school_head', label: 'School Head'},
         { value: 'teacher', label: 'Teacher' }
       ];
     } else {
       return [
         { value: 'admin', label: 'Admin' },
-        { value: 'teacher', label: 'Teacher' }
+        { value: 'teacher', label: 'Teacher' },
+        {value: 'project_manager', label: 'Project Manager'},
+        {value: 'school_head', label: 'School Head'},
       ];
     }
   };

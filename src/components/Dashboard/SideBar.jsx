@@ -166,21 +166,20 @@ const Sidebar = ({
     MENU_WEIGHTS.SURVEY
   );
 
-  // Admin-only menu items with weights - Now with correct order weights
   const superAdminMenuItems = [
     createMenuItem(
       "Instructors", 
       <FiUserCheck size={20} />, 
       `/dashboard/${organizationId}/instructors`,
       "instructors",
-      MENU_WEIGHTS.INSTRUCTORS  // Weight 400 - after Schools
+      MENU_WEIGHTS.INSTRUCTORS  
     ),
     createMenuItem(
       "Students", 
       <FiUsers size={20} />, 
       `/dashboard/${organizationId}/admin/students`,
       "students",
-      MENU_WEIGHTS.STUDENTS  // Weight 500 - after Instructors
+      MENU_WEIGHTS.STUDENTS  
     ),
     createMenuItem(
       "Ai Assistant",
@@ -197,26 +196,87 @@ const Sidebar = ({
       <FiUserCheck size={20} />, 
       `/dashboard/${organizationId}/instructors`,
       "instructors",
-      MENU_WEIGHTS.INSTRUCTORS  // Weight 400 - after Schools
+      MENU_WEIGHTS.INSTRUCTORS  
     ),
     createMenuItem(
       "Students", 
       <FiUsers size={20} />, 
       `/dashboard/${organizationId}/admin/students`,
       "students",
-      MENU_WEIGHTS.STUDENTS  // Weight 500 - after Instructors
+      MENU_WEIGHTS.STUDENTS  
     ),
     createMenuItem(
       "Ai Assistant",
       <FiMessageSquare size={20} />,
       `/dashboard/${organizationId}/ai-assistant`,
       "ai-assistant",
-      MENU_WEIGHTS.AI_ASSISTANT  // Weight 800 - after Attendance
+      MENU_WEIGHTS.AI_ASSISTANT  
     ),
+  ];
+  const managerMenuItems = [
+    createMenuItem(
+      "Instructors", 
+      <FiUserCheck size={20} />, 
+      `/dashboard/${organizationId}/instructors`,
+      "instructors",
+      MENU_WEIGHTS.INSTRUCTORS  
+    ),
+    createMenuItem(
+      "Students", 
+      <FiUsers size={20} />, 
+      `/dashboard/${organizationId}/admin/students`,
+      "students",
+      MENU_WEIGHTS.STUDENTS  
+    ),
+    // createMenuItem(
+    //   "Ai Assistant",
+    //   <FiMessageSquare size={20} />,
+    //   `/dashboard/${organizationId}/ai-assistant`,
+    //   "ai-assistant",
+    //   MENU_WEIGHTS.AI_ASSISTANT  
+    // ),
+  ];
+  const headMenuItems = [
+    createMenuItem(
+      "Instructors", 
+      <FiUserCheck size={20} />, 
+      `/dashboard/${organizationId}/instructors`,
+      "instructors",
+      MENU_WEIGHTS.INSTRUCTORS  
+    ),
+    createMenuItem(
+      "Students", 
+      <FiUsers size={20} />, 
+      `/dashboard/${organizationId}/admin/students`,
+      "students",
+      MENU_WEIGHTS.STUDENTS  
+    ),
+    // createMenuItem(
+    //   "Ai Assistant",
+    //   <FiMessageSquare size={20} />,
+    //   `/dashboard/${organizationId}/ai-assistant`,
+    //   "ai-assistant",
+    //   MENU_WEIGHTS.AI_ASSISTANT  
+    // ),
   ];
 
   // Teacher-only menu items 
-  const teacherMenuItems = [];
+  const teacherMenuItems = [
+    createMenuItem(
+      "Instructors", 
+      <FiUserCheck size={20} />, 
+      `/dashboard/${organizationId}/instructors`,
+      "instructors",
+      MENU_WEIGHTS.INSTRUCTORS  
+    ),
+    createMenuItem(
+      "Students", 
+      <FiUsers size={20} />, 
+      `/dashboard/${organizationId}/admin/students`,
+      "students",
+      MENU_WEIGHTS.STUDENTS  
+    ),
+  ];
 
   // Sort menu items by weight
   const sortMenuItemsByWeight = (items) => {
@@ -241,6 +301,11 @@ const Sidebar = ({
       case "admin":
         items = [...items, ...adminMenuItems];
         break;
+      case "project_manager":
+        items = [...items, ...managerMenuItems];
+        break;
+      case "school_head":
+        items = [...items, ...headMenuItems];
       case "teacher":
         items = [...items, ...teacherMenuItems];
         break;

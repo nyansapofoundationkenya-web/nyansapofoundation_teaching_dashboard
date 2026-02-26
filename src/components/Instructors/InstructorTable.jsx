@@ -38,8 +38,14 @@ export default function InstructorTable({
   const [loadingPins, setLoadingPins] = useState({});
   const [revealedPins, setRevealedPins] = useState({});
 
-  const canViewPins = userRole === 'admin' || userRole === 'super_admin';
-  const canExport = userRole === 'admin' || userRole === 'super_admin';
+  const canViewPins =
+  userRole === "admin" ||
+  userRole === "super_admin" ||
+  userRole === "project_manager" ||
+  userRole === "school_head" ||
+  userRole === "teacher";
+  const canExport = userRole === 'admin' || userRole === 'super_admin' || userRole === "project_manager" ||
+  userRole === "school_head" ;
 
   const filteredInstructors = useMemo(() => {
     if (!searchQuery || searchQuery.trim() === '') {
