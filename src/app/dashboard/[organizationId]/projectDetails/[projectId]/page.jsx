@@ -429,6 +429,8 @@ export default function ProjectDetails() {
         onClose={() => setIsSchoolsListModalOpen(false)}
         schools={schools}
         onSchoolClick={handleSchoolClick}
+        organizationId={organizationId}
+        projectId={projectId}
       />
 
       <InstructorModal
