@@ -40,7 +40,7 @@ export default function StudentDetailsPage() {
         
         if (resultSnap.exists()) {
           const resultData = resultSnap.data();
-          const instructorId = resultData.instructorId;
+          const instructorId = resultData.instructor_id;
           
           // Only show assessed by if instructorId exists
           if (instructorId) {
@@ -50,8 +50,7 @@ export default function StudentDetailsPage() {
               
               if (userSnap.exists()) {
                 const userData = userSnap.data();
-                const fullName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim();
-                setInstructorName(fullName || userData.email || 'Unknown Instructor');
+                setInstructorName(userData.name || userData.email || 'Unknown Instructor');
                 setShowAssessedBy(true);
               }
             } catch (instructorErr) {
