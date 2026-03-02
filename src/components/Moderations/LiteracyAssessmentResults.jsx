@@ -1,3 +1,4 @@
+// app/dashboard/[organizationId]/assessments/[assessmentId]/students/[studentId]/results/page.jsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -5,6 +6,7 @@ import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
+import { getColoredWords } from "@/utils/wordComparison";
 
 export default function StudentAssessmentResults({ assessmentId, studentId, organizationId }) {
   const [results, setResults] = useState(null);
@@ -80,92 +82,6 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
     } catch {
       return timeStr; // fallback to raw if parsing fails
     }
-  };
-
-  function normalizeText(text) {
-    return text
-      .toLowerCase()
-      .replace(/[^\w\s]/g, " ")
-      .split(/\s+/)
-      .filter(Boolean);
-  }
-
-  function levenshteinAlignment(expectedWords, spokenWords) {
-    const m = expectedWords.length;
-    const n = spokenWords.length;
-    const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
-
-    for (let i = 0; i <= m; i++) dp[i][0] = i;
-    for (let j = 0; j <= n; j++) dp[0][j] = j;
-
-    for (let i = 1; i <= m; i++) {
-      for (let j = 1; j <= n; j++) {
-        if (expectedWords[i - 1] === spokenWords[j - 1]) {
-          dp[i][j] = dp[i - 1][j - 1];
-        } else {
-          dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-        }
-      }
-    }
-
-    const matchedIndices = new Set();
-    let i = m,
-      j = n;
-    while (i > 0 && j > 0) {
-      if (expectedWords[i - 1] === spokenWords[j - 1]) {
-        matchedIndices.add(i - 1);
-        i--;
-        j--;
-      } else if (dp[i - 1][j - 1] <= dp[i - 1][j] && dp[i - 1][j - 1] <= dp[i][j]) {
-        i--;
-        j--;
-      } else if (dp[i - 1][j] < dp[i][j]) {
-        i--;
-      } else {
-        j--;
-      }
-    }
-
-    const mistakes = dp[m][n];
-    return { mistakes, matchedIndices };
-  }
-
-  const getColoredWords = (content, transcript) => {
-    if (!content) {
-      return {
-        coloredWords: null,
-        stats: { totalWords: 0, mistakes: 0, accuracy: 0 },
-      };
-    }
-
-    const expectedWords = normalizeText(content);
-    const spokenWords = normalizeText(transcript || "");
-
-    const { mistakes, matchedIndices } = levenshteinAlignment(expectedWords, spokenWords);
-
-    const totalWords = expectedWords.length;
-    const accuracy = totalWords ? Math.max(0, ((totalWords - mistakes) / totalWords) * 100) : 0;
-
-    const contentWords = content.trim().split(/\s+/);
-
-    const coloredWords = contentWords.map((word, index) => {
-      const cleanWord = word.replace(/[^\w\s]/g, "").toLowerCase();
-      const matched = matchedIndices.has(index);
-
-      return (
-        <span
-          key={index}
-          className={`mr-1 font-semibold ${matched ? "text-secondary-2" : "text-red-400"}`}
-        >
-          {word}
-        </span>
-      );
-    });
-
-    return {
-      coloredWords,
-      stats: { totalWords, mistakes, accuracy: accuracy.toFixed(1) },
-    };
   };
 
   if (loading) return <div className="text-foreground">Loading...</div>;
@@ -336,7 +252,7 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
         )}
       </div>
 
-      {/* Comprehension Questions (unchanged – add done_time if needed later) */}
+      {/* Comprehension Questions */}
       {comprehensionMultipleChoice.length > 0 && (
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4 text-primary-3">Comprehension Questions</h2>
