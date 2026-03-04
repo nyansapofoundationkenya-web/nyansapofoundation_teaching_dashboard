@@ -385,7 +385,10 @@ async function fetchStudentDataFromFirebase(
           // Extract student information
           const student = {
             id: studentId,
-            name: studentData.name || studentData.student_name || '',
+            name:
+              studentData.name ||
+              `${studentData.first_name || ''} ${studentData.last_name || ''}`.trim() ||
+              '',
             project: projectName,
             school: schoolName,
             grade: studentData.grade || studentData.class || '',
