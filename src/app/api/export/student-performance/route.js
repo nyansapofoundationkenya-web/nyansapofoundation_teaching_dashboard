@@ -323,14 +323,14 @@ async function fetchStudentDataFromFirebase(
     for (const { id: projectId, data: projectData } of projectsToProcess) {
       const projectName = projectData.name || projectData.project_name || projectId;
       
-      console.log(`  📁 Project: ${projectName}`);
+      console.log(` Project: ${projectName}`);
       
       // Determine which schools to fetch
       let schoolsToProcess = [];
       
       if (targetSchoolId && targetProjectId === projectId) {
         // Fetch specific school in this project
-        console.log(`    🏫 Targeting specific school: ${targetSchoolId}`);
+        console.log(`  Targeting specific school: ${targetSchoolId}`);
         const schoolDoc = await db.collection(`organization/${organizationId}/projects/${projectId}/schools`).doc(targetSchoolId).get();
         if (schoolDoc.exists) {
           schoolsToProcess.push({
@@ -349,11 +349,10 @@ async function fetchStudentDataFromFirebase(
       }
       
       if (schoolsToProcess.length === 0) {
-        console.log(`    📭 No schools to process in project`);
+        console.log(` No schools to process in project`);
         continue;
       }
-
-      console.log(`    🏫 Processing ${schoolsToProcess.length} schools`);
+      console.log(`Processing ${schoolsToProcess.length} schools`);
       
       // Process each school
       for (const { id: schoolId, data: schoolData } of schoolsToProcess) {
@@ -364,11 +363,11 @@ async function fetchStudentDataFromFirebase(
         const studentsSnapshot = await studentsRef.get();
         
         if (studentsSnapshot.empty) {
-          console.log(`      👤 No students found in school: ${schoolName}`);
+          console.log(` No students found in school: ${schoolName}`);
           continue;
         }
 
-        console.log(`      👥 Found ${studentsSnapshot.docs.length} students in ${schoolName}`);
+        console.log(`Found ${studentsSnapshot.docs.length} students in ${schoolName}`);
         
         // Process each student
         for (const studentDoc of studentsSnapshot.docs) {
@@ -390,7 +389,7 @@ async function fetchStudentDataFromFirebase(
             project: projectName,
             school: schoolName,
             grade: studentData.grade || studentData.class || '',
-            gender: studentData.gender || '',
+            gender: studentData.sex || studentData.gender || '',
             literacy_baseline: studentData.baseline,
             literacy_endline: studentData.endline,
             numeracy_baseline: studentData.baseline_numeracy,
@@ -406,11 +405,11 @@ async function fetchStudentDataFromFirebase(
       }
     }
 
-    console.log(`✅ Total students collected: ${students.length}`);
+    console.log(` Total students collected: ${students.length}`);
     return students;
 
   } catch (error) {
-    console.error('❌ Error fetching student data:', error);
+    console.error(' Error fetching student data:', error);
     throw error;
   }
 }
