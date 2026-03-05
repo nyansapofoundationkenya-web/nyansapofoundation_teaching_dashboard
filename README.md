@@ -1,3 +1,5 @@
+![Alt](https://repobeats.axiom.co/api/embed/ff2801faf7232c052ad93fb36a7a2368b99822a9.svg "Repobeats analytics image")
+
 # Nyansapo Teaching Dashboard
 
 > A comprehensive dashboard for monitoring and managing mobile assessment progress
