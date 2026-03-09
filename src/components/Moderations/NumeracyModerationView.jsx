@@ -24,7 +24,8 @@ export default function NumeracyModerationView({
 }) {
   const [validationStatus, setValidationStatus] = useState("unvalidated");
 
-  //Moderation handlers
+  // ── Moderation handlers ──────────────────────────────────────────────────
+
   const handleBadAudio = () => {
     if (currentSection === "number_recognition") {
       setValidationStatus("bad_audio");
@@ -78,7 +79,8 @@ export default function NumeracyModerationView({
     updateNumeracyResult({ metadata: { workout_screenshot_url: url } });
   };
 
-  //Shared render helpers
+  // ── Shared render helpers ────────────────────────────────────────────────
+
   const renderTranscriptEdit = () => {
     if (!editMode) return null;
     return (
@@ -96,17 +98,21 @@ export default function NumeracyModerationView({
   };
 
   const renderTranscriptDisplay = (transcript) => {
-    if (!transcript) return null;
+    // Always render when editing so the textarea never disappears
+    // even if the user clears the transcript field.
+    if (!transcript && !editMode) return null;
     return (
       <div className="mt-4">
         <div className="text-sm text-gray-400 mb-2">Transcript</div>
-        <div className={`text-lg font-medium p-3 rounded-lg ${
-          currentResult.metadata?.passed || currentResult.passed
-            ? "bg-secondary-2/20 text-secondary-2 border border-secondary-2/30"
-            : "bg-red-400/20 text-red-400 border border-red-400/30"
-        }`}>
-          "{transcript}"
-        </div>
+        {!editMode && (
+          <div className={`text-lg font-medium p-3 rounded-lg ${
+            currentResult.metadata?.passed || currentResult.passed
+              ? "bg-secondary-2/20 text-secondary-2 border border-secondary-2/30"
+              : "bg-red-400/20 text-red-400 border border-red-400/30"
+          }`}>
+            "{transcript}"
+          </div>
+        )}
         {renderTranscriptEdit()}
       </div>
     );
@@ -160,7 +166,8 @@ export default function NumeracyModerationView({
     </div>
   );
 
-  //Section cards
+  // ── Section cards ────────────────────────────────────────────────────────
+
   const renderSectionContent = () => {
     switch (currentSection) {
       case "count_and_match":    return renderCountAndMatchCard();
@@ -514,7 +521,7 @@ export default function NumeracyModerationView({
               <LazyImagePanel
                 label="Workout Screenshot"
                 savedUrl={savedWorkoutUrl}
-                findUrl={() => findWordProblemWorkoutUrl(assessmentId, studentId, currentResult)}
+                findUrl={() => findWordProblemWorkoutUrl(assessmentId, studentId, currentResult, currentIndex)}
                 onUrlResolved={handleWorkoutUrlResolved}
               />
             </div>
