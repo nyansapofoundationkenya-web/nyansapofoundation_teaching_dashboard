@@ -27,7 +27,7 @@ export default function NumeracyModerationContent({
   const [savingFlagReasons, setSavingFlagReasons]     = useState(false);
 
   const backUrl = `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}`;
-  const { saveNumeracyFlagReasons, incrementResolved } = useNumeracyFlagReasons(assessmentId, studentId);
+  const { incrementResolved } = useNumeracyFlagReasons(assessmentId, studentId);
 
   // ── URL param sync ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -102,12 +102,16 @@ export default function NumeracyModerationContent({
       const freshResults = [...(freshData.numeracy_results?.[freshSection] || [])];
       if (!freshResults[freshIndex]) { setError("Result not found"); return false; }
 
+      // Split top-level fields (like flagged) from the rest
+      const { flagged, metadata: metadataUpdates, ...otherTopLevel } = updates;
+
       const updatedResult = {
         ...freshResults[freshIndex],
-        ...updates,
+        ...otherTopLevel,
+        ...(flagged !== undefined && { flagged }),
         metadata: {
           ...freshResults[freshIndex].metadata,
-          ...updates.metadata,
+          ...(metadataUpdates || {}),
           moderation_timestamp: new Date().toISOString(),
         },
       };
@@ -116,8 +120,8 @@ export default function NumeracyModerationContent({
       await updateDoc(docRef, { [`numeracy_results.${freshSection}`]: freshResults });
 
       // If this flagged item just got moderated → increment resolved counter
-      const justModerated = updates.metadata?.modeltranscriptionverified === true;
-      if (justModerated && freshResults[freshIndex]?.flagged) {
+      const justModerated = metadataUpdates?.modeltranscriptionverified === true;
+      if (justModerated && freshResults[freshIndex]?.flagged === false && freshData.numeracy_results?.[freshSection]?.[freshIndex]?.flagged === true) {
         await incrementResolved();
       }
 
@@ -134,7 +138,7 @@ export default function NumeracyModerationContent({
     }
   };
 
-  // ── NEW: Handle correct (sets passed: true only) ──
+  // ── Handle correct (sets passed: true only) ──
   const handleCorrect = async () => {
     await updateNumeracyResult({
       metadata: {
@@ -147,7 +151,7 @@ export default function NumeracyModerationContent({
     });
   };
 
-  // ── NEW: Handle incorrect (sets passed: false only) ──
+  // ── Handle incorrect (sets passed: false only) ──
   const handleIncorrect = async () => {
     await updateNumeracyResult({
       metadata: {
@@ -159,13 +163,12 @@ export default function NumeracyModerationContent({
     });
   };
 
-  // ── NEW: Handle save edit (NO modeltranscriptionverified) ──
+  // ── Handle save edit (NO modeltranscriptionverified) ──
   const handleSaveEdit = async () => {
     if (editedTranscript.trim() === "") {
       setError("Transcript cannot be empty");
       return;
     }
-    
     await updateNumeracyResult({
       metadata: {
         transcript: editedTranscript,
@@ -176,9 +179,10 @@ export default function NumeracyModerationContent({
     setError(null);
   };
 
-  // ── NEW: Handle final confirmation (only this sets modeltranscriptionverified: true) ──
+  // ── Handle final confirmation (sets modeltranscriptionverified: true + flagged: false) ──
   const handleConfirmModeration = async () => {
     await updateNumeracyResult({
+      flagged: false,
       metadata: {
         modeltranscriptionverified: true,
         moderated: true,
@@ -186,23 +190,14 @@ export default function NumeracyModerationContent({
     });
   };
 
-  // ── Save flag reasons ─────────────────────────────────────────────────────
+  // ── Save flag reasons — only increments resolved, does NOT persist reasons ─
   const handleSaveFlagReasons = async (reasonType, newReasons, prevReasons) => {
-    const freshIndex   = parseInt(searchParams.get("index") || "0", 10);
-    const freshSection = searchParams.get("section") || currentSection;
-
     setSavingFlagReasons(true);
     try {
-      const updatedArray = await saveNumeracyFlagReasons(
-        freshSection, freshIndex, reasonType, newReasons, prevReasons
-      );
-      setAssessmentData(prev => ({
-        ...prev,
-        numeracy_results: { ...prev.numeracy_results, [freshSection]: updatedArray },
-      }));
+      await incrementResolved();
     } catch (err) {
-      console.error("Failed to save flag reasons:", err);
-      setError("Failed to save flag reasons");
+      console.error("Failed to increment resolved:", err);
+      setError("Failed to process flag reasons");
     } finally {
       setSavingFlagReasons(false);
     }
@@ -295,7 +290,6 @@ export default function NumeracyModerationContent({
 
   const getCurrentResult = () => getCurrentResults()[currentIndex] || null;
 
-  // Track if user has made a decision (for showing confirm button)
   const hasMadeDecision = editMode || 
     (getCurrentResult()?.metadata?.passed !== undefined);
 
@@ -399,7 +393,6 @@ export default function NumeracyModerationContent({
             existingImageReasons={currentResult?.image_flag_reasons || []}
             onSaveFlagReasons={handleSaveFlagReasons}
             savingFlagReasons={savingFlagReasons}
-            // New props for the action handlers
             onCorrect={handleCorrect}
             onIncorrect={handleIncorrect}
             onSaveEdit={handleSaveEdit}

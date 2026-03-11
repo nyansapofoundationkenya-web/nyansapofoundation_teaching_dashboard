@@ -28,36 +28,37 @@ export default function NumeracyAssessmentResults({
    * Scans every section. For any item where passed=false and not yet flagged,
    * calls flagItem() which safely reads→mutates→writes the full array back.
    */
-  const autoFlagAll = async (data) => {
-    const numeracy = data?.numeracy_results || {};
+const autoFlagAll = async (data) => {
+  const numeracy = data?.numeracy_results || {};
 
-    for (const section of Object.keys(numeracy)) {
-      const arr = numeracy[section];
-      if (!Array.isArray(arr)) continue;
+  for (const section of Object.keys(numeracy)) {
+    const arr = numeracy[section];
+    if (!Array.isArray(arr)) continue;
 
-      for (let i = 0; i < arr.length; i++) {
-        const item   = arr[i];
-        const passed = item?.metadata?.passed ?? item?.passed;
+    for (let i = 0; i < arr.length; i++) {
+      const item       = arr[i];
+      const passed     = item?.metadata?.passed ?? item?.passed;
+      const isModerated = item?.metadata?.modeltranscriptionverified === true;
 
-        if (passed === false && item?.flagged !== true) {
-          try {
-            await flagNumeracyItem(section, i);
-            // Update local state so flag icon appears immediately
-            setLocalResults(prev => {
-              const sectionArr      = [...(prev.numeracy_results[section] || [])];
-              sectionArr[i]         = { ...sectionArr[i], flagged: true };
-              return {
-                ...prev,
-                numeracy_results: { ...prev.numeracy_results, [section]: sectionArr },
-              };
-            });
-          } catch (err) {
-            console.error(`Auto-flag failed for ${section}[${i}]:`, err);
-          }
-        }
+      // Skip if: not failed, already flagged, or already moderated
+      if (passed !== false || item?.flagged === true || isModerated) continue;
+
+      try {
+        await flagNumeracyItem(section, i);
+        setLocalResults(prev => {
+          const sectionArr = [...(prev.numeracy_results[section] || [])];
+          sectionArr[i]    = { ...sectionArr[i], flagged: true };
+          return {
+            ...prev,
+            numeracy_results: { ...prev.numeracy_results, [section]: sectionArr },
+          };
+        });
+      } catch (err) {
+        console.error(`Auto-flag failed for ${section}[${i}]:`, err);
       }
     }
-  };
+  }
+};
 
   const handleResultsClick = (result, type, section, index) => {
     router.push(

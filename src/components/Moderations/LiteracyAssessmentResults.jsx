@@ -20,14 +20,13 @@ export default function LiteracyAssessmentResults({
   const { user: currentUser }     = useSelector((state) => state.auth);
   const userRole                  = currentUser?.role;
 
-  const { flagLiteracyReadingItem, flagLiteracyComprehensionItem } =
+  const { flagLiteracyReadingItem } =
     useFlagItem(assessmentId, studentId, "literacy");
 
   // ── Load results + auto-flag once ────────────────────────────────────────
   useEffect(() => {
     if (!initialResults || autoFlaggedRef.current) return;
 
-    // Ensure literacy_results exists
     const data = { ...initialResults };
     data.literacy_results = data.literacy_results || {};
     data.literacy_results.reading_results = data.literacy_results.reading_results || [];
@@ -38,83 +37,32 @@ export default function LiteracyAssessmentResults({
   }, [initialResults]);
 
   /**
-   * Scans reading_results and comprehension questions.
-   * Flags any item where passed=false and flagged is not already true.
+   * Scans reading_results only.
+   * Flags any item where passed=false, not already flagged, and not already moderated.
    */
-  const autoFlagAll = async (data) => {
-    const literacy = data?.literacy_results || {};
+const autoFlagAll = async (data) => {
+  const readingResults = data?.literacy_results?.reading_results || [];
 
-    // ── 1. Reading results (flat array, use globalIndex) ──────────────────
-    const readingResults = literacy.reading_results || [];
-    for (let i = 0; i < readingResults.length; i++) {
-      const item   = readingResults[i];
-      const passed = item?.metadata?.passed;
-      if (passed === false && item?.flagged !== true) {
-        try {
-          await flagLiteracyReadingItem(i);
-          setResults(prev => {
-            const arr = [...(prev.literacy_results.reading_results || [])];
-            arr[i]    = { ...arr[i], flagged: true };
-            return { ...prev, literacy_results: { ...prev.literacy_results, reading_results: arr } };
-          });
-        } catch (err) {
-          console.error(`Auto-flag failed for reading_results[${i}]:`, err);
-        }
-      }
-    }
+  for (let i = 0; i < readingResults.length; i++) {
+    const item        = readingResults[i];
+    const passed      = item?.metadata?.passed;
+    const isModerated = item?.metadata?.modeltranscriptionverified === true;
 
-    // ── 2. Comprehension (nested groups) ──────────────────────────────────
-    const compGroups = literacy.comprehension_multiple_choice_questions || [];
-    for (let g = 0; g < compGroups.length; g++) {
-      const questions = compGroups[g]?.questions || [];
-      for (let q = 0; q < questions.length; q++) {
-        const question = questions[q];
-        if (question?.passed === false && question?.flagged !== true) {
-          try {
-            await flagLiteracyComprehensionItem(
-              "comprehension_multiple_choice_questions", g, q
-            );
-            setResults(prev => {
-              const groups = JSON.parse(
-                JSON.stringify(prev.literacy_results.comprehension_multiple_choice_questions || [])
-              );
-              groups[g].questions[q] = { ...groups[g].questions[q], flagged: true };
-              return {
-                ...prev,
-                literacy_results: {
-                  ...prev.literacy_results,
-                  comprehension_multiple_choice_questions: groups,
-                },
-              };
-            });
-          } catch (err) {
-            console.error(`Auto-flag failed for comp[${g}].questions[${q}]:`, err);
-          }
-        }
-      }
-    }
+    // Skip if: not failed, already flagged, or already moderated
+    if (passed !== false || item?.flagged === true || isModerated) continue;
 
-    // ── 3. Flat multiple choice ───────────────────────────────────────────
-    const flatMC = literacy.multiple_choice_questions || [];
-    for (let i = 0; i < flatMC.length; i++) {
-      const question = flatMC[i];
-      if (question?.passed === false && question?.flagged !== true) {
-        try {
-          await flagLiteracyComprehensionItem("multiple_choice_questions", 0, i);
-          setResults(prev => {
-            const arr = [...(prev.literacy_results.multiple_choice_questions || [])];
-            arr[i]    = { ...arr[i], flagged: true };
-            return {
-              ...prev,
-              literacy_results: { ...prev.literacy_results, multiple_choice_questions: arr },
-            };
-          });
-        } catch (err) {
-          console.error(`Auto-flag failed for multiple_choice_questions[${i}]:`, err);
-        }
-      }
+    try {
+      await flagLiteracyReadingItem(i);
+      setResults(prev => {
+        const arr = [...(prev.literacy_results.reading_results || [])];
+        arr[i]    = { ...arr[i], flagged: true };
+        return { ...prev, literacy_results: { ...prev.literacy_results, reading_results: arr } };
+      });
+    } catch (err) {
+      console.error(`Auto-flag failed for reading_results[${i}]:`, err);
     }
-  };
+  }
+};
 
   const handleResultsClick = (result, type, filteredIndex) => {
     const typeMap = { "Letter Recognition": "letter", Word: "word", Paragraph: "paragraph", Story: "story" };
@@ -138,7 +86,6 @@ export default function LiteracyAssessmentResults({
     } catch { return timeStr; }
   };
 
-  // ── Read-only flag indicator ──────────────────────────────────────────────
   const FlagIndicator = ({ flagged }) => {
     if (!flagged) return null;
     return (
@@ -153,7 +100,6 @@ export default function LiteracyAssessmentResults({
   const literacyResults = results.literacy_results || {};
   const readingResults  = literacyResults.reading_results || [];
 
-  // Filter by type — same logic as original
   const letterResults    = readingResults.filter(r => r?.metadata?.type === "Letter"    || r?.type === "Letter");
   const wordResults      = readingResults.filter(r => r?.metadata?.type === "Word"      || r?.type === "Word");
   const paragraphResults = readingResults.filter(r => r?.metadata?.type === "Paragraph" || r?.type === "Paragraph");
@@ -182,15 +128,12 @@ export default function LiteracyAssessmentResults({
                 }`}
               >
                 <FlagIndicator flagged={result.flagged} />
-
                 <span className="block">{result.content}</span>
-
                 <span className={`absolute -top-2 -right-2 w-5 h-5 rounded-full text-white text-xs flex items-center justify-center shadow ${
                   result?.metadata?.passed ? "bg-secondary-2" : "bg-red-400"
                 }`}>
                   {result?.metadata?.passed ? "✓" : "✕"}
                 </span>
-
                 {result?.metadata?.done_time && (
                   <div className="text-xs text-gray-500 mt-1">
                     {formatDoneTime(result.metadata.done_time)}
@@ -220,15 +163,12 @@ export default function LiteracyAssessmentResults({
                 }`}
               >
                 <FlagIndicator flagged={result.flagged} />
-
                 <span className="block">{result.content}</span>
-
                 <span className={`absolute -top-2 -right-2 w-5 h-5 rounded-full text-white text-xs flex items-center justify-center shadow ${
                   result?.metadata?.passed ? "bg-secondary-2" : "bg-red-400"
                 }`}>
                   {result?.metadata?.passed ? "✓" : "✕"}
                 </span>
-
                 {result?.metadata?.done_time && (
                   <div className="text-xs text-gray-500 mt-1">
                     {formatDoneTime(result.metadata.done_time)}
@@ -321,8 +261,7 @@ export default function LiteracyAssessmentResults({
                     key={questionIndex}
                     className="relative p-4 bg-background-light rounded-lg border border-gray-700"
                   >
-                    <FlagIndicator flagged={question.flagged} />
-                    <p className="font-medium mb-3 text-foreground pr-5">{question.question}</p>
+                    <p className="font-medium mb-3 text-foreground">{question.question}</p>
                     <ul className="list-none pl-0 space-y-2">
                       {question.options?.map((option, optIndex) => (
                         <li
@@ -370,8 +309,7 @@ export default function LiteracyAssessmentResults({
           <h2 className="text-xl font-semibold mb-4 text-primary-3">Comprehension Questions</h2>
           {flatMultipleChoice.map((question, index) => (
             <div key={index} className="relative mb-4 p-4 bg-background-light rounded-xl border border-gray-600">
-              <FlagIndicator flagged={question.flagged} />
-              <p className="font-medium mb-2 text-foreground pr-5">{question.question}</p>
+              <p className="font-medium mb-2 text-foreground">{question.question}</p>
               <ul className="list-none pl-0 text-gray-300">
                 {question.options.map((option, optIndex) => (
                   <li

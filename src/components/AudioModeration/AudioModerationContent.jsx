@@ -32,7 +32,7 @@ export default function AudioModerationContent({
   const [savingFlagReasons, setSavingFlagReasons]   = useState(false);
 
   const backUrl = `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}`;
-  const { saveFlagReasons, incrementResolved } = useFlagReasons(assessmentId, studentId);
+  const { incrementResolved } = useFlagReasons(assessmentId, studentId);
 
   const groupResultsByType = (results) => {
     const groups = { letter: [], word: [], paragraph: [], story: [] };
@@ -133,9 +133,13 @@ export default function AudioModerationContent({
       const updatedData  = { ...assessmentData };
       const allResults   = [...updatedData.literacy_results.reading_results];
 
+      // Split top-level fields (like flagged) from metadata updates
+      const { flagged, ...metadataUpdates } = updates;
+
       allResults[globalIndex] = {
         ...allResults[globalIndex],
-        metadata: { ...allResults[globalIndex].metadata, ...updates },
+        ...(flagged !== undefined && { flagged }),
+        metadata: { ...allResults[globalIndex].metadata, ...metadataUpdates },
       };
 
       updatedData.literacy_results.reading_results = allResults;
@@ -153,14 +157,14 @@ export default function AudioModerationContent({
       });
 
       // If this flagged item just got moderated → increment resolved counter
-      if (updates.modeltranscriptionverified === true && currentResult.flagged) {
+      if (metadataUpdates.modeltranscriptionverified === true && currentResult.flagged) {
         await incrementResolved();
       }
 
       setModerationHistory(prev => [{
         section: currentSection,
         index: currentLocalIndex + 1,
-        action: updates.modeltranscriptionverified ? "moderated" : "updated",
+        action: metadataUpdates.modeltranscriptionverified ? "moderated" : "updated",
         timestamp: new Date().toISOString(),
       }, ...prev.slice(0, 9)]);
 
@@ -170,7 +174,7 @@ export default function AudioModerationContent({
     }
   };
 
-  // ── Save flag reasons ─────────────────────────────────────────────────────
+  // ── Save flag reasons — only increments resolved, does NOT persist reasons ─
   const handleSaveFlagReasons = async (newReasons) => {
     const sectionResults = groupedResults[currentSection] || [];
     const currentResult  = sectionResults[currentLocalIndex];
@@ -178,17 +182,10 @@ export default function AudioModerationContent({
 
     setSavingFlagReasons(true);
     try {
-      const prevReasons  = currentResult.flag_reasons || [];
-      const updatedArray = await saveFlagReasons(currentResult.globalIndex, newReasons, prevReasons);
-
-      // Update local state
-      const updatedData = { ...assessmentData };
-      updatedData.literacy_results.reading_results = updatedArray;
-      setAssessmentData(updatedData);
-      setGroupedResults(groupResultsByType(updatedArray));
+      await incrementResolved();
     } catch (err) {
-      console.error("Failed to save flag reasons:", err);
-      setError("Failed to save flag reasons");
+      console.error("Failed to increment resolved:", err);
+      setError("Failed to process flag reasons");
     } finally {
       setSavingFlagReasons(false);
     }
@@ -261,14 +258,15 @@ export default function AudioModerationContent({
     }
   };
 
-  // ── NEW: Handle final confirmation (only this sets modeltranscriptionverified: true) ──
+  // ── Handle final confirmation (sets modeltranscriptionverified: true + flagged: false) ──
   const handleConfirmModeration = async () => {
     await updateAssessmentResult({ 
-      modeltranscriptionverified: true 
+      modeltranscriptionverified: true,
+      flagged: false,
     });
   };
 
-  // ── Updated: Handle save edit (NO modeltranscriptionverified) ──
+  // ── Handle save edit (NO modeltranscriptionverified) ──
   const handleSaveEdit = async () => {
     if (editedTranscript.trim() === "") { 
       setError("Transcript cannot be empty"); 
@@ -278,31 +276,27 @@ export default function AudioModerationContent({
     const currentResult      = sectionResults[currentLocalIndex];
     const originalTranscript = currentResult?.metadata?.transcript || "";
     
-    // Don't set modeltranscriptionverified: true here
     await updateAssessmentResult({
       transcript: editedTranscript,
-      originalmodeltranscript: originalTranscript
-      // modeltranscriptionverified removed from here
+      originalmodeltranscript: originalTranscript,
     });
     setEditMode(false);
     setError(null);
   };
 
-  // ── Updated: Handle correct (sets passed: true only) ──
+  // ── Handle correct (sets passed: true only) ──
   const handleCorrect = async () => {
     setValidationStatus("validated");
     await updateAssessmentResult({ 
-      passed: true
-      // No modeltranscriptionverified
+      passed: true,
     });
   };
 
-  // ── Updated: Handle incorrect (sets passed: false only) ──
+  // ── Handle incorrect (sets passed: false only) ──
   const handleIncorrect = async () => {
     setValidationStatus("invalid");
     await updateAssessmentResult({ 
-      passed: false
-      // No modeltranscriptionverified
+      passed: false,
     });
   };
 
@@ -369,7 +363,6 @@ export default function AudioModerationContent({
   const availableSections = getAvailableSections();
   const isModerated     = currentResult?.metadata?.modeltranscriptionverified === true;
 
-  // Track if user has made a decision (for showing confirm button)
   const hasMadeDecision = editMode || 
     (currentResult?.metadata?.passed !== undefined) || 
     (currentResult?.metadata?.passed === false);
@@ -492,8 +485,6 @@ export default function AudioModerationContent({
                 {!hasNoResults && (
                   <>
                     <AudioPlayer currentResult={currentResult} />
-
-                    {/* Actions — disabled when already moderated */}
                     <ModerationActions
                       editMode={editMode}
                       setEditMode={setEditMode}
