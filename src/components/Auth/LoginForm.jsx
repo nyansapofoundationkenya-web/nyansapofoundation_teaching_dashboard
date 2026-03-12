@@ -285,6 +285,18 @@ export default function LoginForm() {
             <p className="text-xs text-gray-400 mt-1">
               Enter your 6-digit numeric PIN (numbers only)
             </p>
+            {/* PIN fill indicator */}
+                <div className="flex gap-1.5 mt-2">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-1 flex-1 rounded-full transition-all duration-200"
+                      style={{
+                        background: i < formik.values.pin.length ? '#f7cc1c' : 'rgba(255,255,255,0.08)',
+                      }}
+                    />
+                  ))}
+                </div>
           </div>
         </div>
 

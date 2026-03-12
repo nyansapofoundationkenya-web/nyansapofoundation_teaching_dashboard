@@ -11,54 +11,54 @@ export default function NumeracyAssessmentResults({
   studentId,
   organizationId,
   results,
+  onFlaggingComplete, // ← new: called when autoFlagAll finishes
 }) {
   const [localResults, setLocalResults] = useState(null);
   const autoFlaggedRef                  = useRef(false);
   const router                          = useRouter();
-  const { flagNumeracyItem }                    = useFlagItem(assessmentId, studentId, "numeracy");
+  const { flagNumeracyItem }            = useFlagItem(assessmentId, studentId, "numeracy");
 
   useEffect(() => {
     if (!results || autoFlaggedRef.current) return;
     setLocalResults(results);
-    autoFlagAll(results);
     autoFlaggedRef.current = true;
+
+    autoFlagAll(results).finally(() => {
+      // Notify parent that flagging is done (whether items were flagged or not)
+      onFlaggingComplete?.();
+    });
   }, [results]);
 
-  /**
-   * Scans every section. For any item where passed=false and not yet flagged,
-   * calls flagItem() which safely reads→mutates→writes the full array back.
-   */
-const autoFlagAll = async (data) => {
-  const numeracy = data?.numeracy_results || {};
+  const autoFlagAll = async (data) => {
+    const numeracy = data?.numeracy_results || {};
 
-  for (const section of Object.keys(numeracy)) {
-    const arr = numeracy[section];
-    if (!Array.isArray(arr)) continue;
+    for (const section of Object.keys(numeracy)) {
+      const arr = numeracy[section];
+      if (!Array.isArray(arr)) continue;
 
-    for (let i = 0; i < arr.length; i++) {
-      const item       = arr[i];
-      const passed     = item?.metadata?.passed ?? item?.passed;
-      const isModerated = item?.metadata?.modeltranscriptionverified === true;
+      for (let i = 0; i < arr.length; i++) {
+        const item        = arr[i];
+        const passed      = item?.metadata?.passed ?? item?.passed;
+        const isModerated = item?.metadata?.modeltranscriptionverified === true;
 
-      // Skip if: not failed, already flagged, or already moderated
-      if (passed !== false || item?.flagged === true || isModerated) continue;
+        if (passed !== false || item?.flagged === true || isModerated) continue;
 
-      try {
-        await flagNumeracyItem(section, i);
-        setLocalResults(prev => {
-          const sectionArr = [...(prev.numeracy_results[section] || [])];
-          sectionArr[i]    = { ...sectionArr[i], flagged: true };
-          return {
-            ...prev,
-            numeracy_results: { ...prev.numeracy_results, [section]: sectionArr },
-          };
-        });
-      } catch (err) {
-        console.error(`Auto-flag failed for ${section}[${i}]:`, err);
+        try {
+          await flagNumeracyItem(section, i);
+          setLocalResults(prev => {
+            const sectionArr = [...(prev.numeracy_results[section] || [])];
+            sectionArr[i]    = { ...sectionArr[i], flagged: true };
+            return {
+              ...prev,
+              numeracy_results: { ...prev.numeracy_results, [section]: sectionArr },
+            };
+          });
+        } catch (err) {
+          console.error(`Auto-flag failed for ${section}[${i}]:`, err);
+        }
       }
     }
-  }
-};
+  };
 
   const handleResultsClick = (result, type, section, index) => {
     router.push(
@@ -86,7 +86,6 @@ const autoFlagAll = async (data) => {
     }
   };
 
-  // ── Read-only flag indicator — only visible when flagged=true ───────────────
   const FlagIndicator = ({ flagged }) => {
     if (!flagged) return null;
     return (
@@ -137,7 +136,7 @@ const autoFlagAll = async (data) => {
     <div className="p-6 max-w-6xl mx-auto">
       <h1 className="text-2xl font-bold mb-6 text-foreground">Numeracy Assessment</h1>
 
-      {/* ── Count and Match ──────────────────────────────────────────────────── */}
+      {/* ── Count and Match ─────────────────────────────────────────────── */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4 text-primary-3">Count and match</h2>
         {numeracyResults.count_and_match?.length > 0 ? (
@@ -163,7 +162,7 @@ const autoFlagAll = async (data) => {
         )}
       </div>
 
-      {/* ── Highest Value ────────────────────────────────────────────────────── */}
+      {/* ── Highest Value ───────────────────────────────────────────────── */}
       {numeracyResults.highest_value?.length > 0 && (
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4 text-primary-3">Highest Value</h2>
@@ -215,7 +214,7 @@ const autoFlagAll = async (data) => {
         </div>
       )}
 
-      {/* ── Number Recognition ───────────────────────────────────────────────── */}
+      {/* ── Number Recognition ──────────────────────────────────────────── */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4 text-primary-3">Number recognition</h2>
         {numeracyResults.number_recognition?.length > 0 ? (
@@ -246,7 +245,7 @@ const autoFlagAll = async (data) => {
         )}
       </div>
 
-      {/* ── Operations ───────────────────────────────────────────────────────── */}
+      {/* ── Operations ──────────────────────────────────────────────────── */}
       {[
         { label: "Addition",       ops: additionOps },
         { label: "Subtraction",    ops: subtractionOps },
@@ -270,7 +269,7 @@ const autoFlagAll = async (data) => {
         ) : null
       )}
 
-      {/* ── Word Problems ─────────────────────────────────────────────────────── */}
+      {/* ── Word Problems ───────────────────────────────────────────────── */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4 text-primary-3">Word Problems</h2>
         {numeracyResults.word_problem?.length > 0 ? (

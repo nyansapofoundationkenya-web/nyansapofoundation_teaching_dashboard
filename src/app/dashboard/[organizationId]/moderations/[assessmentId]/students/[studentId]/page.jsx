@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import StudentChart from "@/components/Students/StudentChart";
 import MediaUploadProgress from "@/components/Moderations/MediaUploadProgress";
@@ -9,7 +9,7 @@ import InsightsModal from "@/components/Moderations/InsightsModal";
 import DashboardLayout from "@/app/dashboard/[organizationId]/DashboardLayout";
 import { db } from "@/firebase/config";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { ArrowLeft, User, CheckCircle, Lightbulb, AlertTriangle } from "lucide-react";
+import { ArrowLeft, User, CheckCircle, Lightbulb, AlertTriangle, Loader2, Clock, ShieldCheck } from "lucide-react";
 
 export default function StudentDetailsPage() {
   const { organizationId, assessmentId, studentId } = useParams();
@@ -24,8 +24,33 @@ export default function StudentDetailsPage() {
   const [showInsightsModal, setShowInsightsModal]   = useState(false);
   const [insights, setInsights]                     = useState(null);
   const [loadingInsights, setLoadingInsights]       = useState(false);
+  const [durationMinutes, setDurationMinutes]       = useState(null);
+  const [isFlaggingComplete, setIsFlaggingComplete] = useState(false);
   const [flaggedCount, setFlaggedCount]             = useState(0);
+
   const router = useRouter();
+
+  // ── Called by StudentAssessmentResults once autoFlagAll finishes ──────────
+  const handleFlaggingComplete = useCallback(async () => {
+    try {
+      const resultRef  = doc(db, "assessments", assessmentId, "assessments-results", `${assessmentId}_${studentId}`);
+      const resultSnap = await getDoc(resultRef);
+
+      if (resultSnap.exists()) {
+        const data          = resultSnap.data();
+        const readingItems  = data?.literacy_results?.reading_results || [];
+        const numeracyItems = Object.values(data?.numeracy_results || {}).flat();
+        const count         = [...readingItems, ...numeracyItems].filter(item => item?.flagged === true).length;
+        setFlaggedCount(count);
+      }
+    } catch (err) {
+      console.error("Error reading flagged count after flagging:", err);
+    } finally {
+      setIsFlaggingComplete(true);
+    }
+  }, [assessmentId, studentId]);
+
+  // ── Initial data fetch ────────────────────────────────────────────────────
 
   useEffect(() => {
     const fetchData = async () => {
@@ -39,8 +64,8 @@ export default function StudentDetailsPage() {
         const assessmentData = assessmentSnap.data();
         setAssessment(assessmentData);
 
-        const resultId  = `${assessmentId}_${studentId}`;
-        const resultRef = doc(db, "assessments", assessmentId, "assessments-results", resultId);
+        const resultId   = `${assessmentId}_${studentId}`;
+        const resultRef  = doc(db, "assessments", assessmentId, "assessments-results", resultId);
         const resultSnap = await getDoc(resultRef);
 
         if (resultSnap.exists()) {
@@ -49,8 +74,9 @@ export default function StudentDetailsPage() {
 
           setIsVerified(resultData.is_verified || false);
 
-          // Count unresolved flagged items across literacy + numeracy
-          setFlaggedCount(countUnresolvedFlaggedItems(resultData));
+          if (resultData.duration_millis) {
+            setDurationMinutes(Math.round(resultData.duration_millis / 60000));
+          }
 
           if (instructorId) {
             try {
@@ -91,54 +117,19 @@ export default function StudentDetailsPage() {
     if (organizationId && assessmentId && studentId) fetchData();
   }, [organizationId, assessmentId, studentId]);
 
-  // ── Count items that are still flagged (flagged: true) ────────────────────
-  const countUnresolvedFlaggedItems = (resultData) => {
-    let count = 0;
-
-    // Literacy reading results
-    const readingResults = resultData?.literacy_results?.reading_results || [];
-    readingResults.forEach(item => {
-      if (item?.flagged === true) count++;
-    });
-
-    // Numeracy results (all sections)
-    const numeracyResults = resultData?.numeracy_results || {};
-    Object.values(numeracyResults).forEach(section => {
-      if (Array.isArray(section)) {
-        section.forEach(item => {
-          if (item?.flagged === true) count++;
-        });
-      }
-    });
-
-    return count;
-  };
-
   // ── Confirm results ───────────────────────────────────────────────────────
+
   const handleConfirmResults = async () => {
-    // Re-fetch fresh data to ensure flagged count is up to date
     try {
       setVerifying(true);
 
-      const resultId   = `${assessmentId}_${studentId}`;
-      const resultRef  = doc(db, "assessments", assessmentId, "assessments-results", resultId);
-      const resultSnap = await getDoc(resultRef);
-
-      if (resultSnap.exists()) {
-        const freshCount = countUnresolvedFlaggedItems(resultSnap.data());
-        setFlaggedCount(freshCount);
-
-        if (freshCount > 0) {
-          setError(`Cannot confirm results — ${freshCount} flagged item${freshCount > 1 ? "s" : ""} still need${freshCount === 1 ? "s" : ""} to be moderated.`);
-          setVerifying(false);
-          return;
-        }
-      }
+      const resultId  = `${assessmentId}_${studentId}`;
+      const resultRef = doc(db, "assessments", assessmentId, "assessments-results", resultId);
 
       await updateDoc(resultRef, {
-        is_verified:  true,
-        verified_at:  new Date().toISOString(),
-        verified_by:  instructorName || "Teacher",
+        is_verified: true,
+        verified_at: new Date().toISOString(),
+        verified_by: instructorName || "Teacher",
       });
 
       setIsVerified(true);
@@ -152,6 +143,7 @@ export default function StudentDetailsPage() {
   };
 
   // ── View insights ─────────────────────────────────────────────────────────
+
   const handleViewInsights = async () => {
     try {
       setLoadingInsights(true);
@@ -177,7 +169,8 @@ export default function StudentDetailsPage() {
     }
   };
 
-  // ── Download helpers (unchanged) ──────────────────────────────────────────
+  // ── Download helpers ──────────────────────────────────────────────────────
+
   const downloadInsightsAsPDF = () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) { alert("Please allow pop-ups to download the insights"); return; }
@@ -193,7 +186,6 @@ export default function StudentDetailsPage() {
             body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
             h1 { color: #333; border-bottom: 2px solid #4CAF50; padding-bottom: 10px; }
             h2 { color: #4CAF50; margin-top: 30px; }
-            h3 { color: #666; margin-bottom: 5px; }
             .section { margin-bottom: 25px; }
             ul { margin-top: 5px; }
             li { margin-bottom: 8px; line-height: 1.5; }
@@ -210,18 +202,19 @@ export default function StudentDetailsPage() {
           <p><strong>Assessment:</strong> ${assessmentTypeFormatted}</p>
           <p><strong>Grade:</strong> ${student?.grade || "N/A"}</p>
           <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+          <p><strong>Time taken:</strong> ${durationMinutes ? `${durationMinutes} minute${durationMinutes !== 1 ? "s" : ""}` : "N/A"}</p>
           ${insights?.insights ? `
             ${insights.scores ? `
               <div class="score-card">
-                ${insights.scores.letters ? `<div class="score-item"><span class="score-value">${insights.scores.letters.passed}/${insights.scores.letters.total}</span><span class="score-label">Letters</span></div>` : ""}
-                ${insights.scores.words ? `<div class="score-item"><span class="score-value">${insights.scores.words.passed}/${insights.scores.words.total}</span><span class="score-label">Words</span></div>` : ""}
-                ${insights.scores.fluency ? `<div class="score-item"><span class="score-value">${insights.scores.fluency.passed}/${insights.scores.fluency.total}</span><span class="score-label">Fluency</span></div>` : ""}
+                ${insights.scores.letters       ? `<div class="score-item"><span class="score-value">${insights.scores.letters.passed}/${insights.scores.letters.total}</span><span class="score-label">Letters</span></div>` : ""}
+                ${insights.scores.words         ? `<div class="score-item"><span class="score-value">${insights.scores.words.passed}/${insights.scores.words.total}</span><span class="score-label">Words</span></div>` : ""}
+                ${insights.scores.fluency       ? `<div class="score-item"><span class="score-value">${insights.scores.fluency.passed}/${insights.scores.fluency.total}</span><span class="score-label">Fluency</span></div>` : ""}
                 ${insights.scores.comprehension ? `<div class="score-item"><span class="score-value">${insights.scores.comprehension.passed}/${insights.scores.comprehension.total}</span><span class="score-label">Comprehension</span></div>` : ""}
               </div>
             ` : ""}
-            ${insights.insights.grade_context ? `<div class="section"><h2>Overall Assessment</h2><div class="grade-context">${insights.insights.grade_context}</div></div>` : ""}
+            ${insights.insights.grade_context         ? `<div class="section"><h2>Overall Assessment</h2><div class="grade-context">${insights.insights.grade_context}</div></div>` : ""}
             ${insights.insights.strengths?.length > 0 ? `<div class="section"><h2>Strengths</h2><ul>${insights.insights.strengths.map(s => `<li>${s}</li>`).join("")}</ul></div>` : ""}
-            ${insights.insights.gaps?.length > 0 ? `<div class="section"><h2>Areas for Improvement</h2><ul>${insights.insights.gaps.map(g => `<li>${g}</li>`).join("")}</ul></div>` : ""}
+            ${insights.insights.gaps?.length > 0       ? `<div class="section"><h2>Areas for Improvement</h2><ul>${insights.insights.gaps.map(g => `<li>${g}</li>`).join("")}</ul></div>` : ""}
             ${insights.insights.teaching_actions?.length > 0 ? `<div class="section"><h2>Recommended Teaching Actions</h2><ul>${insights.insights.teaching_actions.map(a => `<li>${a}</li>`).join("")}</ul></div>` : ""}
           ` : insights?.error ? `<p style="color: #f44336;">${insights.error}</p>` : ""}
           <div class="footer">Generated from Assessment Platform • ${new Date().toLocaleString()}</div>
@@ -236,12 +229,13 @@ export default function StudentDetailsPage() {
     const studentName             = `${student?.first_name || ""} ${student?.last_name || ""}`.trim();
     const assessmentTypeFormatted = assessment?.type?.charAt(0).toUpperCase() + assessment?.type?.slice(1) || "Literacy";
 
-    let content = `ASSESSMENT INSIGHTS: ${studentName}\n`;
-    content += `Assessment: ${assessmentTypeFormatted}\n`;
-    content += `Grade: ${student?.grade || "N/A"}\n`;
-    content += `Date: ${new Date().toLocaleDateString()}\n`;
-    content += `Generated: ${new Date().toLocaleString()}\n`;
-    content += `========================================\n\n`;
+    let content  = `ASSESSMENT INSIGHTS: ${studentName}\n`;
+    content     += `Assessment: ${assessmentTypeFormatted}\n`;
+    content     += `Grade: ${student?.grade || "N/A"}\n`;
+    content     += `Time taken: ${durationMinutes ? `${durationMinutes} minute${durationMinutes !== 1 ? "s" : ""}` : "N/A"}\n`;
+    content     += `Date: ${new Date().toLocaleDateString()}\n`;
+    content     += `Generated: ${new Date().toLocaleString()}\n`;
+    content     += `========================================\n\n`;
 
     if (insights?.scores) {
       content += `SCORE OVERVIEW:\n`;
@@ -253,10 +247,10 @@ export default function StudentDetailsPage() {
     }
 
     if (insights?.insights) {
-      if (insights.insights.grade_context)          { content += `OVERALL ASSESSMENT:\n${insights.insights.grade_context}\n\n`; }
-      if (insights.insights.strengths?.length > 0)  { content += `STRENGTHS:\n`; insights.insights.strengths.forEach(s => content += `- ${s}\n`); content += `\n`; }
-      if (insights.insights.gaps?.length > 0)        { content += `AREAS FOR IMPROVEMENT:\n`; insights.insights.gaps.forEach(g => content += `- ${g}\n`); content += `\n`; }
-      if (insights.insights.teaching_actions?.length > 0) { content += `RECOMMENDED TEACHING ACTIONS:\n`; insights.insights.teaching_actions.forEach(a => content += `- ${a}\n`); content += `\n`; }
+      if (insights.insights.grade_context)               { content += `OVERALL ASSESSMENT:\n${insights.insights.grade_context}\n\n`; }
+      if (insights.insights.strengths?.length > 0)       { content += `STRENGTHS:\n`;                    insights.insights.strengths.forEach(s => (content += `- ${s}\n`));       content += `\n`; }
+      if (insights.insights.gaps?.length > 0)             { content += `AREAS FOR IMPROVEMENT:\n`;        insights.insights.gaps.forEach(g => (content += `- ${g}\n`));            content += `\n`; }
+      if (insights.insights.teaching_actions?.length > 0) { content += `RECOMMENDED TEACHING ACTIONS:\n`; insights.insights.teaching_actions.forEach(a => (content += `- ${a}\n`)); content += `\n`; }
     } else if (insights?.error) {
       content += `ERROR: ${insights.error}\n`;
     }
@@ -273,6 +267,7 @@ export default function StudentDetailsPage() {
   };
 
   // ── Render guards ─────────────────────────────────────────────────────────
+
   if (loading) {
     return (
       <DashboardLayout title="Student Details" organizationId={organizationId} currentSection="assessments">
@@ -303,11 +298,25 @@ export default function StudentDetailsPage() {
     );
   }
 
-  const pageTitle      = `${student.first_name} ${student.last_name}`;
-  const assessmentType = assessment.type?.toLowerCase() || "literacy";
-  const baseline       = student?.baseline || "";
-  const backUrl        = `/dashboard/${organizationId}/moderations/${assessmentId}`;
+  // ── Derived UI state ──────────────────────────────────────────────────────
+
+  const pageTitle       = `${student.first_name} ${student.last_name}`;
+  const assessmentType  = assessment.type?.toLowerCase() || "literacy";
+  const baseline        = student?.baseline || "";
+  const backUrl         = `/dashboard/${organizationId}/moderations/${assessmentId}`;
   const hasPendingFlags = flaggedCount > 0;
+  const isConfirmDisabled = verifying || !isFlaggingComplete || hasPendingFlags;
+
+  // What to show inside the button
+  const buttonContent = () => {
+    if (verifying) {
+      return <><Loader2 size={20} className="animate-spin" /> Confirming…</>;
+    }
+    if (!isFlaggingComplete) {
+      return <><Loader2 size={20} className="animate-spin" /> Checking…</>;
+    }
+    return <><ShieldCheck size={20} /> Confirm Results</>;
+  };
 
   return (
     <DashboardLayout title={pageTitle} organizationId={organizationId} currentSection="assessments">
@@ -349,6 +358,16 @@ export default function StudentDetailsPage() {
                   </div>
                 )}
 
+                {durationMinutes && (
+                  <div className="mt-2 flex items-center gap-2 text-blue-400">
+                    <Clock size={16} />
+                    <span className="text-sm">
+                      <span className="font-medium">Time taken:</span>{" "}
+                      {durationMinutes} minute{durationMinutes !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                )}
+
                 <div className="mt-3 flex flex-wrap gap-2">
                   <span className="inline-block bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
                     {assessmentType.charAt(0).toUpperCase() + assessmentType.slice(1)} Assessment
@@ -366,34 +385,37 @@ export default function StudentDetailsPage() {
                 </div>
               </div>
 
-              {/* Action Button */}
+              {/* Action button */}
               <div className="flex flex-col items-end gap-2">
                 {!isVerified ? (
                   <>
-                    {/* Pending flags warning */}
-                    {hasPendingFlags && (
-                      <div className="flex items-center gap-2 text-orange-400 bg-orange-400/10 border border-orange-400/30 rounded-lg px-3 py-2 text-sm">
-                        <AlertTriangle size={15} />
+                    {/* Only show flag warning once checking is done */}
+                    {isFlaggingComplete && hasPendingFlags && (
+                      <div className="flex items-center gap-2 text-orange-400 bg-orange-400/10 border border-orange-400/30 rounded-lg px-3 py-2 text-sm max-w-[280px]">
+                        <AlertTriangle size={15} className="shrink-0" />
                         <span>
                           {flaggedCount} flagged item{flaggedCount > 1 ? "s" : ""} need{flaggedCount === 1 ? "s" : ""} moderation
                         </span>
                       </div>
                     )}
+
                     <button
                       onClick={handleConfirmResults}
-                      disabled={verifying || hasPendingFlags}
-                      title={hasPendingFlags ? "Resolve all flagged items before confirming" : ""}
+                      disabled={isConfirmDisabled}
+                      title={
+                        !isFlaggingComplete ? "Checking results, please wait…"
+                        : hasPendingFlags   ? "Resolve all flagged items before confirming"
+                        : ""
+                      }
                       className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-colors ${
-                        hasPendingFlags
+                        isConfirmDisabled
                           ? "bg-gray-600 text-gray-400 cursor-not-allowed opacity-60"
                           : "bg-green-600 hover:bg-green-700 text-white"
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      }`}
                     >
-                      <CheckCircle size={20} />
-                      {verifying ? "Confirming..." : "Confirm Results"}
+                      {buttonContent()}
                     </button>
 
-                    {/* Inline error below button */}
                     {error && (
                       <p className="text-red-400 text-xs text-right max-w-[220px]">{error}</p>
                     )}
@@ -411,11 +433,11 @@ export default function StudentDetailsPage() {
             </div>
           </div>
 
-          {/* Side-by-side: Chart + Media Progress */}
+          {/* Chart + Media Progress */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
               <h2 className="text-xl font-semibold mb-4 text-foreground">
-                Baseline Progress - {assessmentType.charAt(0).toUpperCase() + assessmentType.slice(1)}
+                Baseline Progress — {assessmentType.charAt(0).toUpperCase() + assessmentType.slice(1)}
               </h2>
               <StudentChart
                 baseline={baseline}
@@ -430,13 +452,14 @@ export default function StudentDetailsPage() {
             />
           </div>
 
-          {/* Assessment Results Table */}
+          {/* Assessment Results */}
           <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
             <StudentAssessmentResults
               assessmentId={assessmentId}
               studentId={studentId}
               organizationId={organizationId}
               assessmentType={assessmentType}
+              onFlaggingComplete={handleFlaggingComplete}
             />
           </div>
         </div>

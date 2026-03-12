@@ -1,4 +1,4 @@
-// components/Moderations/LiteracyAssessmentResults.jsx (or results page)
+// components/Moderations/LiteracyAssessmentResults.jsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -13,17 +13,16 @@ export default function LiteracyAssessmentResults({
   studentId,
   organizationId,
   results: initialResults,
+  onFlaggingComplete, // ← new: called when autoFlagAll finishes
 }) {
-  const [results, setResults]     = useState(null);
-  const autoFlaggedRef            = useRef(false);
-  const router                    = useRouter();
-  const { user: currentUser }     = useSelector((state) => state.auth);
-  const userRole                  = currentUser?.role;
+  const [results, setResults]   = useState(null);
+  const autoFlaggedRef          = useRef(false);
+  const router                  = useRouter();
+  const { user: currentUser }   = useSelector((state) => state.auth);
+  const userRole                = currentUser?.role;
 
-  const { flagLiteracyReadingItem } =
-    useFlagItem(assessmentId, studentId, "literacy");
+  const { flagLiteracyReadingItem } = useFlagItem(assessmentId, studentId, "literacy");
 
-  // ── Load results + auto-flag once ────────────────────────────────────────
   useEffect(() => {
     if (!initialResults || autoFlaggedRef.current) return;
 
@@ -32,37 +31,36 @@ export default function LiteracyAssessmentResults({
     data.literacy_results.reading_results = data.literacy_results.reading_results || [];
 
     setResults(data);
-    autoFlagAll(data);
     autoFlaggedRef.current = true;
+
+    autoFlagAll(data).finally(() => {
+      // Notify parent that flagging is done (whether items were flagged or not)
+      onFlaggingComplete?.();
+    });
   }, [initialResults]);
 
-  /**
-   * Scans reading_results only.
-   * Flags any item where passed=false, not already flagged, and not already moderated.
-   */
-const autoFlagAll = async (data) => {
-  const readingResults = data?.literacy_results?.reading_results || [];
+  const autoFlagAll = async (data) => {
+    const readingResults = data?.literacy_results?.reading_results || [];
 
-  for (let i = 0; i < readingResults.length; i++) {
-    const item        = readingResults[i];
-    const passed      = item?.metadata?.passed;
-    const isModerated = item?.metadata?.modeltranscriptionverified === true;
+    for (let i = 0; i < readingResults.length; i++) {
+      const item        = readingResults[i];
+      const passed      = item?.metadata?.passed;
+      const isModerated = item?.metadata?.modeltranscriptionverified === true;
 
-    // Skip if: not failed, already flagged, or already moderated
-    if (passed !== false || item?.flagged === true || isModerated) continue;
+      if (passed !== false || item?.flagged === true || isModerated) continue;
 
-    try {
-      await flagLiteracyReadingItem(i);
-      setResults(prev => {
-        const arr = [...(prev.literacy_results.reading_results || [])];
-        arr[i]    = { ...arr[i], flagged: true };
-        return { ...prev, literacy_results: { ...prev.literacy_results, reading_results: arr } };
-      });
-    } catch (err) {
-      console.error(`Auto-flag failed for reading_results[${i}]:`, err);
+      try {
+        await flagLiteracyReadingItem(i);
+        setResults(prev => {
+          const arr = [...(prev.literacy_results.reading_results || [])];
+          arr[i]    = { ...arr[i], flagged: true };
+          return { ...prev, literacy_results: { ...prev.literacy_results, reading_results: arr } };
+        });
+      } catch (err) {
+        console.error(`Auto-flag failed for reading_results[${i}]:`, err);
+      }
     }
-  }
-};
+  };
 
   const handleResultsClick = (result, type, filteredIndex) => {
     const typeMap = { "Letter Recognition": "letter", Word: "word", Paragraph: "paragraph", Story: "story" };
@@ -112,7 +110,7 @@ const autoFlagAll = async (data) => {
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-6 text-foreground">Literacy Assessment</h1>
 
-      {/* ── Letter Results ────────────────────────────────────────────────── */}
+      {/* ── Letter Results ───────────────────────────────────────────────── */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-2 text-primary-3">Letter Results</h2>
         {letterResults.length > 0 ? (
@@ -147,7 +145,7 @@ const autoFlagAll = async (data) => {
         )}
       </div>
 
-      {/* ── Word Results ──────────────────────────────────────────────────── */}
+      {/* ── Word Results ─────────────────────────────────────────────────── */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-2 text-primary-3">Word Results</h2>
         {wordResults.length > 0 ? (
@@ -182,7 +180,7 @@ const autoFlagAll = async (data) => {
         )}
       </div>
 
-      {/* ── Paragraph Results ─────────────────────────────────────────────── */}
+      {/* ── Paragraph Results ────────────────────────────────────────────── */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4 text-primary-3">Paragraph Results</h2>
         {paragraphResults.length > 0 ? (
@@ -212,7 +210,7 @@ const autoFlagAll = async (data) => {
         )}
       </div>
 
-      {/* ── Story Results ─────────────────────────────────────────────────── */}
+      {/* ── Story Results ────────────────────────────────────────────────── */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4 text-primary-3">Story Results</h2>
         {storyResults.length > 0 ? (
@@ -242,7 +240,7 @@ const autoFlagAll = async (data) => {
         )}
       </div>
 
-      {/* ── Comprehension Questions (nested groups) ───────────────────────── */}
+      {/* ── Comprehension Questions (nested groups) ──────────────────────── */}
       {comprehensionMultipleChoice.length > 0 && (
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4 text-primary-3">Comprehension Questions</h2>
@@ -254,13 +252,9 @@ const autoFlagAll = async (data) => {
                   <p className="text-foreground leading-relaxed">{contentGroup.content}</p>
                 </div>
               </div>
-
               <div className="space-y-4">
                 {contentGroup.questions?.map((question, questionIndex) => (
-                  <div
-                    key={questionIndex}
-                    className="relative p-4 bg-background-light rounded-lg border border-gray-700"
-                  >
+                  <div key={questionIndex} className="relative p-4 bg-background-light rounded-lg border border-gray-700">
                     <p className="font-medium mb-3 text-foreground">{question.question}</p>
                     <ul className="list-none pl-0 space-y-2">
                       {question.options?.map((option, optIndex) => (
@@ -289,7 +283,6 @@ const autoFlagAll = async (data) => {
                   </div>
                 ))}
               </div>
-
               <div className="mt-4 pt-3 border-t border-gray-700">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-400">Total questions: {contentGroup.questions?.length || 0}</span>
@@ -303,7 +296,7 @@ const autoFlagAll = async (data) => {
         </div>
       )}
 
-      {/* ── Flat Multiple Choice ──────────────────────────────────────────── */}
+      {/* ── Flat Multiple Choice ─────────────────────────────────────────── */}
       {flatMultipleChoice.length > 0 && comprehensionMultipleChoice.length === 0 && (
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4 text-primary-3">Comprehension Questions</h2>
