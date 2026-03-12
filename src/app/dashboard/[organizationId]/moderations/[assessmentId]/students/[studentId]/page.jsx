@@ -9,13 +9,14 @@ import InsightsModal from "@/components/Moderations/InsightsModal";
 import DashboardLayout from "@/app/dashboard/[organizationId]/DashboardLayout";
 import { db } from "@/firebase/config";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { ArrowLeft, User, CheckCircle, Lightbulb, AlertTriangle, Loader2, Clock, ShieldCheck } from "lucide-react";
+import { ArrowLeft, User, CheckCircle, Lightbulb, AlertTriangle, Loader2, Clock, ShieldCheck, MessageSquare } from "lucide-react";
 
 export default function StudentDetailsPage() {
   const { organizationId, assessmentId, studentId } = useParams();
   const [student, setStudent]                       = useState(null);
   const [assessment, setAssessment]                 = useState(null);
   const [instructorName, setInstructorName]         = useState(null);
+  const [instructorComment, setInstructorComment]   = useState(null);
   const [showAssessedBy, setShowAssessedBy]         = useState(false);
   const [loading, setLoading]                       = useState(true);
   const [error, setError]                           = useState(null);
@@ -73,6 +74,11 @@ export default function StudentDetailsPage() {
           const instructorId = resultData.instructor_id;
 
           setIsVerified(resultData.is_verified || false);
+
+          // Get instructor comment if it exists
+          if (resultData.instructor_comment) {
+            setInstructorComment(resultData.instructor_comment);
+          }
 
           if (resultData.duration_millis) {
             setDurationMinutes(Math.round(resultData.duration_millis / 60000));
@@ -184,16 +190,18 @@ export default function StudentDetailsPage() {
           <title>${studentName} - Assessment Insights</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
-            h1 { color: #333; border-bottom: 2px solid #4CAF50; padding-bottom: 10px; }
-            h2 { color: #4CAF50; margin-top: 30px; }
+            h1 { color: #142848; border-bottom: 2px solid #f7cc1c; padding-bottom: 10px; }
+            h2 { color: #5aa2ce; margin-top: 30px; }
             .section { margin-bottom: 25px; }
             ul { margin-top: 5px; }
             li { margin-bottom: 8px; line-height: 1.5; }
-            .grade-context { background-color: #f5f5f5; padding: 15px; border-radius: 8px; font-style: italic; }
-            .score-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; margin: 20px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
+            .grade-context { background-color: #e3e6eb; padding: 15px; border-radius: 8px; font-style: italic; color: #142848; }
+            .score-card { background: linear-gradient(135deg, #142848 0%, #5aa2ce 100%); color: white; padding: 20px; border-radius: 10px; margin: 20px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
             .score-item { text-align: center; }
             .score-value { font-size: 24px; font-weight: bold; display: block; }
             .score-label { font-size: 14px; opacity: 0.9; }
+            .instructor-comment { background-color: #e3e6eb; border-left: 4px solid #e67e22; padding: 15px; margin: 20px 0; border-radius: 4px; color: #142848; }
+            .instructor-comment strong { color: #e67e22; }
             .footer { margin-top: 40px; text-align: center; color: #999; font-size: 12px; }
           </style>
         </head>
@@ -203,6 +211,11 @@ export default function StudentDetailsPage() {
           <p><strong>Grade:</strong> ${student?.grade || "N/A"}</p>
           <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
           <p><strong>Time taken:</strong> ${durationMinutes ? `${durationMinutes} minute${durationMinutes !== 1 ? "s" : ""}` : "N/A"}</p>
+          ${instructorComment ? `
+            <div class="instructor-comment">
+              <strong>Instructor Note:</strong> "${instructorComment}"
+            </div>
+          ` : ""}
           ${insights?.insights ? `
             ${insights.scores ? `
               <div class="score-card">
@@ -216,7 +229,7 @@ export default function StudentDetailsPage() {
             ${insights.insights.strengths?.length > 0 ? `<div class="section"><h2>Strengths</h2><ul>${insights.insights.strengths.map(s => `<li>${s}</li>`).join("")}</ul></div>` : ""}
             ${insights.insights.gaps?.length > 0       ? `<div class="section"><h2>Areas for Improvement</h2><ul>${insights.insights.gaps.map(g => `<li>${g}</li>`).join("")}</ul></div>` : ""}
             ${insights.insights.teaching_actions?.length > 0 ? `<div class="section"><h2>Recommended Teaching Actions</h2><ul>${insights.insights.teaching_actions.map(a => `<li>${a}</li>`).join("")}</ul></div>` : ""}
-          ` : insights?.error ? `<p style="color: #f44336;">${insights.error}</p>` : ""}
+          ` : insights?.error ? `<p style="color: #e67e22;">${insights.error}</p>` : ""}
           <div class="footer">Generated from Assessment Platform • ${new Date().toLocaleString()}</div>
           <script>window.onload = function() { window.print(); }</script>
         </body>
@@ -233,6 +246,9 @@ export default function StudentDetailsPage() {
     content     += `Assessment: ${assessmentTypeFormatted}\n`;
     content     += `Grade: ${student?.grade || "N/A"}\n`;
     content     += `Time taken: ${durationMinutes ? `${durationMinutes} minute${durationMinutes !== 1 ? "s" : ""}` : "N/A"}\n`;
+    if (instructorComment) {
+      content += `Instructor Note: "${instructorComment}"\n`;
+    }
     content     += `Date: ${new Date().toLocaleDateString()}\n`;
     content     += `Generated: ${new Date().toLocaleString()}\n`;
     content     += `========================================\n\n`;
@@ -351,15 +367,32 @@ export default function StudentDetailsPage() {
                   </div>
                 )}
 
+                {/* Instructor Comment - using secondary-1 color (#e67e22) */}
+                {instructorComment && (
+                  <div className="mt-3 flex items-start gap-2 rounded-lg p-3 max-w-lg"
+                       style={{ 
+                         backgroundColor: 'rgba(230, 126, 34, 0.1)', 
+                         borderColor: 'rgba(230, 126, 34, 0.3)',
+                         borderWidth: '1px',
+                         borderStyle: 'solid'
+                       }}>
+                    <MessageSquare size={16} className="shrink-0 mt-0.5" style={{ color: '#e67e22' }} />
+                    <span className="text-sm">
+                      <span className="font-medium" style={{ color: '#e67e22' }}>Instructor note:</span> 
+                      <span className="text-gray-300"> "{instructorComment}"</span>
+                    </span>
+                  </div>
+                )}
+
                 {isVerified && (
-                  <div className="mt-2 flex items-center gap-2 text-green-400">
+                  <div className="mt-2 flex items-center gap-2" style={{ color: '#4caf50' }}>
                     <CheckCircle size={16} />
                     <span className="text-sm font-medium">Results Verified</span>
                   </div>
                 )}
 
                 {durationMinutes && (
-                  <div className="mt-2 flex items-center gap-2 text-blue-400">
+                  <div className="mt-2 flex items-center gap-2" style={{ color: '#5aa2ce' }}>
                     <Clock size={16} />
                     <span className="text-sm">
                       <span className="font-medium">Time taken:</span>{" "}
@@ -369,16 +402,19 @@ export default function StudentDetailsPage() {
                 )}
 
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="inline-block bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                  <span className="inline-block text-white px-3 py-1 rounded-full text-sm font-medium"
+                        style={{ backgroundColor: '#5aa2ce' }}>
                     {assessmentType.charAt(0).toUpperCase() + assessmentType.slice(1)} Assessment
                   </span>
                   {student.grade && (
-                    <span className="inline-block bg-green-600/80 text-white px-3 py-1 rounded-full text-sm font-medium">
+                    <span className="inline-block text-white px-3 py-1 rounded-full text-sm font-medium"
+                          style={{ backgroundColor: 'rgba(76, 175, 80, 0.8)' }}>
                       Grade {student.grade}
                     </span>
                   )}
                   {student.sex && (
-                    <span className="inline-block bg-purple-600/80 text-white px-3 py-1 rounded-full text-sm font-medium capitalize">
+                    <span className="inline-block text-white px-3 py-1 rounded-full text-sm font-medium capitalize"
+                          style={{ backgroundColor: 'rgba(230, 126, 34, 0.8)' }}>
                       {student.sex}
                     </span>
                   )}
@@ -391,7 +427,14 @@ export default function StudentDetailsPage() {
                   <>
                     {/* Only show flag warning once checking is done */}
                     {isFlaggingComplete && hasPendingFlags && (
-                      <div className="flex items-center gap-2 text-orange-400 bg-orange-400/10 border border-orange-400/30 rounded-lg px-3 py-2 text-sm max-w-[280px]">
+                      <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm max-w-[280px]"
+                           style={{ 
+                             color: '#e67e22',
+                             backgroundColor: 'rgba(230, 126, 34, 0.1)',
+                             borderColor: 'rgba(230, 126, 34, 0.3)',
+                             borderWidth: '1px',
+                             borderStyle: 'solid'
+                           }}>
                         <AlertTriangle size={15} className="shrink-0" />
                         <span>
                           {flaggedCount} flagged item{flaggedCount > 1 ? "s" : ""} need{flaggedCount === 1 ? "s" : ""} moderation
@@ -410,20 +453,22 @@ export default function StudentDetailsPage() {
                       className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-colors ${
                         isConfirmDisabled
                           ? "bg-gray-600 text-gray-400 cursor-not-allowed opacity-60"
-                          : "bg-green-600 hover:bg-green-700 text-white"
+                          : "hover:opacity-90 text-white"
                       }`}
+                      style={!isConfirmDisabled ? { backgroundColor: '#4caf50' } : {}}
                     >
                       {buttonContent()}
                     </button>
 
                     {error && (
-                      <p className="text-red-400 text-xs text-right max-w-[220px]">{error}</p>
+                      <p className="text-xs text-right max-w-[220px]" style={{ color: '#e67e22' }}>{error}</p>
                     )}
                   </>
                 ) : (
                   <button
                     onClick={handleViewInsights}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium transition-colors"
+                    className="flex items-center gap-2 text-white px-6 py-3 rounded-xl font-medium transition-colors hover:opacity-90"
+                    style={{ backgroundColor: '#5aa2ce' }}
                   >
                     <Lightbulb size={20} />
                     View Insights
