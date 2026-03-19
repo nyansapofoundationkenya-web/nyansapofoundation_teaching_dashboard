@@ -67,6 +67,7 @@ export async function GET(request) {
     const schoolId = searchParams.get('school_id');
     const levelType = searchParams.get('level_type') || 'literacy';
     const levels = searchParams.get('levels'); // Comma-separated list or 'all'
+    const periods = searchParams.get('periods'); // NEW: comma-separated list of periods (baseline,midline,endline)
 
     if (!organizationId) {
       return NextResponse.json(
@@ -75,12 +76,16 @@ export async function GET(request) {
       );
     }
 
+    // Parse which periods to include
+    const periodsToInclude = periods ? periods.split(',').map(p => p.trim()) : ['baseline', 'midline', 'endline'];
+    
     console.log(`🔍 Fetching data for:`, {
       organizationId,
       projectId: projectId || 'all',
       schoolId: schoolId || 'all',
       levelType,
-      levels: levels || 'all'
+      levels: levels || 'all',
+      periods: periodsToInclude
     });
 
     // Parse levels to filter
@@ -116,7 +121,8 @@ export async function GET(request) {
       projectId, 
       schoolId,
       levelType,
-      levelsToFilter
+      levelsToFilter,
+      periodsToInclude // NEW: pass periods to filter
     );
     
     if (students.length === 0) {
@@ -138,19 +144,45 @@ export async function GET(request) {
     // Main data sheet
     const mainSheet = workbook.addWorksheet('Student Performance');
     
-    // Define columns
-    mainSheet.columns = [
+    // Define base columns (always included)
+    const baseColumns = [
       { header: 'Student ID', key: 'id', width: 15 },
       { header: 'Student Name', key: 'name', width: 30 },
       { header: 'Project', key: 'project', width: 25 },
       { header: 'School', key: 'school', width: 25 },
       { header: 'Grade', key: 'grade', width: 15 },
       { header: 'Gender', key: 'gender', width: 15 },
-      { header: `${levelType === 'literacy' ? 'Literacy' : 'Numeracy'} Baseline`, key: 'baseline', width: 25 },
-      { header: `${levelType === 'literacy' ? 'Literacy' : 'Numeracy'} Endline`, key: 'endline', width: 25 },
-      { header: 'Current Level', key: 'current_level', width: 25 },
-      { header: 'Last Updated', key: 'updated', width: 20 },
     ];
+
+    // Add assessment period columns based on selection
+    const assessmentColumns = [];
+    
+    if (periodsToInclude.includes('baseline')) {
+      assessmentColumns.push({ 
+        header: `${levelType === 'literacy' ? 'Literacy' : 'Numeracy'} Baseline`, 
+        key: 'baseline', 
+        width: 25 
+      });
+    }
+    
+    if (periodsToInclude.includes('midline')) {
+      assessmentColumns.push({ 
+        header: `${levelType === 'literacy' ? 'Literacy' : 'Numeracy'} Midline`, 
+        key: 'midline', 
+        width: 25 
+      });
+    }
+    
+    if (periodsToInclude.includes('endline')) {
+      assessmentColumns.push({ 
+        header: `${levelType === 'literacy' ? 'Literacy' : 'Numeracy'} Endline`, 
+        key: 'endline', 
+        width: 25 
+      });
+    }
+
+    // Combine all columns (removed Current Level and Last Updated)
+    mainSheet.columns = [...baseColumns, ...assessmentColumns];
 
     // Style header row
     mainSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFF' } };
@@ -160,25 +192,34 @@ export async function GET(request) {
       fgColor: { argb: '2563EB' }
     };
 
-    // Add student data
+    // Add student data - only include selected periods
     students.forEach((student, index) => {
-      const currentLevel = student[`${levelType}_endline`] || student[`${levelType}_baseline`] || 'N/A';
-      
-      mainSheet.addRow({
+      const rowData = {
         id: student.id || `STU${index + 1}`,
         name: student.name || 'N/A',
         project: student.project || 'N/A',
         school: student.school || 'N/A',
         grade: student.grade || 'N/A',
         gender: student.gender || 'N/A',
-        baseline: formatLevel(student[`${levelType}_baseline`], levelType, orgType),
-        endline: formatLevel(student[`${levelType}_endline`], levelType, orgType),
-        current_level: formatLevel(currentLevel, levelType, orgType),
-        updated: student.updated_at ? formatDate(student.updated_at) : 'N/A',
-      });
+      };
+
+      // Add assessment data only for selected periods
+      if (periodsToInclude.includes('baseline')) {
+        rowData.baseline = formatLevel(student[`${levelType}_baseline`], levelType, orgType);
+      }
+      
+      if (periodsToInclude.includes('midline')) {
+        rowData.midline = formatLevel(student[`${levelType}_midline`], levelType, orgType);
+      }
+      
+      if (periodsToInclude.includes('endline')) {
+        rowData.endline = formatLevel(student[`${levelType}_endline`], levelType, orgType);
+      }
+
+      mainSheet.addRow(rowData);
     });
 
-    // Add Summary Sheet
+    // Add Summary Sheet (simplified)
     const summarySheet = workbook.addWorksheet('Summary');
     
     summarySheet.columns = [
@@ -187,13 +228,24 @@ export async function GET(request) {
       { header: 'Percentage', key: 'percentage', width: 20 },
     ];
 
-    // Calculate statistics
+    // Calculate statistics based on most recent available data
     const totalStudents = students.length;
     
-    // Count students by level
+    // Count students by most recent level
     const levelCounts = {};
     students.forEach(student => {
-      const level = student[`${levelType}_endline`] || student[`${levelType}_baseline`] || 'unknown';
+      // Try to get the most recent level based on available periods
+      let level = null;
+      if (periodsToInclude.includes('endline') && student[`${levelType}_endline`]) {
+        level = student[`${levelType}_endline`];
+      } else if (periodsToInclude.includes('midline') && student[`${levelType}_midline`]) {
+        level = student[`${levelType}_midline`];
+      } else if (periodsToInclude.includes('baseline') && student[`${levelType}_baseline`]) {
+        level = student[`${levelType}_baseline`];
+      } else {
+        level = 'unknown';
+      }
+      
       const formattedLevel = formatLevel(level, levelType, orgType);
       levelCounts[formattedLevel] = (levelCounts[formattedLevel] || 0) + 1;
     });
@@ -220,7 +272,12 @@ export async function GET(request) {
     // Auto-fit columns
     [mainSheet, summarySheet].forEach(sheet => {
       sheet.columns.forEach(column => {
-        column.width = Math.max(column.width, 10);
+        if (column.values && column.values.length > 1) {
+          const maxLength = Math.max(
+            ...column.values.map(v => v ? v.toString().length : 0)
+          );
+          column.width = Math.min(Math.max(maxLength, 10), 50);
+        }
       });
     });
 
@@ -235,12 +292,13 @@ export async function GET(request) {
       .substring(0, 30);
     
     const levelFilter = levels && levels !== 'all' ? `_${levels.replace(/,/g, '-')}` : '';
+    const periodFilter = periods && periods !== 'baseline,midline,endline' ? `_${periods.replace(/,/g, '-')}` : '';
     const context = schoolId ? 'school' : (projectId ? 'project' : 'organization');
     const dateStr = new Date().toISOString().split('T')[0];
     
     const filename = cleanOrgName 
-      ? `student_performance_${context}_${cleanOrgName}_${levelType}${levelFilter}_${dateStr}.xlsx`
-      : `student_performance_${organizationId}_${levelType}${levelFilter}_${dateStr}.xlsx`;
+      ? `student_performance_${context}_${cleanOrgName}_${levelType}${levelFilter}${periodFilter}_${dateStr}.xlsx`
+      : `student_performance_${organizationId}_${levelType}${levelFilter}${periodFilter}_${dateStr}.xlsx`;
     
     console.log(`📄 File ready: ${filename} (${buffer.length} bytes)`);
 
@@ -276,13 +334,14 @@ export async function GET(request) {
   }
 }
 
-// Updated fetch function with filters
+// Updated fetch function with period filtering
 async function fetchStudentDataFromFirebase(
   organizationId, 
   targetProjectId = null, 
   targetSchoolId = null,
   levelType = 'literacy',
-  levelsToFilter = null
+  levelsToFilter = null,
+  periodsToInclude = ['baseline', 'midline', 'endline']
 ) {
   const students = [];
   
@@ -374,15 +433,31 @@ async function fetchStudentDataFromFirebase(
           const studentId = studentDoc.id;
           const studentData = studentDoc.data();
           
-          // Check if student matches level filter
+          // Check if student matches level filter - check all available periods
           if (levelsToFilter) {
-            const studentLevel = studentData[`${levelType}_endline`] || studentData[`${levelType}_baseline`];
-            if (!studentLevel || !levelsToFilter.includes(studentLevel.toLowerCase().trim())) {
+            let studentHasMatchingLevel = false;
+            
+            // Check each selected period for matching level
+            for (const period of periodsToInclude) {
+              const periodField = period === 'baseline' ? 
+                (levelType === 'literacy' ? 'baseline' : 'baseline_numeracy') :
+                period === 'midline' ?
+                (levelType === 'literacy' ? 'midline' : 'midline_numeracy') :
+                (levelType === 'literacy' ? 'endline' : 'endline_numeracy');
+              
+              const studentLevel = studentData[periodField];
+              if (studentLevel && levelsToFilter.includes(studentLevel.toLowerCase().trim())) {
+                studentHasMatchingLevel = true;
+                break;
+              }
+            }
+            
+            if (!studentHasMatchingLevel) {
               continue; // Skip this student
             }
           }
           
-          // Extract student information
+          // Extract student information - include all periods
           const student = {
             id: studentId,
             name:
@@ -393,14 +468,13 @@ async function fetchStudentDataFromFirebase(
             school: schoolName,
             grade: studentData.grade || studentData.class || '',
             gender: studentData.sex || studentData.gender || '',
+            // Always include all periods in the data object
             literacy_baseline: studentData.baseline,
+            literacy_midline: studentData.midline,
             literacy_endline: studentData.endline,
             numeracy_baseline: studentData.baseline_numeracy,
+            numeracy_midline: studentData.midline_numeracy,
             numeracy_endline: studentData.endline_numeracy,
-            created_at: studentData.created_at,
-            updated_at: studentData.updated_at,
-            ...(studentData.age && { age: studentData.age }),
-            ...(studentData.date_of_birth && { dob: studentData.date_of_birth }),
           };
           
           students.push(student);
@@ -456,18 +530,4 @@ function formatLevel(level, assessmentType, orgType) {
   }
   
   return level.charAt(0).toUpperCase() + level.slice(1);
-}
-
-function formatDate(timestamp) {
-  if (!timestamp) return 'N/A';
-  
-  try {
-    if (timestamp.toDate) {
-      return timestamp.toDate().toLocaleDateString();
-    }
-    const date = new Date(timestamp);
-    return isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString();
-  } catch {
-    return 'N/A';
-  }
 }

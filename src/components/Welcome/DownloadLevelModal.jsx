@@ -2,7 +2,7 @@
 "use client"
 
 import { useState } from "react"
-import { X, Download, Filter } from "lucide-react"
+import { X, Download, Filter, Calendar, Building2, FolderGit2, School } from "lucide-react"
 
 export default function DownloadLevelModal({
   isOpen,
@@ -17,8 +17,40 @@ export default function DownloadLevelModal({
   const [selectedLevels, setSelectedLevels] = useState([])
   const [downloadAll, setDownloadAll] = useState(true)
   const [downloading, setDownloading] = useState(false)
+  
+  // State for assessment periods (renamed from periods)
+  const [selectedPeriods, setSelectedPeriods] = useState({
+    baseline: true,
+    midline: true,
+    endline: true
+  })
 
   if (!isOpen) return null
+
+  // Determine the context and create appropriate messaging
+  const getContextInfo = () => {
+    if (schoolId) {
+      return {
+        icon: <School className="w-4 h-4 text-primary-2" />,
+        label: "School",
+        description: "Download students for this specific school only"
+      }
+    } else if (projectId) {
+      return {
+        icon: <FolderGit2 className="w-4 h-4 text-primary-2" />,
+        label: "Project",
+        description: "Download students for all schools in this project"
+      }
+    } else {
+      return {
+        icon: <Building2 className="w-4 h-4 text-primary-2" />,
+        label: "Organization",
+        description: "Download students for all projects and schools in this organization"
+      }
+    }
+  }
+
+  const contextInfo = getContextInfo()
 
   const handleLevelToggle = (level) => {
     setSelectedLevels(prev => {
@@ -36,10 +68,23 @@ export default function DownloadLevelModal({
     setSelectedLevels([])
   }
 
+  const handlePeriodToggle = (period) => {
+    setSelectedPeriods(prev => ({
+      ...prev,
+      [period]: !prev[period]
+    }))
+  }
+
   const handleDownload = async () => {
     setDownloading(true)
     try {
       const levels = downloadAll ? 'all' : selectedLevels.join(',')
+      
+      // Add periods to query string
+      const periods = Object.entries(selectedPeriods)
+        .filter(([_, isSelected]) => isSelected)
+        .map(([period]) => period)
+        .join(',')
       
       // Build URL with query parameters
       let url = `/api/export/student-performance?organization_id=${organizationId}`
@@ -47,6 +92,7 @@ export default function DownloadLevelModal({
       if (schoolId) url += `&school_id=${schoolId}`
       url += `&level_type=${levelType}`
       url += `&levels=${levels}`
+      url += `&periods=${periods}`
 
       const response = await fetch(url)
 
@@ -112,6 +158,29 @@ export default function DownloadLevelModal({
     }
   }
 
+  // Check if at least one period is selected
+  const isPeriodSelected = Object.values(selectedPeriods).some(v => v)
+
+  // Get dynamic title based on context
+  const getModalTitle = () => {
+    if (schoolId) return "Download School Students by Level"
+    if (projectId) return "Download Project Students by Level"
+    return "Download Organization Students by Level"
+  }
+
+  // Get download button text based on selection and context
+  const getDownloadButtonText = () => {
+    if (downloading) return "Downloading..."
+    
+    const context = schoolId ? "School" : projectId ? "Project" : "Organization"
+    
+    if (downloadAll) {
+      return `Download All ${context} Students`
+    } else {
+      return `Download ${selectedLevels.length} Level${selectedLevels.length !== 1 ? 's' : ''}`
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-background-lighter rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden border border-gray-700 flex flex-col">
@@ -119,7 +188,7 @@ export default function DownloadLevelModal({
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
           <div className="flex items-center gap-3">
             <Filter className="w-5 h-5 text-primary-2" />
-            <h2 className="text-xl font-semibold">Download Students by Level</h2>
+            <h2 className="text-xl font-semibold">{getModalTitle()}</h2>
           </div>
           <button
             onClick={onClose}
@@ -132,8 +201,19 @@ export default function DownloadLevelModal({
         {/* Content */}
         <div className="flex-1 p-6 overflow-y-auto">
           <p className="text-gray-300 mb-4">
-            Select the student levels you want to download. You can download all students or filter by specific levels.
+            Select the student competency levels and assessment levels you want to download.
           </p>
+
+          {/* Context Indicator - NEW */}
+          <div className="mb-6 p-4 bg-background rounded-lg border border-gray-700">
+            <div className="flex items-center gap-3">
+              {contextInfo.icon}
+              <div>
+                <span className="text-sm font-medium text-gray-300">{contextInfo.label} Context:</span>
+                <p className="text-sm text-gray-400 mt-0.5">{contextInfo.description}</p>
+              </div>
+            </div>
+          </div>
 
           {/* Level Type Indicator */}
           <div className="mb-6">
@@ -143,7 +223,55 @@ export default function DownloadLevelModal({
             </span>
           </div>
 
-          {/* Download Options */}
+          {/* Assessment Period Selection - Renamed from "Assessment Periods" to "Assessment Levels" */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Calendar className="w-4 h-4 text-primary-2" />
+              <h3 className="font-medium">Assessment Levels to Include:</h3>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <label className={`
+                flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all
+                ${selectedPeriods.baseline ? 'border-primary-2 bg-primary-2/10' : 'border-gray-700 hover:border-gray-600'}
+              `}>
+                <input
+                  type="checkbox"
+                  checked={selectedPeriods.baseline}
+                  onChange={() => handlePeriodToggle('baseline')}
+                  className="w-4 h-4 text-primary-2 rounded"
+                />
+                <span className="text-sm font-medium">Baseline</span>
+              </label>
+              
+              <label className={`
+                flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all
+                ${selectedPeriods.midline ? 'border-primary-2 bg-primary-2/10' : 'border-gray-700 hover:border-gray-600'}
+              `}>
+                <input
+                  type="checkbox"
+                  checked={selectedPeriods.midline}
+                  onChange={() => handlePeriodToggle('midline')}
+                  className="w-4 h-4 text-primary-2 rounded"
+                />
+                <span className="text-sm font-medium">Midline</span>
+              </label>
+              
+              <label className={`
+                flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all
+                ${selectedPeriods.endline ? 'border-primary-2 bg-primary-2/10' : 'border-gray-700 hover:border-gray-600'}
+              `}>
+                <input
+                  type="checkbox"
+                  checked={selectedPeriods.endline}
+                  onChange={() => handlePeriodToggle('endline')}
+                  className="w-4 h-4 text-primary-2 rounded"
+                />
+                <span className="text-sm font-medium">Endline</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Download Options - Updated text */}
           <div className="mb-6">
             <label className="flex items-center gap-3 p-3 bg-background rounded-lg border border-gray-700 cursor-pointer hover:bg-background-light transition-colors">
               <input
@@ -153,15 +281,23 @@ export default function DownloadLevelModal({
                 className="w-4 h-4 text-primary-2"
               />
               <div>
-                <span className="font-medium">All Students</span>
-                <p className="text-sm text-gray-400">Download all students regardless of their current level</p>
+                <span className="font-medium">
+                  {schoolId ? "All Students in this School" : 
+                   projectId ? "All Students in this Project" : 
+                   "All Students in Organization"}
+                </span>
+                <p className="text-sm text-gray-400">
+                  Download all students {schoolId ? "from this school" : 
+                                         projectId ? "from all schools in this project" : 
+                                         "from all projects and schools"}
+                </p>
               </div>
             </label>
           </div>
 
           {/* Level Selection */}
           <div className="mb-4">
-            <h3 className="font-medium mb-3">Filter by Current Level:</h3>
+            <h3 className="font-medium mb-3">Filter by Competency Level:</h3>
             <div className="grid grid-cols-2 gap-3">
               {chartData.map((item) => (
                 <label
@@ -203,10 +339,10 @@ export default function DownloadLevelModal({
           </button>
           <button
             onClick={handleDownload}
-            disabled={downloading || (!downloadAll && selectedLevels.length === 0)}
+            disabled={downloading || (!downloadAll && selectedLevels.length === 0) || !isPeriodSelected}
             className={`
               flex items-center gap-2 px-6 py-2 rounded-xl font-medium transition-all
-              ${downloading || (!downloadAll && selectedLevels.length === 0)
+              ${downloading || (!downloadAll && selectedLevels.length === 0) || !isPeriodSelected
                 ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                 : 'bg-primary-2 hover:bg-blue-500 text-white'
               }
@@ -223,7 +359,7 @@ export default function DownloadLevelModal({
             ) : (
               <>
                 <Download className="w-4 h-4" />
-                Download {downloadAll ? 'All Students' : `${selectedLevels.length} Level${selectedLevels.length !== 1 ? 's' : ''}`}
+                {getDownloadButtonText()}
               </>
             )}
           </button>
