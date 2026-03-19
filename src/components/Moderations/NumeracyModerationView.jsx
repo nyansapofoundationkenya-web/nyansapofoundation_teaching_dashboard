@@ -1,16 +1,16 @@
-// components/Moderations/NumeracyModerationView.jsx
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, XCircle, Calculator, Volume2, AlertCircle, Edit, ThumbsUp, Trash2, TrendingUp } from "lucide-react";
+import { CheckCircle, XCircle, Volume2, TrendingUp } from "lucide-react";
 import AudioPlayer from "./numeracy/AudioPlayer";
 import LazyImagePanel from "./numeracy/LazyImagePanel";
+import NumeracyModerationActions from "./NumeracyModerationActions";
 import { findNumberOperationsWorkoutUrl, findWordProblemWorkoutUrl } from "@/utils/numeracyStorageUtils";
 
-export default function NumeracyModerationView({ 
-  currentResult, 
-  currentSection, 
-  currentIndex, 
+export default function NumeracyModerationView({
+  currentResult,
+  currentSection,
+  currentIndex,
   assessmentData,
   assessmentId,
   studentId,
@@ -20,67 +20,47 @@ export default function NumeracyModerationView({
   setEditMode,
   editedTranscript,
   setEditedTranscript,
-  setError
+  setError,
+  // Flag props
+  isFlagged,
+  existingAudioReasons,
+  existingImageReasons,
+  onSaveFlagReasons,
+  savingFlagReasons,
+  isModerated,
+  // ✅ New action props from NumeracyModerationContent
+  onCorrect,
+  onIncorrect,
+  onSaveEdit,
+  onConfirmModeration,
+  currentPassedStatus,
 }) {
-  const [validationStatus, setValidationStatus] = useState("unvalidated");
-
-  // ── Moderation handlers ──────────────────────────────────────────────────
-
-  const handleBadAudio = () => {
-    if (currentSection === "number_recognition") {
-      setValidationStatus("bad_audio");
-      updateNumeracyResult({
-        metadata: {
-          passed: false,
-          badaudio: true,
-          moderated: true,
-          modeltranscriptionverified: true,
-          moderation_decision: "bad_audio"
-        }
-      });
-    }
-  };
-
-  const handleOk = () => {
-    setValidationStatus("validated");
-    updateNumeracyResult({
-      metadata: {
-        passed: true,
-        badaudio: false,
-        moderated: true,
-        modeltranscriptionverified: true,
-        moderation_decision: "approved"
-      },
-      ...(currentSection === "count_and_match" && { passed: true }),
-      ...(currentSection === "highest_value" && { passed: true })
-    });
-  };
-
-  const handleSaveEdit = async () => {
-    if (editedTranscript.trim() === "") {
-      setError("Transcript cannot be empty");
-      return;
-    }
-    await updateNumeracyResult({
-      metadata: {
-        transcript: editedTranscript,
-        originalmodeltranscript: currentResult.metadata?.transcript || "",
-        modeltranscriptionverified: true,
-        moderated: true
-      }
-    });
-    setEditMode(false);
-    setError(null);
-  };
-
-  // Called by LazyImagePanel after a workout image is found and loads for
-  // the first time — saves the URL to metadata so future moderators skip the scan.
   const handleWorkoutUrlResolved = (url) => {
     updateNumeracyResult({ metadata: { workout_screenshot_url: url } });
   };
 
-  // ── Shared render helpers ────────────────────────────────────────────────
+  // ── Shared actions block ──────────────────────────────────────────────────
+  const renderActions = () => (
+    <NumeracyModerationActions
+      currentSection={currentSection}
+      editMode={editMode}
+      setEditMode={setEditMode}
+      onSaveEdit={onSaveEdit}
+      onCorrect={onCorrect}
+      onIncorrect={onIncorrect}
+      onConfirmModeration={onConfirmModeration}
+      onDeleteRound={onDeleteRound}
+      disabled={isModerated}
+      isFlagged={isFlagged}
+      existingAudioReasons={existingAudioReasons}
+      existingImageReasons={existingImageReasons}
+      onSaveFlagReasons={onSaveFlagReasons}
+      savingFlagReasons={savingFlagReasons}
+      currentPassedStatus={currentPassedStatus}
+    />
+  );
 
+  // ── Transcript helpers ────────────────────────────────────────────────────
   const renderTranscriptEdit = () => {
     if (!editMode) return null;
     return (
@@ -98,8 +78,6 @@ export default function NumeracyModerationView({
   };
 
   const renderTranscriptDisplay = (transcript) => {
-    // Always render when editing so the textarea never disappears
-    // even if the user clears the transcript field.
     if (!transcript && !editMode) return null;
     return (
       <div className="mt-4">
@@ -118,56 +96,7 @@ export default function NumeracyModerationView({
     );
   };
 
-  const renderModerationActions = () => (
-    <div className="flex gap-3 justify-center mb-6 flex-wrap pt-4 border-t border-gray-600">
-      {currentSection === "number_recognition" && (
-        <button
-          onClick={handleBadAudio}
-          className="flex items-center gap-2 px-3 py-1.5 border-2 border-red-400 text-red-300 rounded-xl hover:bg-red-500/20 transition-colors flex-shrink-0"
-        >
-          <AlertCircle className="w-4 h-4" />
-          Bad Audio
-        </button>
-      )}
-
-      {editMode ? (
-        <button
-          onClick={handleSaveEdit}
-          className="flex items-center gap-2 px-3 py-1.5 border-2 border-primary-2 text-primary-1 rounded-xl hover:bg-primary-2/20 transition-colors flex-shrink-0"
-        >
-          Save
-        </button>
-      ) : (
-        <button
-          onClick={() => setEditMode(true)}
-          className="flex items-center gap-2 px-3 py-1.5 border-2 border-primary-3 text-primary-1 rounded-xl hover:bg-primary-3/20 transition-colors flex-shrink-0"
-        >
-          <Edit className="w-4 h-4" />
-          Edit
-        </button>
-      )}
-
-      <button
-        onClick={handleOk}
-        className="flex items-center gap-2 px-3 py-1.5 border-2 border-secondary-2 text-secondary-1 rounded-xl hover:bg-secondary-2/20 transition-colors flex-shrink-0"
-      >
-        <ThumbsUp className="w-4 h-4" />
-        Ok
-      </button>
-
-      <button
-        onClick={onDeleteRound}
-        disabled={editMode}
-        className="flex items-center gap-2 px-3 py-1.5 border-2 border-red-400 text-red-300 rounded-xl hover:bg-red-500/20 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <Trash2 className="w-4 h-4" />
-        Delete Round
-      </button>
-    </div>
-  );
-
-  // ── Section cards ────────────────────────────────────────────────────────
-
+  // ── Section cards ─────────────────────────────────────────────────────────
   const renderSectionContent = () => {
     switch (currentSection) {
       case "count_and_match":    return renderCountAndMatchCard();
@@ -220,7 +149,7 @@ export default function NumeracyModerationView({
           </div>
         </div>
       </div>
-      {renderModerationActions()}
+      {renderActions()}
     </>
   );
 
@@ -254,40 +183,36 @@ export default function NumeracyModerationView({
                 <div className="text-sm text-gray-400">Number Set</div>
               </div>
               <div className="grid grid-cols-4 gap-4">
-                {currentResult.values && currentResult.values.map((value, index) => (
+                {currentResult.values?.map((value, index) => (
                   <div key={index} className={`p-4 rounded-lg border-2 text-center ${
-                    value === currentResult.expected_number && currentResult.passed  ? "border-green-500 bg-green-500/10"
+                    value === currentResult.expected_number && currentResult.passed   ? "border-green-500 bg-green-500/10"
                     : value === currentResult.student_number && !currentResult.passed ? "border-red-500 bg-red-500/10"
                     : "border-gray-600 bg-gray-700/50"
                   }`}>
                     <div className={`text-3xl font-bold ${
-                      value === currentResult.expected_number && currentResult.passed  ? "text-green-400"
+                      value === currentResult.expected_number && currentResult.passed   ? "text-green-400"
                       : value === currentResult.student_number && !currentResult.passed ? "text-red-400"
                       : "text-gray-300"
                     }`}>{value}</div>
                     <div className="text-xs text-gray-400 mt-1">
                       {value === currentResult.expected_number ? "Correct Answer"
-                       : value === currentResult.student_number ? "Student's Choice" : ""}
+                        : value === currentResult.student_number ? "Student's Choice" : ""}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-6">
-              <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-600">
-                <div className="text-center">
-                  <div className="text-sm text-gray-400 mb-3">Expected Highest Value</div>
-                  <div className="text-7xl font-bold text-secondary-2">{currentResult.expected_number}</div>
-                </div>
+              <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-600 text-center">
+                <div className="text-sm text-gray-400 mb-3">Expected Highest Value</div>
+                <div className="text-7xl font-bold text-secondary-2">{currentResult.expected_number}</div>
               </div>
-              <div className={`rounded-xl p-6 border-2 ${
+              <div className={`rounded-xl p-6 border-2 text-center ${
                 currentResult.passed ? "border-secondary-2/30 bg-secondary-2/10" : "border-red-400/30 bg-red-400/10"
               }`}>
-                <div className="text-center">
-                  <div className="text-sm text-gray-400 mb-3">Student's Answer</div>
-                  <div className={`text-7xl font-bold ${currentResult.passed ? "text-secondary-2" : "text-red-400"}`}>
-                    {currentResult.student_number}
-                  </div>
+                <div className="text-sm text-gray-400 mb-3">Student's Answer</div>
+                <div className={`text-7xl font-bold ${currentResult.passed ? "text-secondary-2" : "text-red-400"}`}>
+                  {currentResult.student_number}
                 </div>
               </div>
             </div>
@@ -303,7 +228,7 @@ export default function NumeracyModerationView({
             {renderTranscriptDisplay(transcript)}
           </div>
         </div>
-        {renderModerationActions()}
+        {renderActions()}
       </>
     );
   };
@@ -332,11 +257,9 @@ export default function NumeracyModerationView({
             </div>
           </div>
           <div className="space-y-6">
-            <div className="bg-gray-800/50 rounded-xl p-8 border border-gray-600">
-              <div className="text-center">
-                <div className="text-sm text-gray-400 mb-3">Number to Recognize</div>
-                <div className="text-8xl font-bold text-primary-3">{currentResult.content}</div>
-              </div>
+            <div className="bg-gray-800/50 rounded-xl p-8 border border-gray-600 text-center">
+              <div className="text-sm text-gray-400 mb-3">Number to Recognize</div>
+              <div className="text-8xl font-bold text-primary-3">{currentResult.content}</div>
             </div>
             {hasAudio && (
               <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-600">
@@ -350,7 +273,7 @@ export default function NumeracyModerationView({
             {renderTranscriptDisplay(transcript)}
           </div>
         </div>
-        {renderModerationActions()}
+        {renderActions()}
       </>
     );
   };
@@ -358,11 +281,11 @@ export default function NumeracyModerationView({
   const renderNumberOperationsCard = () => {
     const getOperationSymbol = (type) => {
       switch (type?.toLowerCase()) {
-        case 'addition':       return '+';
-        case 'subtraction':    return '-';
-        case 'multiplication': return '×';
-        case 'division':       return '÷';
-        default:               return '';
+        case "addition":       return "+";
+        case "subtraction":    return "-";
+        case "multiplication": return "×";
+        case "division":       return "÷";
+        default:               return "";
       }
     };
     const operationSymbol = getOperationSymbol(currentResult.type);
@@ -391,14 +314,12 @@ export default function NumeracyModerationView({
             </div>
           </div>
           <div className="space-y-6">
-            <div className="bg-gray-800/50 rounded-xl p-8 border border-gray-600">
-              <div className="text-center space-y-2">
-                <div className="text-6xl font-bold text-gray-300">{currentResult.operations_number1}</div>
-                <div className="text-4xl text-gray-400">{operationSymbol} {currentResult.operations_number2}</div>
-                <div className="border-t-4 border-gray-600 my-6 pt-6">
-                  <div className="text-xl text-gray-500 mb-2">Expected Answer:</div>
-                  <div className="text-5xl font-bold text-secondary-2">{currentResult.expected_answer}</div>
-                </div>
+            <div className="bg-gray-800/50 rounded-xl p-8 border border-gray-600 text-center space-y-2">
+              <div className="text-6xl font-bold text-gray-300">{currentResult.operations_number1}</div>
+              <div className="text-4xl text-gray-400">{operationSymbol} {currentResult.operations_number2}</div>
+              <div className="border-t-4 border-gray-600 my-6 pt-6">
+                <div className="text-xl text-gray-500 mb-2">Expected Answer:</div>
+                <div className="text-5xl font-bold text-secondary-2">{currentResult.expected_answer}</div>
               </div>
             </div>
             <div className={`rounded-xl p-6 border-2 ${
@@ -408,9 +329,7 @@ export default function NumeracyModerationView({
               <div className="grid grid-cols-2 gap-6">
                 <div className="bg-background-lighter rounded-lg p-4">
                   <div className="text-sm text-gray-400 mb-2">Answer Given</div>
-                  <div className={`text-4xl font-bold ${
-                    currentResult.metadata?.passed ? "text-secondary-2" : "text-red-400"
-                  }`}>
+                  <div className={`text-4xl font-bold ${currentResult.metadata?.passed ? "text-secondary-2" : "text-red-400"}`}>
                     {currentResult.student_answer || "No answer"}
                   </div>
                 </div>
@@ -419,10 +338,7 @@ export default function NumeracyModerationView({
                   <div className="text-lg font-medium">"{transcript || "No transcript"}"</div>
                 </div>
               </div>
-
               {editMode && renderTranscriptEdit()}
-
-              {/* Answer screenshot — URL already saved in metadata, load on demand */}
               {answerUrl && (
                 <LazyImagePanel
                   label="Answer Screenshot"
@@ -431,8 +347,6 @@ export default function NumeracyModerationView({
                   onUrlResolved={null}
                 />
               )}
-
-              {/* Workout screenshot — scan storage on first open, save URL on success */}
               <LazyImagePanel
                 label="Workout Screenshot"
                 savedUrl={savedWorkoutUrl}
@@ -442,14 +356,13 @@ export default function NumeracyModerationView({
             </div>
           </div>
         </div>
-        {renderModerationActions()}
+        {renderActions()}
       </>
     );
   };
 
   const renderWordProblemCard = () => {
-    const transcript      = editMode ? editedTranscript
-                          : (currentResult.metadata?.transcript || currentResult.student_answer || "");
+    const transcript      = editMode ? editedTranscript : (currentResult.metadata?.transcript || currentResult.student_answer || "");
     const answerUrl       = currentResult.metadata?.screenshot_url || null;
     const savedWorkoutUrl = currentResult.metadata?.workout_screenshot_url || null;
 
@@ -483,31 +396,22 @@ export default function NumeracyModerationView({
             <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-600">
               <div className="text-sm text-gray-400 mb-4">Answers</div>
               <div className="grid grid-cols-2 gap-6">
-                <div className="bg-gray-900/50 rounded-lg p-6">
-                  <div className="text-center">
-                    <div className="text-sm text-gray-400 mb-2">Expected Answer</div>
-                    <div className="text-5xl font-bold text-secondary-2 py-4">{currentResult.expected_number}</div>
-                  </div>
+                <div className="bg-gray-900/50 rounded-lg p-6 text-center">
+                  <div className="text-sm text-gray-400 mb-2">Expected Answer</div>
+                  <div className="text-5xl font-bold text-secondary-2 py-4">{currentResult.expected_number}</div>
                 </div>
-                <div className={`rounded-lg p-6 ${
+                <div className={`rounded-lg p-6 text-center ${
                   currentResult.metadata?.passed
                     ? "bg-secondary-2/10 border-2 border-secondary-2/30"
                     : "bg-red-400/10 border-2 border-red-400/30"
                 }`}>
-                  <div className="text-center">
-                    <div className="text-sm text-gray-400 mb-2">Student Answer</div>
-                    <div className="text-5xl font-bold py-4">
-                      <span className={currentResult.metadata?.passed ? "text-secondary-2" : "text-red-400"}>
-                        {transcript}
-                      </span>
-                    </div>
+                  <div className="text-sm text-gray-400 mb-2">Student Answer</div>
+                  <div className={`text-5xl font-bold py-4 ${currentResult.metadata?.passed ? "text-secondary-2" : "text-red-400"}`}>
+                    {transcript}
                   </div>
                 </div>
               </div>
-
               {editMode && renderTranscriptEdit()}
-
-              {/* Answer screenshot — URL already saved in metadata, load on demand */}
               {answerUrl && (
                 <LazyImagePanel
                   label="Answer Screenshot"
@@ -516,8 +420,6 @@ export default function NumeracyModerationView({
                   onUrlResolved={null}
                 />
               )}
-
-              {/* Workout screenshot — scan storage on first open, save URL on success */}
               <LazyImagePanel
                 label="Workout Screenshot"
                 savedUrl={savedWorkoutUrl}
@@ -527,14 +429,13 @@ export default function NumeracyModerationView({
             </div>
           </div>
         </div>
-        {renderModerationActions()}
+        {renderActions()}
       </>
     );
   };
 
   return (
     <div className="bg-background-light rounded-xl shadow-lg border border-gray-600 overflow-hidden">
-      {/* Header with Status */}
       <div className="border-b border-gray-600 p-4 bg-background-lighter">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -543,7 +444,7 @@ export default function NumeracyModerationView({
             </div>
             <div>
               <h2 className="text-lg font-semibold text-foreground capitalize">
-                {currentSection.replace(/_/g, ' ')}
+                {currentSection.replace(/_/g, " ")}
               </h2>
               <p className="text-sm text-gray-400">
                 Item {currentIndex + 1} of {assessmentData?.numeracy_results?.[currentSection]?.length || 0}
@@ -551,25 +452,19 @@ export default function NumeracyModerationView({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {currentResult.metadata?.moderated ? (
+            {isModerated ? (
               <div className="flex items-center gap-1 px-3 py-1 bg-green-500/20 text-green-400 rounded-lg text-sm">
-                <CheckCircle className="w-4 h-4" />
-                Moderated
+                <CheckCircle className="w-4 h-4" /> Moderated
               </div>
             ) : (
               <div className="flex items-center gap-1 px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded-lg text-sm">
-                <XCircle className="w-4 h-4" />
-                Unmoderated
+                <XCircle className="w-4 h-4" /> Unmoderated
               </div>
             )}
           </div>
         </div>
       </div>
-
-      {/* Main Content Card */}
-      <div className="p-4">
-        {renderSectionContent()}
-      </div>
+      <div className="p-4">{renderSectionContent()}</div>
     </div>
   );
 }

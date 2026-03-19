@@ -1,32 +1,70 @@
-// app/dashboard/[organizationId]/assessments/[assessmentId]/students/[studentId]/results/page.jsx
+// components/Moderations/LiteracyAssessmentResults.jsx
 "use client";
 
-import { useState, useEffect } from "react";
-import { db } from "@/firebase/config";
-import { doc, getDoc } from "firebase/firestore";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
+import { Flag } from "lucide-react";
 import { getColoredWords } from "@/utils/wordComparison";
+import { useFlagItem } from "@/hooks/useFlagItem";
 
-export default function StudentAssessmentResults({ assessmentId, studentId, organizationId }) {
-  const [results, setResults] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const router = useRouter();
+export default function LiteracyAssessmentResults({
+  assessmentId,
+  studentId,
+  organizationId,
+  results: initialResults,
+  onFlaggingComplete, // ← new: called when autoFlagAll finishes
+}) {
+  const [results, setResults]   = useState(null);
+  const autoFlaggedRef          = useRef(false);
+  const router                  = useRouter();
+  const { user: currentUser }   = useSelector((state) => state.auth);
+  const userRole                = currentUser?.role;
 
-  const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
-  const userRole = currentUser?.role;
+  const { flagLiteracyReadingItem } = useFlagItem(assessmentId, studentId, "literacy");
+
+  useEffect(() => {
+    if (!initialResults || autoFlaggedRef.current) return;
+
+    const data = { ...initialResults };
+    data.literacy_results = data.literacy_results || {};
+    data.literacy_results.reading_results = data.literacy_results.reading_results || [];
+
+    setResults(data);
+    autoFlaggedRef.current = true;
+
+    autoFlagAll(data).finally(() => {
+      // Notify parent that flagging is done (whether items were flagged or not)
+      onFlaggingComplete?.();
+    });
+  }, [initialResults]);
+
+  const autoFlagAll = async (data) => {
+    const readingResults = data?.literacy_results?.reading_results || [];
+
+    for (let i = 0; i < readingResults.length; i++) {
+      const item        = readingResults[i];
+      const passed      = item?.metadata?.passed;
+      const isModerated = item?.metadata?.modeltranscriptionverified === true;
+
+      if (passed !== false || item?.flagged === true || isModerated) continue;
+
+      try {
+        await flagLiteracyReadingItem(i);
+        setResults(prev => {
+          const arr = [...(prev.literacy_results.reading_results || [])];
+          arr[i]    = { ...arr[i], flagged: true };
+          return { ...prev, literacy_results: { ...prev.literacy_results, reading_results: arr } };
+        });
+      } catch (err) {
+        console.error(`Auto-flag failed for reading_results[${i}]:`, err);
+      }
+    }
+  };
 
   const handleResultsClick = (result, type, filteredIndex) => {
-    const typeMap = {
-      "Letter Recognition": "letter",
-      Word: "word",
-      Paragraph: "paragraph",
-      Story: "story",
-    };
-
+    const typeMap = { "Letter Recognition": "letter", Word: "word", Paragraph: "paragraph", Story: "story" };
     const section = typeMap[type] || type.toLowerCase();
-
     if (userRole === "admin" || userRole === "super_admin") {
       router.push(
         `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?section=${section}&index=${filteredIndex}`
@@ -36,85 +74,43 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
     }
   };
 
-  const fetchStudentResults = async () => {
-    try {
-      setLoading(true);
-      const resultsRef = doc(
-        db,
-        "assessments",
-        assessmentId,
-        "assessments-results",
-        `${assessmentId}_${studentId}`
-      );
-      const resultsSnap = await getDoc(resultsRef);
-      if (!resultsSnap.exists()) {
-        throw new Error("Assessment results not found");
-      }
-      const data = resultsSnap.data();
-      data.literacy_results = data.literacy_results || [];
-      setResults(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (assessmentId && studentId) {
-      fetchStudentResults();
-    }
-  }, [assessmentId, studentId]);
-
-  // Format timestamp (e.g. "Feb 10, 2026 11:20 AM")
   const formatDoneTime = (timeStr) => {
     if (!timeStr) return "—";
     try {
-      const date = new Date(timeStr);
-      return date.toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
+      return new Date(timeStr).toLocaleString("en-US", {
+        month: "short", day: "numeric", year: "numeric",
+        hour: "numeric", minute: "2-digit", hour12: true,
       });
-    } catch {
-      return timeStr; // fallback to raw if parsing fails
-    }
+    } catch { return timeStr; }
   };
 
-  if (loading) return <div className="text-foreground">Loading...</div>;
-  if (error) return <div className="text-red-400">Error: {error}</div>;
-  if (!results) return <div className="text-foreground">No data available</div>;
+  const FlagIndicator = ({ flagged }) => {
+    if (!flagged) return null;
+    return (
+      <div className="absolute top-1.5 right-1.5 z-10" title="Flagged for review">
+        <Flag size={12} className="text-orange-400" fill="currentColor" />
+      </div>
+    );
+  };
 
-  const letterResults =
-    results?.literacy_results?.reading_results?.filter(
-      (r) => r?.metadata?.type === "Letter" || r?.type === "Letter"
-    ) || [];
-  const wordResults =
-    results?.literacy_results?.reading_results?.filter(
-      (r) => r?.metadata?.type === "Word" || r?.type === "Word"
-    ) || [];
-  const paragraphResults = Array.isArray(results?.literacy_results?.reading_results)
-    ? results.literacy_results.reading_results.filter(
-        (r) => r?.metadata?.type === "Paragraph" || r?.type === "Paragraph"
-      )
-    : [];
-  const storyResults = Array.isArray(results?.literacy_results?.reading_results)
-    ? results.literacy_results.reading_results.filter(
-        (r) => r?.metadata?.type === "Story" || r?.type === "Story"
-      )
-    : [];
+  if (!results) return <div className="text-foreground">Loading...</div>;
 
-  const comprehensionMultipleChoice = results?.literacy_results?.comprehension_multiple_choice_questions || [];
-  const flatMultipleChoice = results?.literacy_results?.multiple_choice_questions || [];
+  const literacyResults = results.literacy_results || {};
+  const readingResults  = literacyResults.reading_results || [];
+
+  const letterResults    = readingResults.filter(r => r?.metadata?.type === "Letter"    || r?.type === "Letter");
+  const wordResults      = readingResults.filter(r => r?.metadata?.type === "Word"      || r?.type === "Word");
+  const paragraphResults = readingResults.filter(r => r?.metadata?.type === "Paragraph" || r?.type === "Paragraph");
+  const storyResults     = readingResults.filter(r => r?.metadata?.type === "Story"     || r?.type === "Story");
+
+  const comprehensionMultipleChoice = literacyResults.comprehension_multiple_choice_questions || [];
+  const flatMultipleChoice          = literacyResults.multiple_choice_questions || [];
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-6 text-foreground">Literacy Assessment</h1>
 
-      {/* Letter Results */}
+      {/* ── Letter Results ───────────────────────────────────────────────── */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-2 text-primary-3">Letter Results</h2>
         {letterResults.length > 0 ? (
@@ -123,22 +119,19 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
               <div
                 key={index}
                 onClick={() => handleResultsClick(result, "Letter Recognition", index)}
-                className={`relative px-4 py-3 rounded-xl text-lg font-semibold border-2 min-w-[60px] text-center cursor-pointer hover:opacity-80 transition-opacity shadow-md hover:shadow-lg
-                  ${result?.metadata?.passed
+                className={`relative px-4 py-3 rounded-xl text-lg font-semibold border-2 min-w-[60px] text-center cursor-pointer hover:opacity-80 transition-opacity shadow-md hover:shadow-lg ${
+                  result?.metadata?.passed
                     ? "border-secondary-2 text-foreground bg-secondary-2/10"
-                    : "border-red-400 text-foreground bg-red-400/10"}`}
+                    : "border-red-400 text-foreground bg-red-400/10"
+                }`}
               >
+                <FlagIndicator flagged={result.flagged} />
                 <span className="block">{result.content}</span>
-
-                {/* Status badge */}
-                <span
-                  className={`absolute -top-2 -right-2 w-5 h-5 rounded-full text-white text-xs flex items-center justify-center shadow
-                    ${result?.metadata?.passed ? "bg-secondary-2" : "bg-red-400"}`}
-                >
+                <span className={`absolute -top-2 -right-2 w-5 h-5 rounded-full text-white text-xs flex items-center justify-center shadow ${
+                  result?.metadata?.passed ? "bg-secondary-2" : "bg-red-400"
+                }`}>
                   {result?.metadata?.passed ? "✓" : "✕"}
                 </span>
-
-                {/* Done time */}
                 {result?.metadata?.done_time && (
                   <div className="text-xs text-gray-500 mt-1">
                     {formatDoneTime(result.metadata.done_time)}
@@ -152,7 +145,7 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
         )}
       </div>
 
-      {/* Word Results */}
+      {/* ── Word Results ─────────────────────────────────────────────────── */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-2 text-primary-3">Word Results</h2>
         {wordResults.length > 0 ? (
@@ -161,20 +154,19 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
               <div
                 key={index}
                 onClick={() => handleResultsClick(result, "Word", index)}
-                className={`relative px-4 py-3 rounded-xl text-base font-semibold border-2 min-w-[90px] text-center cursor-pointer hover:opacity-80 transition-opacity shadow-md hover:shadow-lg
-                  ${result?.metadata?.passed
+                className={`relative px-4 py-3 rounded-xl text-base font-semibold border-2 min-w-[90px] text-center cursor-pointer hover:opacity-80 transition-opacity shadow-md hover:shadow-lg ${
+                  result?.metadata?.passed
                     ? "border-secondary-2 text-foreground bg-secondary-2/10"
-                    : "border-red-400 text-foreground bg-red-400/10"}`}
+                    : "border-red-400 text-foreground bg-red-400/10"
+                }`}
               >
+                <FlagIndicator flagged={result.flagged} />
                 <span className="block">{result.content}</span>
-
-                <span
-                  className={`absolute -top-2 -right-2 w-5 h-5 rounded-full text-white text-xs flex items-center justify-center shadow
-                    ${result?.metadata?.passed ? "bg-secondary-2" : "bg-red-400"}`}
-                >
+                <span className={`absolute -top-2 -right-2 w-5 h-5 rounded-full text-white text-xs flex items-center justify-center shadow ${
+                  result?.metadata?.passed ? "bg-secondary-2" : "bg-red-400"
+                }`}>
                   {result?.metadata?.passed ? "✓" : "✕"}
                 </span>
-
                 {result?.metadata?.done_time && (
                   <div className="text-xs text-gray-500 mt-1">
                     {formatDoneTime(result.metadata.done_time)}
@@ -188,7 +180,7 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
         )}
       </div>
 
-      {/* Paragraph Results */}
+      {/* ── Paragraph Results ────────────────────────────────────────────── */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4 text-primary-3">Paragraph Results</h2>
         {paragraphResults.length > 0 ? (
@@ -198,18 +190,16 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
               <div
                 key={index}
                 onClick={() => handleResultsClick(result, "Paragraph", index)}
-                className="border-b border-gray-600 py-3 px-3 rounded-xl cursor-pointer hover:bg-background-lighter transition-colors flex flex-col gap-2"
+                className="relative border-b border-gray-600 py-3 px-3 rounded-xl cursor-pointer hover:bg-background-lighter transition-colors flex flex-col gap-2"
               >
-                <div className="flex flex-wrap gap-1">{coloredWords}</div>
-
+                <FlagIndicator flagged={result.flagged} />
+                <div className="flex flex-wrap gap-1 pr-5">{coloredWords}</div>
                 <div className="flex items-center justify-between text-sm mt-1">
                   <span className="text-gray-400">
                     {stats.mistakes}/{stats.totalWords} mistakes • {stats.accuracy}% accuracy
                   </span>
                   {result?.metadata?.done_time && (
-                    <span className="text-gray-500">
-                      Done: {formatDoneTime(result.metadata.done_time)}
-                    </span>
+                    <span className="text-gray-500">Done: {formatDoneTime(result.metadata.done_time)}</span>
                   )}
                 </div>
               </div>
@@ -220,7 +210,7 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
         )}
       </div>
 
-      {/* Story Results */}
+      {/* ── Story Results ────────────────────────────────────────────────── */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4 text-primary-3">Story Results</h2>
         {storyResults.length > 0 ? (
@@ -230,18 +220,16 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
               <div
                 key={index}
                 onClick={() => handleResultsClick(result, "Story", index)}
-                className="border-b border-gray-600 py-3 px-3 rounded-xl cursor-pointer hover:bg-background-lighter transition-colors flex flex-col gap-2"
+                className="relative border-b border-gray-600 py-3 px-3 rounded-xl cursor-pointer hover:bg-background-lighter transition-colors flex flex-col gap-2"
               >
-                <div className="flex flex-wrap gap-1">{coloredWords}</div>
-
+                <FlagIndicator flagged={result.flagged} />
+                <div className="flex flex-wrap gap-1 pr-5">{coloredWords}</div>
                 <div className="flex items-center justify-between text-sm mt-1">
                   <span className="text-gray-400">
                     {stats.mistakes}/{stats.totalWords} mistakes • {stats.accuracy}% accuracy
                   </span>
                   {result?.metadata?.done_time && (
-                    <span className="text-gray-500">
-                      Done: {formatDoneTime(result.metadata.done_time)}
-                    </span>
+                    <span className="text-gray-500">Done: {formatDoneTime(result.metadata.done_time)}</span>
                   )}
                 </div>
               </div>
@@ -252,7 +240,7 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
         )}
       </div>
 
-      {/* Comprehension Questions */}
+      {/* ── Comprehension Questions (nested groups) ──────────────────────── */}
       {comprehensionMultipleChoice.length > 0 && (
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4 text-primary-3">Comprehension Questions</h2>
@@ -264,10 +252,9 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
                   <p className="text-foreground leading-relaxed">{contentGroup.content}</p>
                 </div>
               </div>
-
               <div className="space-y-4">
                 {contentGroup.questions?.map((question, questionIndex) => (
-                  <div key={questionIndex} className="p-4 bg-background-light rounded-lg border border-gray-700">
+                  <div key={questionIndex} className="relative p-4 bg-background-light rounded-lg border border-gray-700">
                     <p className="font-medium mb-3 text-foreground">{question.question}</p>
                     <ul className="list-none pl-0 space-y-2">
                       {question.options?.map((option, optIndex) => (
@@ -296,14 +283,11 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
                   </div>
                 ))}
               </div>
-
               <div className="mt-4 pt-3 border-t border-gray-700">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-400">
-                    Total questions: {contentGroup.questions?.length || 0}
-                  </span>
+                  <span className="text-gray-400">Total questions: {contentGroup.questions?.length || 0}</span>
                   <span className="font-medium text-foreground">
-                    Score: {contentGroup.questions?.filter((q) => q.passed).length || 0}/{contentGroup.questions?.length || 0}
+                    Score: {contentGroup.questions?.filter(q => q.passed).length || 0}/{contentGroup.questions?.length || 0}
                   </span>
                 </div>
               </div>
@@ -312,11 +296,12 @@ export default function StudentAssessmentResults({ assessmentId, studentId, orga
         </div>
       )}
 
+      {/* ── Flat Multiple Choice ─────────────────────────────────────────── */}
       {flatMultipleChoice.length > 0 && comprehensionMultipleChoice.length === 0 && (
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4 text-primary-3">Comprehension Questions</h2>
           {flatMultipleChoice.map((question, index) => (
-            <div key={index} className="mb-4 p-4 bg-background-light rounded-xl border border-gray-600">
+            <div key={index} className="relative mb-4 p-4 bg-background-light rounded-xl border border-gray-600">
               <p className="font-medium mb-2 text-foreground">{question.question}</p>
               <ul className="list-none pl-0 text-gray-300">
                 {question.options.map((option, optIndex) => (

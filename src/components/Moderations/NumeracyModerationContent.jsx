@@ -7,24 +7,29 @@ import { doc, getDoc, updateDoc, collection, getDocs } from "firebase/firestore"
 import { ref, deleteObject } from "firebase/storage";
 import NumeracyModerationView from "./NumeracyModerationView";
 import NumeracyNavigationControls from "./NumeracyNavigationControls";
+import { useNumeracyFlagReasons } from "@/hooks/useFlagReasons";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 
-export default function NumeracyModerationContent({ router, searchParams, organizationId, assessmentId, studentId }) {
-  const [assessmentData, setAssessmentData]         = useState(null);
-  const [studentName, setStudentName]               = useState("Loading...");
-  const [currentSection, setCurrentSection]         = useState("");
-  const [currentIndex, setCurrentIndex]             = useState(0);
-  const [editMode, setEditMode]                     = useState(false);
-  const [editedTranscript, setEditedTranscript]     = useState("");
-  const [studentIds, setStudentIds]                 = useState([]);
+export default function NumeracyModerationContent({
+  router, searchParams, organizationId, assessmentId, studentId
+}) {
+  const [assessmentData, setAssessmentData]           = useState(null);
+  const [studentName, setStudentName]                 = useState("Loading...");
+  const [currentSection, setCurrentSection]           = useState("");
+  const [currentIndex, setCurrentIndex]               = useState(0);
+  const [editMode, setEditMode]                       = useState(false);
+  const [editedTranscript, setEditedTranscript]       = useState("");
+  const [studentIds, setStudentIds]                   = useState([]);
   const [currentStudentIndex, setCurrentStudentIndex] = useState(0);
-  const [loading, setLoading]                       = useState(true);
-  const [error, setError]                           = useState(null);
-  const [showDeleteConfirm, setShowDeleteConfirm]   = useState(false);
+  const [loading, setLoading]                         = useState(true);
+  const [error, setError]                             = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm]     = useState(false);
+  const [savingFlagReasons, setSavingFlagReasons]     = useState(false);
 
   const backUrl = `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}`;
+  const { incrementResolved } = useNumeracyFlagReasons(assessmentId, studentId);
 
-  //URL param sync
+  // ── URL param sync ────────────────────────────────────────────────────────
   useEffect(() => {
     const section = searchParams.get("section") || "";
     const index   = parseInt(searchParams.get("index") || "0", 10);
@@ -32,10 +37,8 @@ export default function NumeracyModerationContent({ router, searchParams, organi
     setCurrentIndex(index);
   }, [searchParams]);
 
-  //Data fetching
-  useEffect(() => {
-    fetchStudentName();
-  }, [assessmentId, studentId]);
+  // ── Data fetching ─────────────────────────────────────────────────────────
+  useEffect(() => { fetchStudentName(); }, [assessmentId, studentId]);
 
   useEffect(() => {
     if (currentSection) fetchAssessmentData();
@@ -44,20 +47,14 @@ export default function NumeracyModerationContent({ router, searchParams, organi
 
   const fetchStudentName = async () => {
     try {
-      const assessmentRef  = doc(db, `assessments`, assessmentId);
-      const assessmentSnap = await getDoc(assessmentRef);
-      if (assessmentSnap.exists()) {
-        const data             = assessmentSnap.data();
-        const assignedStudents = data.assigned_students || [];
-        const student          = assignedStudents.find(s => s.id === studentId);
+      const snap = await getDoc(doc(db, "assessments", assessmentId));
+      if (snap.exists()) {
+        const student = (snap.data().assigned_students || []).find(s => s.id === studentId);
         setStudentName(student ? `${student.first_name} ${student.last_name}` : "Student Not Found");
       } else {
         setStudentName("Assessment Not Found");
       }
-    } catch (err) {
-      console.error("Error fetching student name:", err);
-      setStudentName("Unknown Student");
-    }
+    } catch { setStudentName("Unknown Student"); }
   };
 
   const fetchAssessmentData = async () => {
@@ -77,29 +74,20 @@ export default function NumeracyModerationContent({ router, searchParams, organi
       } else {
         setError("Assessment data not found");
       }
-    } catch (err) {
-      console.error("Error fetching assessment data:", err);
-      setError("Failed to load assessment data");
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError("Failed to load assessment data"); }
+    finally { setLoading(false); }
   };
 
   const fetchStudentIds = async () => {
     try {
-      const collectionRef  = collection(db, `assessments/${assessmentId}/assessments-results`);
-      const querySnapshot  = await getDocs(collectionRef);
-      const ids            = querySnapshot.docs.map(d => d.id.split("_")[1]);
+      const snap = await getDocs(collection(db, `assessments/${assessmentId}/assessments-results`));
+      const ids  = snap.docs.map(d => d.id.split("_")[1]);
       setStudentIds(ids);
       setCurrentStudentIndex(ids.indexOf(studentId));
-    } catch (err) {
-      console.error("Error fetching student IDs:", err);
-    }
+    } catch { /* silent */ }
   };
 
-  //Update result  // Always fetches fresh data before writing the entire section array back,
-  // preventing the Firestore dot-notation bug that converts arrays to maps.
-
+  // ── Update result ─────────────────────────────────────────────────────────
   const updateNumeracyResult = async (updates) => {
     try {
       if (!assessmentData || !currentSection) return false;
@@ -107,35 +95,39 @@ export default function NumeracyModerationContent({ router, searchParams, organi
       const freshIndex   = parseInt(searchParams.get("index") || "0", 10);
       const freshSection = searchParams.get("section") || currentSection;
       const docRef       = doc(db, `assessments/${assessmentId}/assessments-results`, `${assessmentId}_${studentId}`);
-
-      const freshSnap = await getDoc(docRef);
+      const freshSnap    = await getDoc(docRef);
       if (!freshSnap.exists()) { setError("Document not found"); return false; }
 
       const freshData    = freshSnap.data();
       const freshResults = [...(freshData.numeracy_results?.[freshSection] || [])];
-
       if (!freshResults[freshIndex]) { setError("Result not found"); return false; }
+
+      // Split top-level fields (like flagged) from the rest
+      const { flagged, metadata: metadataUpdates, ...otherTopLevel } = updates;
 
       const updatedResult = {
         ...freshResults[freshIndex],
-        ...updates,
+        ...otherTopLevel,
+        ...(flagged !== undefined && { flagged }),
         metadata: {
           ...freshResults[freshIndex].metadata,
-          ...updates.metadata,
-          moderation_timestamp: new Date().toISOString()
-        }
+          ...(metadataUpdates || {}),
+          moderation_timestamp: new Date().toISOString(),
+        },
       };
-
       freshResults[freshIndex] = updatedResult;
 
-      // Write the entire array — never use dot notation into a Firestore array
-      await updateDoc(docRef, {
-        [`numeracy_results.${freshSection}`]: freshResults
-      });
+      await updateDoc(docRef, { [`numeracy_results.${freshSection}`]: freshResults });
+
+      // If this flagged item just got moderated → increment resolved counter
+      const justModerated = metadataUpdates?.modeltranscriptionverified === true;
+      if (justModerated && freshResults[freshIndex]?.flagged === false && freshData.numeracy_results?.[freshSection]?.[freshIndex]?.flagged === true) {
+        await incrementResolved();
+      }
 
       setAssessmentData(prev => ({
         ...prev,
-        numeracy_results: { ...prev.numeracy_results, [freshSection]: freshResults }
+        numeracy_results: { ...prev.numeracy_results, [freshSection]: freshResults },
       }));
 
       return true;
@@ -146,59 +138,109 @@ export default function NumeracyModerationContent({ router, searchParams, organi
     }
   };
 
-  //Delete round
+  // ── Handle correct (sets passed: true only) ──
+  const handleCorrect = async () => {
+    await updateNumeracyResult({
+      metadata: {
+        passed: true,
+        badaudio: false,
+        moderation_decision: "approved",
+      },
+      ...(currentSection === "count_and_match" && { passed: true }),
+      ...(currentSection === "highest_value" && { passed: true }),
+    });
+  };
+
+  // ── Handle incorrect (sets passed: false only) ──
+  const handleIncorrect = async () => {
+    await updateNumeracyResult({
+      metadata: {
+        passed: false,
+        moderation_decision: "rejected",
+      },
+      ...(currentSection === "count_and_match" && { passed: false }),
+      ...(currentSection === "highest_value" && { passed: false }),
+    });
+  };
+
+  // ── Handle save edit (NO modeltranscriptionverified) ──
+  const handleSaveEdit = async () => {
+    if (editedTranscript.trim() === "") {
+      setError("Transcript cannot be empty");
+      return;
+    }
+    await updateNumeracyResult({
+      metadata: {
+        transcript: editedTranscript,
+        original_transcript: getCurrentResult()?.metadata?.transcript || getCurrentResult()?.student_answer || "",
+      }
+    });
+    setEditMode(false);
+    setError(null);
+  };
+
+  // ── Handle final confirmation (sets modeltranscriptionverified: true + flagged: false) ──
+  const handleConfirmModeration = async () => {
+    await updateNumeracyResult({
+      flagged: false,
+      metadata: {
+        modeltranscriptionverified: true,
+        moderated: true,
+      }
+    });
+  };
+
+  // ── Save flag reasons — only increments resolved, does NOT persist reasons ─
+  const handleSaveFlagReasons = async (reasonType, newReasons, prevReasons) => {
+    setSavingFlagReasons(true);
+    try {
+      await incrementResolved();
+    } catch (err) {
+      console.error("Failed to increment resolved:", err);
+      setError("Failed to process flag reasons");
+    } finally {
+      setSavingFlagReasons(false);
+    }
+  };
+
+  // ── Delete round ──────────────────────────────────────────────────────────
   const extractFilePathFromUrl = (url) => {
     try {
       const path  = decodeURIComponent(new URL(url).pathname);
       const match = path.match(/\/v0\/b\/[^/]+\/o\/(.+)/);
       return match?.[1] || null;
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   };
 
   const deleteCurrentRound = async () => {
     try {
-      if (!assessmentData || !currentSection || !assessmentData.numeracy_results?.[currentSection]) {
-        setError("No assessment data found");
-        return;
+      if (!assessmentData?.numeracy_results?.[currentSection]) {
+        setError("No assessment data found"); return;
       }
-
       const updatedResults = [...assessmentData.numeracy_results[currentSection]];
       const currentResult  = updatedResults[currentIndex];
       if (!currentResult) { setError("Result not found"); return; }
 
-      const audioUrl      = currentResult?.metadata?.audio_url;
-      const screenshotUrl = currentResult?.metadata?.screenshot_url;
-      const workoutUrl    = currentResult?.metadata?.workout_screenshot_url;
-
+      const { audio_url, screenshot_url, workout_screenshot_url } = currentResult?.metadata || {};
       updatedResults.splice(currentIndex, 1);
 
       setAssessmentData({
         ...assessmentData,
-        numeracy_results: { ...assessmentData.numeracy_results, [currentSection]: updatedResults }
+        numeracy_results: { ...assessmentData.numeracy_results, [currentSection]: updatedResults },
       });
 
       const docRef = doc(db, `assessments/${assessmentId}/assessments-results`, `${assessmentId}_${studentId}`);
       await updateDoc(docRef, { [`numeracy_results.${currentSection}`]: updatedResults });
 
-      // Delete associated Storage files (audio, answer screenshot, workout screenshot)
       const deletePromises = [];
-      for (const url of [audioUrl, screenshotUrl, workoutUrl]) {
-        if (url?.includes('firebasestorage.googleapis.com')) {
-          const filePath = extractFilePathFromUrl(url);
-          if (filePath) deletePromises.push(deleteObject(ref(storage, filePath)));
+      for (const url of [audio_url, screenshot_url, workout_screenshot_url]) {
+        if (url?.includes("firebasestorage.googleapis.com")) {
+          const fp = extractFilePathFromUrl(url);
+          if (fp) deletePromises.push(deleteObject(ref(storage, fp)));
         }
       }
-      if (deletePromises.length > 0) {
-        const results = await Promise.allSettled(deletePromises);
-        results.forEach((r, i) => {
-          if (r.status === 'fulfilled') console.log(`✅ File ${i + 1} deleted`);
-          else console.warn(`⚠️ File ${i + 1} deletion failed:`, r.reason);
-        });
-      }
+      if (deletePromises.length > 0) await Promise.allSettled(deletePromises);
 
-      // Navigate after deletion
       if (updatedResults.length === 0) {
         router.push(`/dashboard/${organizationId}/assessments/${assessmentId}/students/${studentId}/results`);
       } else if (currentIndex >= updatedResults.length) {
@@ -217,11 +259,9 @@ export default function NumeracyModerationContent({ router, searchParams, organi
     }
   };
 
-  //Helper functions
+  // ── Helpers ───────────────────────────────────────────────────────────────
   const isResultModerated = (result) =>
-    result.metadata?.modeltranscriptionverified === true ||
-    result.metadata?.moderated === true ||
-    (currentSection === "count_and_match" && result.moderated === true);
+    result.metadata?.modeltranscriptionverified === true;
 
   const getNextUnmoderatedIndex = (results, startIndex = 0) => {
     if (!Array.isArray(results)) return -1;
@@ -250,7 +290,10 @@ export default function NumeracyModerationContent({ router, searchParams, organi
 
   const getCurrentResult = () => getCurrentResults()[currentIndex] || null;
 
-  //Render
+  const hasMadeDecision = editMode || 
+    (getCurrentResult()?.metadata?.passed !== undefined);
+
+  // ── Render ────────────────────────────────────────────────────────────────
   if (loading) return <div className="text-center p-8 text-foreground">Loading...</div>;
 
   if (error && !getCurrentResult()) {
@@ -273,6 +316,7 @@ export default function NumeracyModerationContent({ router, searchParams, organi
   const currentResult = getCurrentResult();
   const results       = getCurrentResults();
   const stats         = getModerationStats();
+  const isModerated   = currentResult ? isResultModerated(currentResult) : false;
 
   if (!currentResult) {
     return (
@@ -290,7 +334,6 @@ export default function NumeracyModerationContent({ router, searchParams, organi
 
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-4">
-      {/* Back Button */}
       <div onClick={() => router.push(backUrl)} className="flex items-center text-gray-300 hover:text-white cursor-pointer mb-2 w-fit">
         <ArrowLeft size={18} className="mr-1" />
         <span className="text-sm font-medium">Back</span>
@@ -316,18 +359,18 @@ export default function NumeracyModerationContent({ router, searchParams, organi
         </div>
         <div className="flex flex-wrap gap-4 text-sm">
           <div className="px-3 py-1.5 bg-secondary-2/20 text-secondary-2 rounded-lg">
-            Section: <span className="font-semibold capitalize">{currentSection.replace(/_/g, ' ')}</span>
+            Section: <span className="font-semibold capitalize">{currentSection.replace(/_/g, " ")}</span>
           </div>
           <div className="px-3 py-1.5 bg-primary-3/20 text-primary-3 rounded-lg">
             Item: <span className="font-semibold">{currentIndex + 1} of {assessmentData.numeracy_results?.[currentSection]?.length || 0}</span>
           </div>
-          <div className="px-3 py-1.5 bg-gray-700 text-gray-300 rounded-lg">
-            Status: <span className="font-semibold">{currentResult.metadata?.moderated ? "Moderated" : "Pending"}</span>
+          <div className={`px-3 py-1.5 rounded-lg ${isModerated ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"}`}>
+            Status: <span className="font-semibold">{isModerated ? "Moderated" : "Pending"}</span>
           </div>
         </div>
       </div>
 
-      {/* Main Moderation Area */}
+      {/* Main Area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <NumeracyModerationView
@@ -344,6 +387,18 @@ export default function NumeracyModerationContent({ router, searchParams, organi
             editedTranscript={editedTranscript}
             setEditedTranscript={setEditedTranscript}
             setError={setError}
+            isModerated={isModerated}
+            isFlagged={currentResult?.flagged === true}
+            existingAudioReasons={currentResult?.audio_flag_reasons || []}
+            existingImageReasons={currentResult?.image_flag_reasons || []}
+            onSaveFlagReasons={handleSaveFlagReasons}
+            savingFlagReasons={savingFlagReasons}
+            onCorrect={handleCorrect}
+            onIncorrect={handleIncorrect}
+            onSaveEdit={handleSaveEdit}
+            onConfirmModeration={handleConfirmModeration}
+            hasMadeDecision={hasMadeDecision}
+            currentPassedStatus={currentResult?.metadata?.passed}
           />
         </div>
 
@@ -382,7 +437,7 @@ export default function NumeracyModerationContent({ router, searchParams, organi
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-background-light rounded-lg p-6 max-w-md w-full mx-4 border border-gray-600">

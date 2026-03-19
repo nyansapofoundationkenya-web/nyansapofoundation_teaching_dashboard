@@ -11,72 +11,63 @@ export default function StudentAssessmentResults({
   assessmentId, 
   studentId, 
   organizationId, 
-  assessmentType = 'literacy' 
+  assessmentType = "literacy",
+  onFlaggingComplete, // ← passed down from page.jsx
 }) {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  const fetchStudentResults = async () => {
-    try {
-      setLoading(true);
-      const resultsRef = doc(
-        db,
-        "assessments",
-        assessmentId,
-        "assessments-results",
-        `${assessmentId}_${studentId}`
-      );
-      const resultsSnap = await getDoc(resultsRef);
-
-      if (!resultsSnap.exists()) {
-        throw new Error("Assessment results not found");
-      }
-
-      const data = resultsSnap.data();
-      setResults(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // console.log(results)
+  const [error, setError]     = useState(null);
 
   useEffect(() => {
-    if (assessmentId && studentId) {
-      fetchStudentResults();
-    }
+    if (!assessmentId || !studentId) return;
+
+    const fetchStudentResults = async () => {
+      try {
+        setLoading(true);
+        const resultsRef  = doc(db, "assessments", assessmentId, "assessments-results", `${assessmentId}_${studentId}`);
+        const resultsSnap = await getDoc(resultsRef);
+
+        if (!resultsSnap.exists()) throw new Error("Assessment results not found");
+
+        setResults(resultsSnap.data());
+      } catch (err) {
+        setError(err.message);
+        // If results fail to load, unblock the parent so the confirm button
+        // doesn't stay disabled forever on a fetch error.
+        onFlaggingComplete?.();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStudentResults();
   }, [assessmentId, studentId]);
 
   if (loading) return <div className="text-foreground">Loading assessment results...</div>;
+
   if (error || !results) {
-  return (
-    <div className="text-foreground">
-      No assessments results available for this student
-    </div>
-  );
-}
-  // Render the appropriate component based on assessment type
-  if (assessmentType.toLowerCase() === 'numeracy') {
+    return <div className="text-foreground">No assessments results available for this student</div>;
+  }
+
+  if (assessmentType.toLowerCase() === "numeracy") {
     return (
       <NumeracyAssessmentResults
         assessmentId={assessmentId}
         studentId={studentId}
         organizationId={organizationId}
         results={results}
+        onFlaggingComplete={onFlaggingComplete}
       />
     );
   }
 
-  // Default to literacy
   return (
     <LiteracyAssessmentResults
       assessmentId={assessmentId}
       studentId={studentId}
       organizationId={organizationId}
       results={results}
+      onFlaggingComplete={onFlaggingComplete}
     />
   );
 }

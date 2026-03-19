@@ -95,6 +95,7 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
     setLoading(false)
   }
 }
+//  console.log(filters.projectId)
   // Count students who have a valid baseline (no has_done check)
   const countDone = (students) => {
     if (!Array.isArray(students)) return 0
