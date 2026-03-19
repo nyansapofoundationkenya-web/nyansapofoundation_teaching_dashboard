@@ -31,7 +31,7 @@ export default function StudentDetailsPage() {
 
   const router = useRouter();
 
-  // ── Called by StudentAssessmentResults once autoFlagAll finishes ──────────
+  // Called by StudentAssessmentResults once autoFlagAll finishes
   const handleFlaggingComplete = useCallback(async () => {
     try {
       const resultRef  = doc(db, "assessments", assessmentId, "assessments-results", `${assessmentId}_${studentId}`);
@@ -51,7 +51,7 @@ export default function StudentDetailsPage() {
     }
   }, [assessmentId, studentId]);
 
-  // ── Initial data fetch ────────────────────────────────────────────────────
+  // Initial data fetch
 
   useEffect(() => {
     const fetchData = async () => {
@@ -123,7 +123,7 @@ export default function StudentDetailsPage() {
     if (organizationId && assessmentId && studentId) fetchData();
   }, [organizationId, assessmentId, studentId]);
 
-  // ── Confirm results ───────────────────────────────────────────────────────
+  // Confirm results
 
   const handleConfirmResults = async () => {
     try {
@@ -148,7 +148,7 @@ export default function StudentDetailsPage() {
     }
   };
 
-  // ── View insights ─────────────────────────────────────────────────────────
+  // View insights
 
   const handleViewInsights = async () => {
     try {
@@ -175,7 +175,7 @@ export default function StudentDetailsPage() {
     }
   };
 
-  // ── Download helpers ──────────────────────────────────────────────────────
+  // Download helpers
 
   const downloadInsightsAsPDF = () => {
     const printWindow = window.open("", "_blank");
@@ -282,7 +282,7 @@ export default function StudentDetailsPage() {
     URL.revokeObjectURL(url);
   };
 
-  // ── Render guards ─────────────────────────────────────────────────────────
+  // Render guards
 
   if (loading) {
     return (
@@ -314,7 +314,7 @@ export default function StudentDetailsPage() {
     );
   }
 
-  // ── Derived UI state ──────────────────────────────────────────────────────
+  // Derived UI state
 
   const pageTitle       = `${student.first_name} ${student.last_name}`;
   const assessmentType  = assessment.type?.toLowerCase() || "literacy";

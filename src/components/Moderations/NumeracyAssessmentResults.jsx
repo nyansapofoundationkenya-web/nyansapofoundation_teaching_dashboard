@@ -11,7 +11,7 @@ export default function NumeracyAssessmentResults({
   studentId,
   organizationId,
   results,
-  onFlaggingComplete, // ← new: called when autoFlagAll finishes
+  onFlaggingComplete, 
 }) {
   const [localResults, setLocalResults] = useState(null);
   const autoFlaggedRef                  = useRef(false);

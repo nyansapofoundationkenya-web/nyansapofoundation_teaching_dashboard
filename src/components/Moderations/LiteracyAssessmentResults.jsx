@@ -65,13 +65,9 @@ export default function LiteracyAssessmentResults({
   const handleResultsClick = (result, type, filteredIndex) => {
     const typeMap = { "Letter Recognition": "letter", Word: "word", Paragraph: "paragraph", Story: "story" };
     const section = typeMap[type] || type.toLowerCase();
-    if (userRole === "admin" || userRole === "super_admin") {
       router.push(
         `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}/audiomoderation?section=${section}&index=${filteredIndex}`
       );
-    } else {
-      alert("You do not have permission to access audio moderation.");
-    }
   };
 
   const formatDoneTime = (timeStr) => {

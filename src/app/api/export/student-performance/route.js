@@ -58,7 +58,7 @@ const LEVEL_MAPPINGS = {
 };
 
 export async function GET(request) {
-  console.log('📥 Download request received');
+  // console.log('📥 Download request received');
   
   try {
     const { searchParams } = new URL(request.url);
@@ -79,14 +79,14 @@ export async function GET(request) {
     // Parse which periods to include
     const periodsToInclude = periods ? periods.split(',').map(p => p.trim()) : ['baseline', 'midline', 'endline'];
     
-    console.log(`🔍 Fetching data for:`, {
-      organizationId,
-      projectId: projectId || 'all',
-      schoolId: schoolId || 'all',
-      levelType,
-      levels: levels || 'all',
-      periods: periodsToInclude
-    });
+    // console.log(`🔍 Fetching data for:`, {
+    //   organizationId,
+    //   projectId: projectId || 'all',
+    //   schoolId: schoolId || 'all',
+    //   levelType,
+    //   levels: levels || 'all',
+    //   periods: periodsToInclude
+    // });
 
     // Parse levels to filter
     const levelsToFilter = levels && levels !== 'all' 
@@ -115,7 +115,7 @@ export async function GET(request) {
     }
 
     // Fetch student data with filters
-    console.log('📊 Fetching student data...');
+    // console.log('📊 Fetching student data...');
     const students = await fetchStudentDataFromFirebase(
       organizationId, 
       projectId, 
@@ -126,17 +126,17 @@ export async function GET(request) {
     );
     
     if (students.length === 0) {
-      console.log('❌ No student data found for the selected filters');
+      // console.log('❌ No student data found for the selected filters');
       return NextResponse.json(
         { success: false, error: 'No student data found for the selected filters' },
         { status: 404 }
       );
     }
 
-    console.log(`✅ Found ${students.length} students`);
+    // console.log(`✅ Found ${students.length} students`);
 
     // Create Excel workbook
-    console.log('📝 Creating Excel file...');
+    // console.log('📝 Creating Excel file...');
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Student Performance System';
     workbook.created = new Date();
@@ -151,6 +151,7 @@ export async function GET(request) {
       { header: 'Project', key: 'project', width: 25 },
       { header: 'School', key: 'school', width: 25 },
       { header: 'Grade', key: 'grade', width: 15 },
+      { header: 'Age', key: 'age', width: 15 },
       { header: 'Gender', key: 'gender', width: 15 },
     ];
 
@@ -199,6 +200,7 @@ export async function GET(request) {
         name: student.name || 'N/A',
         project: student.project || 'N/A',
         school: student.school || 'N/A',
+        age: student.age || 'N/A',
         grade: student.grade || 'N/A',
         gender: student.gender || 'N/A',
       };
@@ -282,7 +284,7 @@ export async function GET(request) {
     });
 
     // Generate Excel buffer
-    console.log('💾 Generating Excel file...');
+    // console.log('💾 Generating Excel file...');
     const buffer = await workbook.xlsx.writeBuffer();
     
     // Create filename with filters
@@ -300,7 +302,7 @@ export async function GET(request) {
       ? `student_performance_${context}_${cleanOrgName}_${levelType}${levelFilter}${periodFilter}_${dateStr}.xlsx`
       : `student_performance_${organizationId}_${levelType}${levelFilter}${periodFilter}_${dateStr}.xlsx`;
     
-    console.log(`📄 File ready: ${filename} (${buffer.length} bytes)`);
+    // console.log(`📄 File ready: ${filename} (${buffer.length} bytes)`);
 
     // Create response
     const headers = new Headers();
@@ -346,14 +348,14 @@ async function fetchStudentDataFromFirebase(
   const students = [];
   
   try {
-    console.log(`🔍 Fetching data for organization: ${organizationId}`);
+    // console.log(`🔍 Fetching data for organization: ${organizationId}`);
     
     // Determine which projects to fetch
     let projectsToProcess = [];
     
     if (targetProjectId) {
       // Fetch specific project
-      console.log(`  📁 Targeting specific project: ${targetProjectId}`);
+      // console.log(`  📁 Targeting specific project: ${targetProjectId}`);
       const projectDoc = await db.collection(`organization/${organizationId}/projects`).doc(targetProjectId).get();
       if (projectDoc.exists) {
         projectsToProcess.push({
@@ -372,24 +374,24 @@ async function fetchStudentDataFromFirebase(
     }
     
     if (projectsToProcess.length === 0) {
-      console.log('📭 No projects found');
+      // console.log('📭 No projects found');
       return students;
     }
 
-    console.log(`📂 Processing ${projectsToProcess.length} projects`);
+    // console.log(`📂 Processing ${projectsToProcess.length} projects`);
     
     // Process each project
     for (const { id: projectId, data: projectData } of projectsToProcess) {
       const projectName = projectData.name || projectData.project_name || projectId;
       
-      console.log(` Project: ${projectName}`);
+      // console.log(` Project: ${projectName}`);
       
       // Determine which schools to fetch
       let schoolsToProcess = [];
       
       if (targetSchoolId && targetProjectId === projectId) {
         // Fetch specific school in this project
-        console.log(`  Targeting specific school: ${targetSchoolId}`);
+        // console.log(`  Targeting specific school: ${targetSchoolId}`);
         const schoolDoc = await db.collection(`organization/${organizationId}/projects/${projectId}/schools`).doc(targetSchoolId).get();
         if (schoolDoc.exists) {
           schoolsToProcess.push({
@@ -408,10 +410,10 @@ async function fetchStudentDataFromFirebase(
       }
       
       if (schoolsToProcess.length === 0) {
-        console.log(` No schools to process in project`);
+        // console.log(` No schools to process in project`);
         continue;
       }
-      console.log(`Processing ${schoolsToProcess.length} schools`);
+      // console.log(`Processing ${schoolsToProcess.length} schools`);
       
       // Process each school
       for (const { id: schoolId, data: schoolData } of schoolsToProcess) {
@@ -422,11 +424,11 @@ async function fetchStudentDataFromFirebase(
         const studentsSnapshot = await studentsRef.get();
         
         if (studentsSnapshot.empty) {
-          console.log(` No students found in school: ${schoolName}`);
+          // console.log(` No students found in school: ${schoolName}`);
           continue;
         }
 
-        console.log(`Found ${studentsSnapshot.docs.length} students in ${schoolName}`);
+        // console.log(`Found ${studentsSnapshot.docs.length} students in ${schoolName}`);
         
         // Process each student
         for (const studentDoc of studentsSnapshot.docs) {
@@ -466,6 +468,7 @@ async function fetchStudentDataFromFirebase(
               '',
             project: projectName,
             school: schoolName,
+            age: studentData.age || '',
             grade: studentData.grade || studentData.class || '',
             gender: studentData.sex || studentData.gender || '',
             // Always include all periods in the data object
@@ -482,7 +485,7 @@ async function fetchStudentDataFromFirebase(
       }
     }
 
-    console.log(` Total students collected: ${students.length}`);
+    // console.log(` Total students collected: ${students.length}`);
     return students;
 
   } catch (error) {
