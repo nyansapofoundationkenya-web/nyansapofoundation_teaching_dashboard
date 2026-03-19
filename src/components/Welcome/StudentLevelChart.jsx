@@ -37,22 +37,40 @@ export default function StudentLevelsChart({
 
   const getAllLevels = () => {
     const levels = ['Beginning', 'Developing', 'Expanding', 'Proficient', 'Exemplary']
-    return levels.map(level => ({ level, baseline: 0, current: 0 }))
+    return levels.map(level => ({ 
+      level, 
+      baseline: 0, 
+      midline: 0,
+      endline: 0 
+    }))
   }
 
   const displayData = chartData && chartData.length > 0 ? chartData : getAllLevels()
 
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
+      const dataPoint = payload[0]?.payload;
+      
       return (
         <div className="bg-background-lighter border border-gray-600 rounded-lg p-3 shadow-lg">
-          <p className="text-sm font-semibold mb-2">{payload[0].payload.level}</p>
-          <p className="text-xs text-gray-400">
-            Baseline: <span className="text-white font-medium">{payload[0].value}</span>
-          </p>
-          <p className="text-xs text-gray-400">
-            Current: <span className="text-white font-medium">{payload[1].value}</span>
-          </p>
+          <p className="text-sm font-semibold mb-2">{dataPoint?.level}</p>
+          <div className="space-y-1">
+            <p className="text-xs text-gray-400">
+              Baseline: <span className="text-white font-medium">
+                {payload.find(p => p.dataKey === 'baseline')?.value || 0}
+              </span>
+            </p>
+            <p className="text-xs text-gray-400">
+              Midline: <span className="text-white font-medium">
+                {payload.find(p => p.dataKey === 'midline')?.value || 0}
+              </span>
+            </p>
+            <p className="text-xs text-gray-400">
+              Endline: <span className="text-white font-medium">
+                {payload.find(p => p.dataKey === 'endline')?.value || 0}
+              </span>
+            </p>
+          </div>
         </div>
       )
     }
@@ -184,7 +202,9 @@ export default function StudentLevelsChart({
                 iconType="rect"
                 formatter={(value) => (
                   <span className="text-sm text-gray-300">
-                    {value === "baseline" ? "Baseline" : "Current"}
+                    {value === "baseline" ? "Baseline" : 
+                     value === "midline" ? "Midline" : 
+                     value === "endline" ? "Endline" : value}
                   </span>
                 )}
               />
@@ -195,7 +215,13 @@ export default function StudentLevelsChart({
                 opacity={chartData && chartData.length > 0 ? 1 : 0.3}
               />
               <Bar
-                dataKey="current"
+                dataKey="midline"
+                fill="#FBBF24"
+                radius={[0, 4, 4, 0]}
+                opacity={chartData && chartData.length > 0 ? 1 : 0.3}
+              />
+              <Bar
+                dataKey="endline"
                 fill="#60A5FA"
                 radius={[0, 4, 4, 0]}
                 opacity={chartData && chartData.length > 0 ? 1 : 0.3}

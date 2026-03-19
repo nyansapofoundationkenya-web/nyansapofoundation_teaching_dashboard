@@ -66,13 +66,25 @@ const ChartDataTransformer = {
   transformData: (data, levelType) => {
     if (!data || typeof data !== 'object') return []
 
-    const baseKey  = levelType === "literacy" ? "baseline" : "baseline_numeracy"
-    const endKey   = levelType === "literacy" ? "endline"  : "endline_numeracy"
+    // Define keys for all three assessment periods
+    const baseKey = levelType === "literacy" ? "baseline" : "baseline_numeracy"
+    const midKey = levelType === "literacy" ? "midline" : "midline_numeracy"
+    const endKey = levelType === "literacy" ? "endline" : "endline_numeracy"
 
-    const baseline = data[baseKey]  || {}
-    const endline  = data[endKey]   || {}
+    const baseline = data[baseKey] || {}
+    const midline = data[midKey] || {}
+    const endline = data[endKey] || {}
 
-    let levels = Object.keys(baseline)
+    // Get all unique levels from all three periods
+    const allLevels = new Set([
+      ...Object.keys(baseline),
+      ...Object.keys(midline),
+      ...Object.keys(endline)
+    ])
+
+    let levels = Array.from(allLevels)
+    
+    // If no data at all, use default levels
     if (levels.length === 0) {
       levels = levelType === "literacy"
         ? ["beginner", "letter", "word", "paragraph", "story", "above"]
@@ -80,22 +92,38 @@ const ChartDataTransformer = {
     }
 
     const levelOrder = {
-      literacy: { "non-reader":0, "beginner":0, "letter":1, "word":2, "paragraph":3, "story":4, "reading-comprehension":4, "above":5 },
-      numeracy: { "beginner":0, "number_recognition":1, "addition":2, "subtraction":3, "multiplication":4, "division":5 }
+      literacy: { 
+        "non-reader": 0, 
+        "beginner": 0, 
+        "letter": 1, 
+        "word": 2, 
+        "paragraph": 3, 
+        "story": 4, 
+        "reading-comprehension": 4, 
+        "above": 5 
+      },
+      numeracy: { 
+        "beginner": 0, 
+        "number_recognition": 1, 
+        "addition": 2, 
+        "subtraction": 3, 
+        "multiplication": 4, 
+        "division": 5 
+      }
     }
 
     const orderMap = levelOrder[levelType] || {}
-    const sorted = [...levels].sort((a,b) => (orderMap[a] ?? 99) - (orderMap[b] ?? 99))
+    const sorted = [...levels].sort((a, b) => (orderMap[a] ?? 99) - (orderMap[b] ?? 99))
 
     return sorted.map(level => ({
       level: ChartDataFormatter.formatLevelName(level),
       baseline: ChartDataParser.safeNumber(baseline[level]),
-      current:  ChartDataParser.safeNumber(endline[level]),
+      midline: ChartDataParser.safeNumber(midline[level]),
+      endline: ChartDataParser.safeNumber(endline[level]),
       rawLevel: level
     })).reverse()
   }
 }
-
 export default function WelcomePage() {
   const { organizationId } = useParams()
   const { handleFetchOrganizationById } = useOrganizations()

@@ -186,43 +186,69 @@ export default function SchoolDetailContent({
   }
 
   // Prepare chart data (use data from new hooks with fallback to old stats)
-  const chartData = (() => {
-    // Use data from new hooks first, fall back to old stats for backward compatibility
-    const source = levelType === "literacy"
-      ? (literacyLevelsData || studentLevelsStats?.literacy)
-      : (numeracyLevelsData || studentLevelsStats?.numeracy)
+const chartData = (() => {
+  const source = levelType === "literacy"
+    ? (literacyLevelsData || studentLevelsStats?.literacy)
+    : (numeracyLevelsData || studentLevelsStats?.numeracy);
 
-    if (!source) return []
+  if (!source) return [];
 
-    const baseline = source.baseline || {}
-    const endline  = source.endline  || {}
+  const baseline = source.baseline || {};
+  const midline = source.midline || {};  // Added midline
+  const endline = source.endline || {};
 
-    let levels = Object.keys(baseline)
-    if (levels.length === 0) {
-      levels = levelType === "literacy"
-        ? ["beginner", "letter", "word", "paragraph", "story", "above"]
-        : ["beginner", "number_recognition", "addition", "subtraction", "multiplication", "division"]
+  // Get all unique levels from all three periods
+  const allLevels = new Set([
+    ...Object.keys(baseline),
+    ...Object.keys(midline),
+    ...Object.keys(endline)
+  ]);
+
+  let levels = Array.from(allLevels);
+  
+  // If no data at all, use default levels
+  if (levels.length === 0) {
+    levels = levelType === "literacy"
+      ? ["beginner", "letter", "word", "paragraph", "story", "above"]
+      : ["beginner", "number_recognition", "addition", "subtraction", "multiplication", "division"];
+  }
+
+  const levelOrder = {
+    literacy: { 
+      "non-reader": 0, 
+      "beginner": 0, 
+      "letter": 1, 
+      "word": 2, 
+      "paragraph": 3, 
+      "story": 4, 
+      "reading-comprehension": 4, 
+      "above": 5 
+    },
+    numeracy: { 
+      "beginner": 0, 
+      "number_recognition": 1, 
+      "addition": 2, 
+      "subtraction": 3, 
+      "multiplication": 4, 
+      "division": 5 
     }
+  };
 
-    const levelOrder = {
-      literacy: { "non-reader":0, "beginner":0, "letter":1, "word":2, "paragraph":3, "story":4, "reading-comprehension":4, "above":5 },
-      numeracy: { "beginner":0, "number_recognition":1, "addition":2, "subtraction":3, "multiplication":4, "division":5 }
-    }
+  const orderMap = levelOrder[levelType] || {};
+  const sorted = [...levels].sort((a, b) => (orderMap[a] ?? 99) - (orderMap[b] ?? 99));
 
-    const orderMap = levelOrder[levelType] || {}
-    const sorted = [...levels].sort((a, b) => (orderMap[a] ?? 99) - (orderMap[b] ?? 99))
+  return sorted.map(level => ({
+    level: level.charAt(0).toUpperCase() + level.slice(1).replace(/_/g, ' '),
+    baseline: Number(baseline[level] || 0),
+    midline: Number(midline[level] || 0),  // Added midline
+    endline: Number(endline[level] || 0),  // Changed from 'current' to 'endline'
+    rawLevel: level
+  })).reverse();
+})();
 
-    return sorted.map(level => ({
-      level: level.charAt(0).toUpperCase() + level.slice(1),
-      baseline: Number(baseline[level] || 0),
-      current: Number(endline[level] || 0),
-      rawLevel: level
-    })).reverse()
-  })()
-
-  // Combine loading states
-  const combinedLevelsLoading = levelsLoading || literacyLoading || numeracyLoading
-  const combinedLevelsError = levelsError || literacyError || numeracyError
+// Combine loading states
+const combinedLevelsLoading = levelsLoading || literacyLoading || numeracyLoading;
+const combinedLevelsError = levelsError || literacyError || numeracyError;
 
   return (
     <div className="p-6 bg-background min-h-screen">
