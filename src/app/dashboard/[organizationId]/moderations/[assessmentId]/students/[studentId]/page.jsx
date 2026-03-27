@@ -29,8 +29,89 @@ export default function StudentDetailsPage() {
   const [isFlaggingComplete, setIsFlaggingComplete] = useState(false);
   const [flaggedCount, setFlaggedCount]             = useState(0);
   const [hasResults, setHasResults]                 = useState(false);
+  const [hasAnswers, setHasAnswers]                 = useState(false);
 
   const router = useRouter();
+
+  // Helper function to check if there are any actual answers in the results
+  const checkForAnswers = (resultData) => {
+    if (!resultData) return false;
+    
+    const assessmentType = assessment?.type?.toLowerCase() || "literacy";
+    
+    if (assessmentType === "literacy") {
+      // Check reading results (letters, words, paragraphs, stories)
+      const readingResults = resultData?.literacy_results?.reading_results || [];
+      
+      // Check if any reading item has content or metadata (indicating it was attempted)
+      const hasReadingItems = readingResults.length > 0 && readingResults.some(item => 
+        item?.content !== undefined && item?.content !== null && item?.content !== ""
+      );
+      
+      if (hasReadingItems) return true;
+      
+      // Check comprehension questions (multiple choice)
+      const comprehensionQuestions = resultData?.literacy_results?.comprehension_multiple_choice_questions || [];
+      const flatMultipleChoice = resultData?.literacy_results?.multiple_choice_questions || [];
+      const allQuestions = [...comprehensionQuestions, ...flatMultipleChoice];
+      
+      // Check if any comprehension question has a student answer
+      const hasComprehensionAnswers = allQuestions.some(questionGroup => {
+        // Handle nested questions in comprehension groups
+        if (questionGroup.questions && Array.isArray(questionGroup.questions)) {
+          return questionGroup.questions.some(q => 
+            q?.student_answer !== undefined && q?.student_answer !== null && q?.student_answer !== ""
+          );
+        }
+        // Handle flat questions
+        return questionGroup?.student_answer !== undefined && 
+               questionGroup?.student_answer !== null && 
+               questionGroup?.student_answer !== "";
+      });
+      
+      return hasComprehensionAnswers;
+    } 
+    
+    if (assessmentType === "numeracy") {
+      const numeracyResults = resultData?.numeracy_results || {};
+      
+      // Check count and match
+      const countAndMatch = numeracyResults.count_and_match || [];
+      if (countAndMatch.length > 0 && countAndMatch.some(item => 
+        item?.expected_number !== undefined || item?.passed !== undefined
+      )) return true;
+      
+      // Check highest value
+      const highestValue = numeracyResults.highest_value || [];
+      if (highestValue.length > 0 && highestValue.some(item => 
+        item?.student_number !== undefined || item?.passed !== undefined
+      )) return true;
+      
+      // Check number recognition
+      const numberRecognition = numeracyResults.number_recognition || [];
+      if (numberRecognition.length > 0 && numberRecognition.some(item => 
+        item?.content !== undefined && item?.content !== null && item?.content !== ""
+      )) return true;
+      
+      // Check number operations (addition, subtraction, multiplication, division)
+      const numberOperations = numeracyResults.number_operations || [];
+      if (numberOperations.length > 0 && numberOperations.some(item => 
+        item?.operations_number1 !== undefined || item?.operations_number2 !== undefined ||
+        item?.expected_answer !== undefined || item?.metadata?.passed !== undefined
+      )) return true;
+      
+      // Check word problems
+      const wordProblems = numeracyResults.word_problem || [];
+      if (wordProblems.length > 0 && wordProblems.some(item => 
+        item?.question !== undefined && item?.question !== null && item?.question !== "" &&
+        (item?.student_answer !== undefined || item?.metadata?.transcript !== undefined)
+      )) return true;
+      
+      return false;
+    }
+    
+    return false;
+  };
 
   // Called by StudentAssessmentResults once autoFlagAll finishes
   const handleFlaggingComplete = useCallback(async () => {
@@ -75,6 +156,10 @@ export default function StudentDetailsPage() {
         if (resultsExist) {
           const resultData   = resultSnap.data();
           const instructorId = resultData.instructor_id;
+          
+          // Check if there are any answers in the results
+          const hasAnyAnswers = checkForAnswers(resultData);
+          setHasAnswers(hasAnyAnswers);
 
           setIsVerified(resultData.is_verified || false);
 
@@ -175,7 +260,7 @@ export default function StudentDetailsPage() {
     }
   };
 
-  // Download helpers
+  // Download helpers (unchanged)
   const downloadInsightsAsPDF = () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) { alert("Please allow pop-ups to download the insights"); return; }
@@ -319,11 +404,20 @@ export default function StudentDetailsPage() {
   const backUrl         = `/dashboard/${organizationId}/moderations/${assessmentId}`;
   const hasPendingFlags = flaggedCount > 0;
   
-  // Disable confirm button if no results, still flagging, or has pending flags
-  const isConfirmDisabled = verifying || !isFlaggingComplete || hasPendingFlags || !hasResults;
+  // Disable confirm button if:
+  // - Still verifying
+  // - Flag checking not complete
+  // - Has pending flags
+  // - No results exist
+  // - Results exist but have NO answers
+  const isConfirmDisabled = verifying || 
+                           !isFlaggingComplete || 
+                           hasPendingFlags || 
+                           !hasResults || 
+                           !hasAnswers;
   
-  // Show confirm button only if results exist AND not verified
-  const showConfirmButton = hasResults && !isVerified;
+  // Show confirm button only if results exist AND have answers AND not verified
+  const showConfirmButton = hasResults && hasAnswers && !isVerified;
   
   // Show insights button only if results exist AND verified
   const showInsightsButton = hasResults && isVerified;
@@ -337,6 +431,16 @@ export default function StudentDetailsPage() {
       return <><Loader2 size={20} className="animate-spin" /> Checking…</>;
     }
     return <><ShieldCheck size={20} /> Confirm Results</>;
+  };
+
+  const getNoAnswersMessage = () => {
+    if (!hasResults) {
+      return "No assessment results available for this student";
+    }
+    if (hasResults && !hasAnswers) {
+      return `No ${assessmentType} answers recorded. Student hasn't completed the assessment.`;
+    }
+    return "";
   };
 
   return (
@@ -455,6 +559,7 @@ export default function StudentDetailsPage() {
                       disabled={isConfirmDisabled}
                       title={
                         !hasResults ? "No results available to confirm"
+                        : !hasAnswers ? `No ${assessmentType} answers recorded. Student hasn't completed the assessment.`
                         : !isFlaggingComplete ? "Checking results, please wait…"
                         : hasPendingFlags ? "Resolve all flagged items before confirming"
                         : "Confirm the assessment results"
@@ -486,9 +591,9 @@ export default function StudentDetailsPage() {
                   </button>
                 )}
 
-                {/* Show message if no results exist */}
-                {!hasResults && (
-                  <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
+                {/* Show message if no results or no answers exist */}
+                {(!hasResults || (hasResults && !hasAnswers)) && (
+                  <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm max-w-[320px]"
                        style={{ 
                          color: '#e67e22',
                          backgroundColor: 'rgba(230, 126, 34, 0.1)',
@@ -497,7 +602,7 @@ export default function StudentDetailsPage() {
                          borderStyle: 'solid'
                        }}>
                     <AlertTriangle size={15} className="shrink-0" />
-                    <span>No assessment results available for this student</span>
+                    <span>{getNoAnswersMessage()}</span>
                   </div>
                 )}
               </div>
