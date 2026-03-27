@@ -28,6 +28,7 @@ export default function StudentDetailsPage() {
   const [durationMinutes, setDurationMinutes]       = useState(null);
   const [isFlaggingComplete, setIsFlaggingComplete] = useState(false);
   const [flaggedCount, setFlaggedCount]             = useState(0);
+  const [hasResults, setHasResults]                 = useState(false);
 
   const router = useRouter();
 
@@ -52,7 +53,6 @@ export default function StudentDetailsPage() {
   }, [assessmentId, studentId]);
 
   // Initial data fetch
-
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -69,13 +69,15 @@ export default function StudentDetailsPage() {
         const resultRef  = doc(db, "assessments", assessmentId, "assessments-results", resultId);
         const resultSnap = await getDoc(resultRef);
 
-        if (resultSnap.exists()) {
+        const resultsExist = resultSnap.exists();
+        setHasResults(resultsExist);
+
+        if (resultsExist) {
           const resultData   = resultSnap.data();
           const instructorId = resultData.instructor_id;
 
           setIsVerified(resultData.is_verified || false);
 
-          // Get instructor comment if it exists
           if (resultData.instructor_comment) {
             setInstructorComment(resultData.instructor_comment);
           }
@@ -124,7 +126,6 @@ export default function StudentDetailsPage() {
   }, [organizationId, assessmentId, studentId]);
 
   // Confirm results
-
   const handleConfirmResults = async () => {
     try {
       setVerifying(true);
@@ -149,7 +150,6 @@ export default function StudentDetailsPage() {
   };
 
   // View insights
-
   const handleViewInsights = async () => {
     try {
       setLoadingInsights(true);
@@ -176,7 +176,6 @@ export default function StudentDetailsPage() {
   };
 
   // Download helpers
-
   const downloadInsightsAsPDF = () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) { alert("Please allow pop-ups to download the insights"); return; }
@@ -283,7 +282,6 @@ export default function StudentDetailsPage() {
   };
 
   // Render guards
-
   if (loading) {
     return (
       <DashboardLayout title="Student Details" organizationId={organizationId} currentSection="assessments">
@@ -315,13 +313,20 @@ export default function StudentDetailsPage() {
   }
 
   // Derived UI state
-
   const pageTitle       = `${student.first_name} ${student.last_name}`;
   const assessmentType  = assessment.type?.toLowerCase() || "literacy";
   const baseline        = student?.baseline || "";
   const backUrl         = `/dashboard/${organizationId}/moderations/${assessmentId}`;
   const hasPendingFlags = flaggedCount > 0;
-  const isConfirmDisabled = verifying || !isFlaggingComplete || hasPendingFlags;
+  
+  // Disable confirm button if no results, still flagging, or has pending flags
+  const isConfirmDisabled = verifying || !isFlaggingComplete || hasPendingFlags || !hasResults;
+  
+  // Show confirm button only if results exist AND not verified
+  const showConfirmButton = hasResults && !isVerified;
+  
+  // Show insights button only if results exist AND verified
+  const showInsightsButton = hasResults && isVerified;
 
   // What to show inside the button
   const buttonContent = () => {
@@ -354,9 +359,13 @@ export default function StudentDetailsPage() {
                 <h1 className="text-2xl font-bold text-foreground">
                   {student.first_name} {student.last_name}
                 </h1>
-                <h2 className="text-lg text-gray-300 mt-1 font-medium">
-                  Baseline: {baseline || "Not assessed"}
-                </h2>
+                
+                {/* Baseline only shown AFTER verification */}
+                {isVerified && (
+                  <h2 className="text-lg text-gray-300 mt-1 font-medium">
+                    Baseline: {baseline || "Not assessed"}
+                  </h2>
+                )}
 
                 {showAssessedBy && instructorName && (
                   <div className="mt-3 flex items-center gap-2 text-gray-300">
@@ -367,7 +376,6 @@ export default function StudentDetailsPage() {
                   </div>
                 )}
 
-                {/* Instructor Comment - using secondary-1 color (#e67e22) */}
                 {instructorComment && (
                   <div className="mt-3 flex items-start gap-2 rounded-lg p-3 max-w-lg"
                        style={{ 
@@ -423,9 +431,9 @@ export default function StudentDetailsPage() {
 
               {/* Action button */}
               <div className="flex flex-col items-end gap-2">
-                {!isVerified ? (
+                {showConfirmButton && (
                   <>
-                    {/* Only show flag warning once checking is done */}
+                    {/* Show flag warning when there are pending flags */}
                     {isFlaggingComplete && hasPendingFlags && (
                       <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm max-w-[280px]"
                            style={{ 
@@ -446,9 +454,10 @@ export default function StudentDetailsPage() {
                       onClick={handleConfirmResults}
                       disabled={isConfirmDisabled}
                       title={
-                        !isFlaggingComplete ? "Checking results, please wait…"
-                        : hasPendingFlags   ? "Resolve all flagged items before confirming"
-                        : ""
+                        !hasResults ? "No results available to confirm"
+                        : !isFlaggingComplete ? "Checking results, please wait…"
+                        : hasPendingFlags ? "Resolve all flagged items before confirming"
+                        : "Confirm the assessment results"
                       }
                       className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-colors ${
                         isConfirmDisabled
@@ -464,7 +473,9 @@ export default function StudentDetailsPage() {
                       <p className="text-xs text-right max-w-[220px]" style={{ color: '#e67e22' }}>{error}</p>
                     )}
                   </>
-                ) : (
+                )}
+
+                {showInsightsButton && (
                   <button
                     onClick={handleViewInsights}
                     className="flex items-center gap-2 text-white px-6 py-3 rounded-xl font-medium transition-colors hover:opacity-90"
@@ -474,39 +485,74 @@ export default function StudentDetailsPage() {
                     View Insights
                   </button>
                 )}
+
+                {/* Show message if no results exist */}
+                {!hasResults && (
+                  <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
+                       style={{ 
+                         color: '#e67e22',
+                         backgroundColor: 'rgba(230, 126, 34, 0.1)',
+                         borderColor: 'rgba(230, 126, 34, 0.3)',
+                         borderWidth: '1px',
+                         borderStyle: 'solid'
+                       }}>
+                    <AlertTriangle size={15} className="shrink-0" />
+                    <span>No assessment results available for this student</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Chart + Media Progress */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
-              <h2 className="text-xl font-semibold mb-4 text-foreground">
-                Baseline Progress — {assessmentType.charAt(0).toUpperCase() + assessmentType.slice(1)}
-              </h2>
-              <StudentChart
-                baseline={baseline}
-                assessmentType={assessmentType}
-                calculationType={assessment?.calculation_type || ""}
-              />
+          {/* RESULTS SECTION - Always show if results exist (for moderation) */}
+          {hasResults && (
+            <>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Chart - Shows placeholder when not verified, actual chart when verified */}
+                <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
+                  <h2 className="text-xl font-semibold mb-4 text-foreground">
+                    Baseline Progress — {assessmentType.charAt(0).toUpperCase() + assessmentType.slice(1)}
+                  </h2>
+                  <StudentChart
+                    baseline={baseline}
+                    assessmentType={assessmentType}
+                    calculationType={assessment?.calculation_type || ""}
+                    isVerified={isVerified}
+                  />
+                </div>
+
+                {/* Media Upload Progress */}
+                <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
+                  <MediaUploadProgress
+                    assessmentId={assessmentId}
+                    studentId={studentId}
+                  />
+                </div>
+              </div>
+
+              {/* Assessment Results - Always show for moderation */}
+              <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
+                <StudentAssessmentResults
+                  assessmentId={assessmentId}
+                  studentId={studentId}
+                  organizationId={organizationId}
+                  assessmentType={assessmentType}
+                  onFlaggingComplete={handleFlaggingComplete}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Show placeholder when no results exist */}
+          {!hasResults && (
+            <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600 text-center">
+              <div className="flex flex-col items-center gap-3 py-8">
+                <AlertTriangle size={48} className="text-gray-500" />
+                <p className="text-gray-400">No assessment results available</p>
+                <p className="text-sm text-gray-500">This student hasn't completed the assessment yet</p>
+              </div>
             </div>
-
-            <MediaUploadProgress
-              assessmentId={assessmentId}
-              studentId={studentId}
-            />
-          </div>
-
-          {/* Assessment Results */}
-          <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
-            <StudentAssessmentResults
-              assessmentId={assessmentId}
-              studentId={studentId}
-              organizationId={organizationId}
-              assessmentType={assessmentType}
-              onFlaggingComplete={handleFlaggingComplete}
-            />
-          </div>
+          )}
         </div>
       </div>
 
