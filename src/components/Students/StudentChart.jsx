@@ -9,6 +9,7 @@ import {
   Tooltip,
   Legend
 } from "chart.js"
+import { Lock, ShieldCheck } from "lucide-react"
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -80,13 +81,12 @@ const LEVELS = {
 export default function StudentChart({
   baseline = "",
   assessmentType = "literacy",
-  calculationType = "",           // new prop – pass from parent
+  calculationType = "",
+  isVerified = false,
 }) {
   // Normalize inputs
   const type = assessmentType.toLowerCase().trim()
   const calc = (calculationType || "").toLowerCase().trim()
-
-  // console.log(baseline)
 
   // Choose the correct config
   let config
@@ -97,29 +97,25 @@ export default function StudentChart({
       ? LEVELS.literacy_dignitas
       : LEVELS.literacy_standard
   } else {
-    // fallback
     config = LEVELS.literacy_standard
   }
 
   const { levels, labels } = config
   const maxLevel = Math.max(...Object.values(levels))
 
-  // Normalize baseline - DON'T replace underscores
+  // Normalize baseline
   const normalized = baseline
     .toLowerCase()
     .trim()
-    .replace(/\s+/g, "-")  // Only replace spaces with hyphens, keep underscores
+    .replace(/\s+/g, "-")
 
   let baselineKey = normalized || "beginner"
 
   // Try to find exact match, or fallback
   if (!(baselineKey in levels)) {
-    // Try common variations
     if (normalized.includes("nonreader") || normalized.includes("non-reader")) baselineKey = "non-reader"
     if (normalized.includes("readingcomprehension") || normalized.includes("reading-comprehension")) baselineKey = "reading-comprehension"
     if (normalized.includes("abov")) baselineKey = type === "numeracy" ? "above_level" : "above"
-    
-    // Additional fallback for number_recognition
     if (normalized.includes("number") && normalized.includes("recognition")) baselineKey = "number_recognition"
   }
 
@@ -187,8 +183,28 @@ export default function StudentChart({
     },
   }
 
+  // If not verified, show placeholder
+  if (!isVerified) {
+    return (
+      <div className="w-full h-[300px] flex flex-col items-center justify-center bg-gray-800/30 rounded-lg border border-dashed border-gray-600">
+        <div className="bg-gray-700/50 rounded-full p-4 mb-4">
+          <Lock size={48} className="text-gray-400" />
+        </div>
+        <p className="text-gray-400 font-medium mb-2">Baseline Progress Locked</p>
+        <p className="text-gray-500 text-sm text-center max-w-[200px]">
+          Confirm assessment results to view baseline progress chart
+        </p>
+        <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
+          <ShieldCheck size={14} />
+          <span>Results pending verification</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Show actual chart when verified
   return (
-    <div className="w-full h-[300px] p-4">
+    <div className="w-full h-[300px]">
       <Bar data={data} options={options} />
     </div>
   )
