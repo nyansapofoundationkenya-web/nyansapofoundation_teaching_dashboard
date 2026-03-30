@@ -12,7 +12,8 @@ export default function StudentAssessmentResults({
   studentId, 
   organizationId, 
   assessmentType = "literacy",
-  onFlaggingComplete, // ← passed down from page.jsx
+  onFlaggingComplete,
+  onHasAnswersChange, 
 }) {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -27,13 +28,24 @@ export default function StudentAssessmentResults({
         const resultsRef  = doc(db, "assessments", assessmentId, "assessments-results", `${assessmentId}_${studentId}`);
         const resultsSnap = await getDoc(resultsRef);
 
-        if (!resultsSnap.exists()) throw new Error("Assessment results not found");
+        if (!resultsSnap.exists()) {
+          setError("Assessment results not found");
+          onHasAnswersChange?.(false);
+          onFlaggingComplete?.();
+          return;
+        }
 
-        setResults(resultsSnap.data());
+        const data = resultsSnap.data();
+        setResults(data);
+
+        // NEW: Determine if there are actual answers and notify parent
+        const hasRealAnswers = hasMeaningfulResults(data, assessmentType);
+        onHasAnswersChange?.(hasRealAnswers);
+
       } catch (err) {
+        console.error(err);
         setError(err.message);
-        // If results fail to load, unblock the parent so the confirm button
-        // doesn't stay disabled forever on a fetch error.
+        onHasAnswersChange?.(false);
         onFlaggingComplete?.();
       } finally {
         setLoading(false);
@@ -41,12 +53,36 @@ export default function StudentAssessmentResults({
     };
 
     fetchStudentResults();
-  }, [assessmentId, studentId]);
+  }, [assessmentId, studentId, assessmentType, onHasAnswersChange, onFlaggingComplete]);
+
+  // Simple but reliable helper - trusts the same logic the UI uses
+  const hasMeaningfulResults = (data, type) => {
+    if (!data) return false;
+    const t = type.toLowerCase();
+
+    if (t === "literacy") {
+      const lit = data.literacy_results || {};
+      return (
+        (lit.reading_results || []).length > 0 ||
+        (lit.comprehension_multiple_choice_questions || []).length > 0 ||
+        (lit.multiple_choice_questions || []).length > 0
+      );
+    }
+
+    if (t === "numeracy") {
+      const num = data.numeracy_results || {};
+      return Object.values(num).some(section => 
+        Array.isArray(section) && section.length > 0
+      );
+    }
+
+    return false;
+  };
 
   if (loading) return <div className="text-foreground">Loading assessment results...</div>;
 
   if (error || !results) {
-    return <div className="text-foreground">No assessments results available for this student</div>;
+    return <div className="text-foreground">No assessment results available for this student</div>;
   }
 
   if (assessmentType.toLowerCase() === "numeracy") {
