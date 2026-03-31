@@ -7,10 +7,11 @@ import Search from "@/components/Assessments/Search";
 import GradeFilter from "@/components/Assessments/GradeFIlter";
 import StudentsList from "@/components/Assessments/StudentsList";
 import StudentMetrics from "@/components/Assessments/StudentMetrics";
+import DurationStatsModal from "@/components/Assessments/DurationStatsModal";
 import DashboardLayout from "@/app/dashboard/[organizationId]/DashboardLayout";
 import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
-import { ArrowLeft, RotateCw } from "lucide-react";
+import { ArrowLeft, RotateCw, Clock } from "lucide-react";
 
 export default function AssessmentDetailsPage() {
   const { organizationId, assessmentId } = useParams();
@@ -25,6 +26,8 @@ export default function AssessmentDetailsPage() {
   const [gradeFilter, setGradeFilter] = useState("All Grades");
   const [isReprocessing, setIsReprocessing] = useState(false);
   const [reprocessMessage, setReprocessMessage] = useState(null);
+  const [showDurationModal, setShowDurationModal] = useState(false);
+  
   const backUrl = `/dashboard/${organizationId}/moderations`;
 
   // Fetch the assessment from Firestore
@@ -36,7 +39,12 @@ export default function AssessmentDetailsPage() {
 
         if (!snap.exists()) throw new Error("Assessment not found");
 
-        setAssessment({ id: snap.id, ...snap.data() });
+        const assessmentData = { id: snap.id, ...snap.data() };
+        
+        // Log the assessment type to verify
+        console.log("Assessment type:", assessmentData.type);
+        
+        setAssessment(assessmentData);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -49,7 +57,14 @@ export default function AssessmentDetailsPage() {
 
   const handleSearchChange = (q) => setSearchQuery(q);
   const handleGradeFilterChange = (g) => setGradeFilter(g);
-  const assessmentType = assessment?.type || "literacy";
+  
+  // Get assessment type and normalize it
+  const assessmentTypeRaw = assessment?.type || "literacy";
+  // Ensure it's either "numeracy" or "literacy" (lowercase)
+  const assessmentType = assessmentTypeRaw.toLowerCase() === "numeracy" ? "numeracy" : "literacy";
+  
+  // For display purposes
+  const displayAssessmentType = assessmentType === "numeracy" ? "Numeracy" : "Literacy";
 
   // Filter students (search + grade) — showing ALL assigned students
   const filteredStudents = useMemo(() => {
@@ -167,10 +182,22 @@ export default function AssessmentDetailsPage() {
               </div>
 
               <h1 className="text-xl font-semibold text-foreground">{assessment.name}</h1>
+              <p className="text-sm text-gray-400 mt-1">
+                {displayAssessmentType} Assessment
+              </p>
             </div>
 
-            {/* Right Section (Reprocess Button + Filters + Search) */}
-            <div className="flex items-center gap-4">
+            {/* Right Section - Action Buttons Group */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* View Duration Stats Button */}
+              <button
+                onClick={() => setShowDurationModal(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl"
+              >
+                <Clock size={18} />
+                View Duration Stats
+              </button>
+
               {/* Reprocess Button - Only visible to super_admin */}
               {userRole === 'super_admin' && (
                 <button
@@ -183,7 +210,7 @@ export default function AssessmentDetailsPage() {
                   }`}
                 >
                   <RotateCw size={18} className={isReprocessing ? "animate-spin" : ""} />
-                  {isReprocessing ? "Reprocessing..." : "Reprocess Assessment"}
+                  {isReprocessing ? "Processing..." : "Recalculate"}
                 </button>
               )}
               
@@ -239,6 +266,14 @@ export default function AssessmentDetailsPage() {
           )}
         </div>
       </div>
+
+      {/* Duration Stats Modal */}
+      <DurationStatsModal
+        isOpen={showDurationModal}
+        onClose={() => setShowDurationModal(false)}
+        assessmentId={assessmentId}
+        assessmentType={assessmentType}
+      />
     </DashboardLayout>
   );
 }
