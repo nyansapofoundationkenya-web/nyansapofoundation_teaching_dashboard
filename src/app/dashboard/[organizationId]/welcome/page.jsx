@@ -29,6 +29,7 @@ import ProgramImpact from "@/components/Welcome/ProgramImpact"
 import AssessmentHealth from "@/components/Welcome/AssessmentHealth"
 import AttendanceOverview from "@/components/Welcome/AttendanceOverview"
 import StatsCard from "@/components/ProjectDetails/StatsCard"
+import DurationStats from "@/components/Welcome/DurationStats"
 
 // Chart data utilities (unchanged)
 const ChartDataFormatter = {
@@ -435,6 +436,13 @@ export default function WelcomePage() {
               error={attendanceError}
               data={attendanceData}
               onFetchData={refetchAttendance}
+            />
+          </div>
+          {/* Duration Statistics */}
+          <div className="mb-10">
+            <DurationStats
+              organizationId={organizationId}
+              scope="organization"
             />
           </div>
         </main>

@@ -34,6 +34,7 @@ import AssessmentHealth from "@/components/Welcome/AssessmentHealth";
 import AttendanceOverview from "@/components/Welcome/AttendanceOverview";
 
 import DashboardLayout from "@/app/dashboard/[organizationId]/DashboardLayout";
+import DurationStats from "@/components/Welcome/DurationStats";
 
 export default function ProjectDetails() {
   const { organizationId, projectId } = useParams();
@@ -439,6 +440,11 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
                 onFetchData={refetchAttendance}
               />
             </div>
+            <DurationStats
+            organizationId={organizationId}
+            projectId={projectId}
+            scope="project"
+          />
           </div>
         )}
       </div>

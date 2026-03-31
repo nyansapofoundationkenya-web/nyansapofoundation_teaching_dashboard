@@ -18,6 +18,7 @@ import { useAssessmentHealth } from "@/hooks/stats/useAssessmentHealth"
 import { useStudentLevels } from "@/hooks/stats/useStudentLevels"
 import { useNumeracyLevels } from "@/hooks/stats/useNumeracyLevels"
 import { useSelector } from "react-redux"
+import DurationStats from "../Welcome/DurationStats"
 
 export default function SchoolDetailContent({ 
   school, 
@@ -357,6 +358,12 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
           onFetchData={refetchAttendance}
         />
       </div>
+      <DurationStats
+        organizationId={organizationId}
+        projectId={projectId}
+        schoolId={school?.id}
+        scope="school"
+      />
 
       {/* Student Upload Modal */}
       <StudentUploadModal
