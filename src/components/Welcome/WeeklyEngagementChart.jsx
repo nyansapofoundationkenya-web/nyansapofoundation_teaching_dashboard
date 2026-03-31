@@ -49,8 +49,6 @@ export default function WeeklyEngagementChart({
     const { startOfWeek, endOfWeek } = getCurrentWeekRange();
     
     return data.filter(day => {
-      // Assuming your data has a date field, you'll need to adjust this based on your actual data structure
-      // This is an example - you'll need to adapt based on what date fields are available in your data
       if (day.date) {
         const itemDate = new Date(day.date);
         return itemDate >= startOfWeek && itemDate <= endOfWeek;
