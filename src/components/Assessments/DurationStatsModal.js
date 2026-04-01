@@ -9,7 +9,7 @@ import { doc, getDoc } from "firebase/firestore";
 export default function DurationStatsModal({ isOpen, onClose, assessmentId, assessmentType }) {
   const [durationStats, setDurationStats] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [hasData, setHasData] = useState(false);
 
   useEffect(() => {
     if (isOpen && assessmentId) {
@@ -19,7 +19,6 @@ export default function DurationStatsModal({ isOpen, onClose, assessmentId, asse
 
   const fetchDurationStats = async () => {
     setLoading(true);
-    setError(null);
     
     try {
       // Ensure assessmentType is properly normalized
@@ -27,7 +26,8 @@ export default function DurationStatsModal({ isOpen, onClose, assessmentId, asse
       
       if (normalizedType !== 'numeracy' && normalizedType !== 'literacy') {
         console.error('Invalid assessment type:', assessmentType);
-        setError(`Invalid assessment type: ${assessmentType || 'unknown'}`);
+        setDurationStats(null);
+        setHasData(false);
         setLoading(false);
         return;
       }
@@ -53,31 +53,41 @@ export default function DurationStatsModal({ isOpen, onClose, assessmentId, asse
         if (stats) {
           console.log('Duration stats data:', stats);
           setDurationStats(stats);
+          setHasData(true);
         } else {
-          console.error('Expected structure result.stats not found in:', data);
-          setError("Duration statistics data structure is incorrect");
+          console.log('No stats data available yet');
+          setDurationStats(null);
+          setHasData(false);
         }
       } else {
-        setError(`No duration data available for this ${normalizedType} assessment`);
+        console.log('No duration data available for this assessment');
+        setDurationStats(null);
+        setHasData(false);
       }
     } catch (err) {
       console.error("Error fetching duration stats:", err);
-      setError("Failed to load duration statistics");
+      setDurationStats(null);
+      setHasData(false);
     } finally {
       setLoading(false);
     }
   };
 
   const formatTime = (milliseconds) => {
-    if (!milliseconds && milliseconds !== 0) return "N/A";
+    if (!milliseconds && milliseconds !== 0) return "_";
     const minutes = Math.floor(milliseconds / 60000);
     const seconds = Math.floor((milliseconds % 60000) / 1000);
     return `${minutes}m ${seconds}s`;
   };
 
   const formatNumber = (num) => {
-    if (!num && num !== 0) return "N/A";
+    if (!num && num !== 0) return "_";
     return new Intl.NumberFormat().format(Math.round(num));
+  };
+
+  const formatMinutes = (minutes) => {
+    if (!minutes && minutes !== 0) return "_";
+    return minutes.toFixed(1);
   };
 
   const downloadStats = () => {
@@ -96,8 +106,8 @@ Generated: ${new Date().toLocaleString()}
 
 SUMMARY STATISTICS
 -----------------
-Total Students: ${durationStats.total_students || 'N/A'}
-Average Duration: ${durationStats.avg_duration_minutes?.toFixed(2)} minutes (${durationStats.avg_duration_seconds?.toFixed(0)} seconds)
+Total Students: ${durationStats.total_students || '_'}
+Average Duration: ${durationStats.avg_duration_minutes?.toFixed(2) || '_'} minutes (${durationStats.avg_duration_seconds?.toFixed(0) || '_'} seconds)
 Average Duration (ms): ${formatNumber(durationStats.avg_duration_ms)} ms
 
 DETAILED STATISTICS
@@ -125,6 +135,19 @@ This data represents the time taken by students to complete this ${displayType.t
   const normalizedType = assessmentType?.toLowerCase();
   const displayType = normalizedType === 'numeracy' ? 'Numeracy' : 'Literacy';
   const isNumeracy = normalizedType === 'numeracy';
+  
+  // Create empty stats object for placeholder
+  const emptyStats = {
+    total_students: "_",
+    avg_duration_minutes: "_",
+    avg_duration_seconds: "_",
+    avg_duration_ms: "_",
+    min_duration_ms: "_",
+    max_duration_ms: "_",
+    total_duration_ms: "_"
+  };
+  
+  const displayStats = durationStats || emptyStats;
 
   return (
     <>
@@ -150,7 +173,7 @@ This data represents the time taken by students to complete this ${displayType.t
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {durationStats && !loading && (
+            {hasData && (
               <button
                 onClick={downloadStats}
                 className="p-2 hover:bg-gray-700 rounded-lg transition-colors group relative"
@@ -174,15 +197,6 @@ This data represents the time taken by students to complete this ${displayType.t
             <div className="flex items-center justify-center h-64">
               <div className="text-foreground">Loading duration statistics...</div>
             </div>
-          ) : error ? (
-            <div className="text-center py-12">
-              <AlertCircle size={48} className="text-red-400 mx-auto mb-4" />
-              <p className="text-red-400">{error}</p>
-            </div>
-          ) : !durationStats ? (
-            <div className="text-center py-12">
-              <p className="text-gray-400">No duration data available</p>
-            </div>
           ) : (
             <div className="space-y-6">
               {/* Summary Card */}
@@ -193,12 +207,16 @@ This data represents the time taken by students to complete this ${displayType.t
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-4xl font-bold">
-                    {durationStats.avg_duration_minutes?.toFixed(1) || 'N/A'}
+                    {displayStats.avg_duration_minutes !== "_" 
+                      ? formatMinutes(displayStats.avg_duration_minutes) 
+                      : "_"}
                   </span>
                   <span className="text-lg opacity-75">minutes</span>
                 </div>
                 <p className="text-sm opacity-75 mt-2">
-                  Based on {durationStats.total_students || 0} students
+                  Based on {displayStats.total_students !== "_" 
+                    ? displayStats.total_students 
+                    : "_"} students
                 </p>
               </div>
 
@@ -210,7 +228,7 @@ This data represents the time taken by students to complete this ${displayType.t
                     <span className="text-sm text-gray-400">Max Duration</span>
                   </div>
                   <div className="text-xl font-bold text-foreground">
-                    {formatTime(durationStats.max_duration_ms)}
+                    {formatTime(displayStats.max_duration_ms)}
                   </div>
                 </div>
                 
@@ -220,7 +238,7 @@ This data represents the time taken by students to complete this ${displayType.t
                     <span className="text-sm text-gray-400">Min Duration</span>
                   </div>
                   <div className="text-xl font-bold text-foreground">
-                    {formatTime(durationStats.min_duration_ms)}
+                    {formatTime(displayStats.min_duration_ms)}
                   </div>
                 </div>
               </div>
@@ -236,42 +254,50 @@ This data represents the time taken by students to complete this ${displayType.t
                   <div className="flex justify-between items-center pb-2 border-b border-gray-600">
                     <span className="text-gray-400">Total Students</span>
                     <span className="text-foreground font-semibold">
-                      {durationStats.total_students || 'N/A'}
+                      {displayStats.total_students !== "_" 
+                        ? displayStats.total_students 
+                        : "_"}
                     </span>
                   </div>
                   
                   <div className="flex justify-between items-center pb-2 border-b border-gray-600">
                     <span className="text-gray-400">Average Duration</span>
                     <span className="text-foreground font-semibold">
-                      {durationStats.avg_duration_minutes?.toFixed(2) || 'N/A'} minutes
+                      {displayStats.avg_duration_minutes !== "_" 
+                        ? `${displayStats.avg_duration_minutes?.toFixed(2)} minutes` 
+                        : "_"}
                     </span>
                   </div>
                   
                   <div className="flex justify-between items-center pb-2 border-b border-gray-600">
                     <span className="text-gray-400">Average (seconds)</span>
                     <span className="text-foreground font-semibold">
-                      {durationStats.avg_duration_seconds?.toFixed(2) || 'N/A'} s
+                      {displayStats.avg_duration_seconds !== "_" 
+                        ? `${displayStats.avg_duration_seconds?.toFixed(2)} s` 
+                        : "_"}
                     </span>
                   </div>
                   
                   <div className="flex justify-between items-center pb-2 border-b border-gray-600">
                     <span className="text-gray-400">Average (milliseconds)</span>
                     <span className="text-foreground font-semibold">
-                      {formatNumber(durationStats.avg_duration_ms)} ms
+                      {displayStats.avg_duration_ms !== "_" 
+                        ? `${formatNumber(displayStats.avg_duration_ms)} ms` 
+                        : "_"}
                     </span>
                   </div>
                   
                   <div className="flex justify-between items-center pb-2 border-b border-gray-600">
                     <span className="text-gray-400">Total Duration</span>
                     <span className="text-foreground font-semibold">
-                      {formatTime(durationStats.total_duration_ms)}
+                      {formatTime(displayStats.total_duration_ms)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Time Range Indicator */}
-              {durationStats.min_duration_ms && durationStats.max_duration_ms && (
+              {/* Time Range Indicator - Only show if we have actual data */}
+              {hasData && displayStats.min_duration_ms !== "_" && displayStats.max_duration_ms !== "_" && (
                 <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-600">
                   <h3 className="text-sm font-semibold text-gray-400 mb-3">Time Range Distribution</h3>
                   <div className="relative pt-1">
@@ -290,22 +316,22 @@ This data represents the time taken by students to complete this ${displayType.t
                     <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-600">
                       <div 
                         style={{ 
-                          width: `${(durationStats.min_duration_ms / durationStats.max_duration_ms) * 100}%`,
+                          width: `${(displayStats.min_duration_ms / displayStats.max_duration_ms) * 100}%`,
                           backgroundColor: '#4ade80'
                         }}
                         className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center"
                       />
                       <div 
                         style={{ 
-                          width: `${((durationStats.max_duration_ms - durationStats.min_duration_ms) / durationStats.max_duration_ms) * 100}%`,
+                          width: `${((displayStats.max_duration_ms - displayStats.min_duration_ms) / displayStats.max_duration_ms) * 100}%`,
                           backgroundColor: '#f87171'
                         }}
                         className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center"
                       />
                     </div>
                     <div className="flex justify-between text-xs text-gray-400">
-                      <span>{formatTime(durationStats.min_duration_ms)}</span>
-                      <span>{formatTime(durationStats.max_duration_ms)}</span>
+                      <span>{formatTime(displayStats.min_duration_ms)}</span>
+                      <span>{formatTime(displayStats.max_duration_ms)}</span>
                     </div>
                   </div>
                 </div>
@@ -313,17 +339,28 @@ This data represents the time taken by students to complete this ${displayType.t
 
               {/* Additional Stats Card */}
               <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-600">
-                <h3 className="text-sm font-semibold text-gray-400 mb-3">Additional Information</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Data Points</span>
-                    <span className="text-foreground">{durationStats.total_students || 0} students</span>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <Download size={16} className="text-gray-400" />
+                    <span className="text-sm text-gray-400">Export Data</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Average Time per Student</span>
-                    <span className="text-foreground">{formatTime(durationStats.total_duration_ms / (durationStats.total_students || 1))}</span>
-                  </div>
+                  <button
+                    onClick={downloadStats}
+                    disabled={!hasData}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      hasData 
+                        ? "bg-blue-600 hover:bg-blue-700 text-white"
+                        : "bg-gray-600 text-gray-400 cursor-not-allowed"
+                    }`}
+                  >
+                    Download as Text
+                  </button>
                 </div>
+                {!hasData && (
+                  <p className="text-xs text-gray-500 mt-3 text-center">
+                    No data available yet. Stats will appear here once students complete this assessment.
+                  </p>
+                )}
               </div>
             </div>
           )}
