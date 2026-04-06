@@ -1,7 +1,9 @@
 // @/components/AssessmentConfigStep.jsx
 "use client";
 
+import { useState } from "react";
 import AssessmentPreview from "./AssessmentPreview";
+import FullAssessmentViewer from "./FullAssessmentViewer";
 
 export default function AssessmentConfigStep({
   formData,
@@ -28,6 +30,8 @@ export default function AssessmentConfigStep({
   nextAssessment,
   prevAssessment,
 }) {
+  
+  const [showFullViewer, setShowFullViewer] = useState(false);
   
   const getDisplayRange = () => {
     if (availableAssessmentNumbers.length === 0) return "0-0";
@@ -418,12 +422,27 @@ export default function AssessmentConfigStep({
         </p>
       </div>
 
-      {/* Assessment Preview - Only show if content exists */}
+      {/* Assessment Preview - EXISTING SECTION with scrolling (KEPT INTACT) */}
       {!noContentAvailable && currentAssessment && (
         <div className="border-2 border-primary-2/30 rounded-xl p-6 bg-background-light mb-6">
-          <h3 className="text-lg font-semibold text-foreground mb-6 text-center">
-            Assessment Preview
-          </h3>
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-semibold text-foreground">
+              Assessment Preview
+            </h3>
+            {/* NEW BUTTON - View Full Assessment without scrolling */}
+            <button
+              type="button"
+              onClick={() => setShowFullViewer(true)}
+              className="px-4 py-2 bg-primary-2 hover:bg-blue-400 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2 shadow-md hover:shadow-lg"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              View Full Assessment
+            </button>
+          </div>
+          {/* EXISTING SCROLLING PREVIEW - UNCHANGED */}
           <div className="max-h-96 overflow-y-auto scrollbar-hide">
             <AssessmentPreview
               currentAssessment={currentAssessment}
@@ -432,6 +451,15 @@ export default function AssessmentConfigStep({
             />
           </div>
         </div>
+      )}
+
+      {/* NEW - Full Assessment Viewer Modal (shows everything without scrolling) */}
+      {showFullViewer && (
+        <FullAssessmentViewer
+          assessment={currentAssessment}
+          type={formData.type}
+          onClose={() => setShowFullViewer(false)}
+        />
       )}
     </div>
   );
