@@ -125,7 +125,7 @@ const PRIVACY_SECTIONS = [
   },
   {
     title: "18. Contact Us",
-    content: "For general inquiries, data access requests, or complaints: - info@nyansapoai.net - +254 712607405 - Nyansapo AI Office: 114-90201, Mutomo, Kitui - ODPC Website: www.odpc.go.ke",
+    content: "For general inquiries, data access requests, or complaints: -  info@nyansapoai.app - +254746 664982 - Nyansapo AI Office: 114-90201, Mutomo, Kitui - ODPC Website: www.odpc.go.ke",
   },
 ];
 
@@ -278,7 +278,7 @@ function LegalContent() {
             className="text-sm font-medium"
             style={{ color: accent }}
           >
-            info@nyansapoai.net
+            info@nyansapoai.app
           </a>
           <p className="text-xs mt-4" style={{ color: "rgba(255,255,255,0.2)" }}>
             © {new Date().getFullYear()} The Nyansapo Foundation. All rights reserved.
