@@ -3,15 +3,17 @@
 import { useState } from "react";
 import { Users, CheckCircle, Clock, Plus, Download } from "lucide-react";
 import AddStudentModal from "./AddStudentModal";
+import ExportLevelModal from "./ExportLevelModal";
 import { exportStudentsToExcel } from "@/utils/studentExportUtil";
 
 export default function StudentMetrics({
   students,
   loading = false,
   assessmentId,
+  assessmentType = "literacy", // Pass this prop from parent
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("");
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   const totalStudents = students?.length || 0;
 
@@ -37,20 +39,9 @@ export default function StudentMetrics({
     return <StudentMetricsSkeleton />;
   }
 
-  const categories = [
-    "letter",
-    "word",
-    "beginner",
-    "paragraph",
-    "story",
-    "above",
-    "non-reader",
-    "reading-comprehension",
-  ];
-
-  // Export handler
-  const handleExport = async () => {
-    await exportStudentsToExcel(students, assessmentId, selectedCategory || null);
+  // Handle export with optional category filter
+  const handleExport = async (category = null) => {
+    await exportStudentsToExcel(students, assessmentId, category);
   };
 
   return (
@@ -63,23 +54,9 @@ export default function StudentMetrics({
           </h3>
 
           <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-            {/* Filter Dropdown */}
-            <select
-              className="border border-gray-400 rounded-lg px-3 py-2 text-sm bg-background-light focus:outline-none"
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-            >
-              <option value="">All Categories</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                </option>
-              ))}
-            </select>
-
-            {/* Export Button */}
+            {/* Export Button - Opens new modal */}
             <button
-              onClick={handleExport}
+              onClick={() => setIsExportModalOpen(true)}
               className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl transition-all duration-200 shadow-md hover:shadow-lg whitespace-nowrap"
             >
               <Download className="w-4 h-4" />
@@ -132,11 +109,23 @@ export default function StudentMetrics({
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Add Student Modal */}
       {isModalOpen && (
         <AddStudentModal
           assessmentId={assessmentId}
           onClose={() => setIsModalOpen(false)}
+        />
+      )}
+
+      {/* Export Level Modal */}
+      {isExportModalOpen && (
+        <ExportLevelModal
+          isOpen={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+          assessmentId={assessmentId}
+          assessmentType={assessmentType}
+          students={students}
+          onExport={handleExport}
         />
       )}
     </>

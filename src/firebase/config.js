@@ -42,7 +42,7 @@ if (typeof window !== "undefined") {
 // console.log("   Project:", firebaseConfig.projectId);
 // console.log("   Model: gemini-2.5-flash");
 
-export { auth, db, storage, app, ai, model, analytics }; // ADD analytics to exports
+export { auth, db, storage, app, ai, model, analytics };
 
 // Test function
 export async function testConnectionWithNewKey() {
