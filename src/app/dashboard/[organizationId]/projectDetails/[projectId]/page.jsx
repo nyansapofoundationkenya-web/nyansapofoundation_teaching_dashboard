@@ -15,7 +15,6 @@ import {
   GraduationCap,
   School,
   Users,
-  Download,
   ChevronDown,
   Building2,
 } from "lucide-react";
@@ -194,11 +193,6 @@ export default function ProjectDetails() {
     }
   };
 
-  const handleDownload = () => {
-    console.log("Download project data clicked");
-    // window.open(`/api/export/project-performance?organization_id=${organizationId}&project_id=${projectId}`);
-  };
-
   // Prepare chart data
 const chartData = (() => {
   const source = levelType === "literacy"
@@ -272,28 +266,20 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
       currentSection={"projects"}
     >
       <div className="p-4 space-y-6 overflow-auto">
-        {/* Action buttons – admin/superadmin only */}
+        {/* Action buttons – admin/superadmin only – aligned to right */}
         {!userLoading && isAdminOrSuperAdmin && (
-          <div className="flex flex-col sm:flex-row gap-2" ref={dropdownRef}>
-            <button
-              className="flex items-center justify-center px-3 py-2 border border-primary-3 rounded-xl bg-primary-3/20 hover:bg-primary-3/30 text-base text-foreground transition-colors w-full sm:w-auto"
-              onClick={handleDownload}
-            >
-              <span>Download Data</span>
-              <Download className="w-4 h-4 ml-2 flex-shrink-0" />
-            </button>
-
-            <div className="relative w-full sm:w-auto">
+          <div className="flex justify-end" ref={dropdownRef}>
+            <div className="relative">
               <button
                 onClick={() => setDropdownOpen((p) => !p)}
-                className="flex items-center justify-center px-3 py-2 bg-primary-3 text-primary-1 rounded-xl hover:bg-yellow-400 text-base transition-colors w-full sm:w-auto font-medium"
+                className="flex items-center justify-center px-3 py-2 bg-primary-3 text-primary-1 rounded-xl hover:bg-yellow-400 text-base transition-colors font-medium"
               >
                 <span>Actions</span>
                 <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
               </button>
 
               {dropdownOpen && (
-                <div className="absolute left-0 right-0 sm:right-0 sm:left-auto mt-2 w-full sm:w-48 bg-background-light border border-gray-600 rounded-xl shadow-lg z-30">
+                <div className="absolute right-0 mt-2 w-48 bg-background-light border border-gray-600 rounded-xl shadow-lg z-30">
                   <ul className="py-1 text-sm text-foreground">
                     <li>
                       <button
