@@ -65,6 +65,15 @@ export default function AssessmentResults({
     }
   );
 
+  // Parse flag_review string into array for display
+  const getFlagReviewArray = () => {
+    const flagReview = currentResult?.metadata?.flag_review;
+    if (!flagReview || typeof flagReview !== 'string') return [];
+    return flagReview.split(',').map(reason => reason.trim()).filter(reason => reason);
+  };
+
+  const flagReviewArray = getFlagReviewArray();
+
   return (
     <div className="space-y-6">
       {/* Progress Bar */}
@@ -80,6 +89,31 @@ export default function AssessmentResults({
           />
         </div>
       </div>
+
+      {/* Flag Review Display - Show if there are any flag reasons */}
+      {flagReviewArray.length > 0 && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl overflow-hidden">
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertCircle className="w-5 h-5 text-yellow-400" />
+              <h3 className="font-semibold text-yellow-400">Flag Review Reasons</h3>
+              {!isResultModerated(currentResult) && (
+                <span className="text-xs text-gray-400 ml-2">(Pending moderation)</span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {flagReviewArray.map((reason, idx) => (
+                <span 
+                  key={idx}
+                  className="px-3 py-1.5 text-sm rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/30"
+                >
+                  {reason}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Content Display */}
       <div className="space-y-6">

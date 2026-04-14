@@ -190,13 +190,39 @@ export default function NumeracyModerationContent({
     });
   };
 
-  // ── Save flag reasons — only increments resolved, does NOT persist reasons ─
+  // ── Save flag reasons — now saves as comma-separated string in metadata ─
   const handleSaveFlagReasons = async (reasonType, newReasons, prevReasons) => {
+    const currentResult = getCurrentResult();
+    if (!currentResult) return;
+
+    // Convert array to comma-separated string
+    const flagReviewString = newReasons.join(', ');
+    
+    // Get existing flag review string from metadata
+    const existingFlagReview = currentResult?.metadata?.flag_review || '';
+    const existingReasonsArray = existingFlagReview ? existingFlagReview.split(',').map(r => r.trim()) : [];
+    
+    // Check if reasons actually changed
+    const hasChanged = existingReasonsArray.length !== newReasons.length ||
+      existingReasonsArray.some(r => !newReasons.includes(r)) ||
+      newReasons.some(r => !existingReasonsArray.includes(r));
+    
+    if (!hasChanged) return;
+
     setSavingFlagReasons(true);
     try {
+      // Save flag review to metadata
+      await updateNumeracyResult({
+        metadata: {
+          flag_review: flagReviewString
+        }
+      });
+      
+      // Also increment resolved counter
       await incrementResolved();
+      
     } catch (err) {
-      console.error("Failed to increment resolved:", err);
+      console.error("Failed to save flag reasons:", err);
       setError("Failed to process flag reasons");
     } finally {
       setSavingFlagReasons(false);
@@ -389,8 +415,7 @@ export default function NumeracyModerationContent({
             setError={setError}
             isModerated={isModerated}
             isFlagged={currentResult?.flagged === true}
-            existingAudioReasons={currentResult?.audio_flag_reasons || []}
-            existingImageReasons={currentResult?.image_flag_reasons || []}
+            existingFlagReview={currentResult?.metadata?.flag_review || ""}
             onSaveFlagReasons={handleSaveFlagReasons}
             savingFlagReasons={savingFlagReasons}
             onCorrect={handleCorrect}

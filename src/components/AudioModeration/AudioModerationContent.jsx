@@ -32,7 +32,7 @@ export default function AudioModerationContent({
   const [savingFlagReasons, setSavingFlagReasons]   = useState(false);
 
   const backUrl = `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}`;
-  const { incrementResolved } = useFlagReasons(assessmentId, studentId);
+  const { saveFlagReasons, incrementResolved } = useFlagReasons(assessmentId, studentId);
 
   const groupResultsByType = (results) => {
     const groups = { letter: [], word: [], paragraph: [], story: [] };
@@ -174,22 +174,50 @@ export default function AudioModerationContent({
     }
   };
 
-  // ── Save flag reasons — only increments resolved, does NOT persist reasons ─
-  const handleSaveFlagReasons = async (newReasons) => {
-    const sectionResults = groupedResults[currentSection] || [];
-    const currentResult  = sectionResults[currentLocalIndex];
-    if (!currentResult) return;
+const handleSaveFlagReasons = async (newReasons) => {
+  const sectionResults = groupedResults[currentSection] || [];
+  const currentResult  = sectionResults[currentLocalIndex];
+  if (!currentResult) return;
 
-    setSavingFlagReasons(true);
-    try {
-      await incrementResolved();
-    } catch (err) {
-      console.error("Failed to increment resolved:", err);
-      setError("Failed to process flag reasons");
-    } finally {
-      setSavingFlagReasons(false);
-    }
-  };
+  // Convert array to comma-separated string
+  const flagReviewString = newReasons.join(', ');
+  
+  // Get existing flag review string
+  const existingFlagReview = currentResult?.metadata?.flag_review || '';
+  const existingReasonsArray = existingFlagReview ? existingFlagReview.split(',').map(r => r.trim()) : [];
+  
+  // Check if reasons actually changed
+  const hasChanged = existingReasonsArray.length !== newReasons.length ||
+    existingReasonsArray.some(r => !newReasons.includes(r)) ||
+    newReasons.some(r => !existingReasonsArray.includes(r));
+  
+  if (!hasChanged) return;
+
+  setSavingFlagReasons(true);
+  try {
+    // Save flag review to metadata
+    await updateAssessmentResult({ 
+      flag_review: flagReviewString
+    });
+    
+    // Also increment resolved counter
+    await incrementResolved();
+    
+    setModerationHistory(prev => [{
+      section: currentSection,
+      index: currentLocalIndex + 1,
+      action: "flag_review_updated",
+      details: `Reasons: ${flagReviewString}`,
+      timestamp: new Date().toISOString(),
+    }, ...prev.slice(0, 9)]);
+    
+  } catch (err) {
+    console.error("Failed to save flag reasons:", err);
+    setError("Failed to save flag reasons");
+  } finally {
+    setSavingFlagReasons(false);
+  }
+};
 
   // ── Delete round ──────────────────────────────────────────────────────────
   const extractFilePathFromUrl = (url) => {
@@ -497,7 +525,7 @@ export default function AudioModerationContent({
                       onConfirmModeration={handleConfirmModeration}
                       disabled={isModerated}
                       isFlagged={currentResult?.flagged === true}
-                      existingFlagReasons={currentResult?.flag_reasons || []}
+                      existingFlagReasons={currentResult?.flag_review || []}
                       onSaveFlagReasons={handleSaveFlagReasons}
                       savingFlagReasons={savingFlagReasons}
                       hasMadeDecision={hasMadeDecision}
@@ -582,6 +610,7 @@ export default function AudioModerationContent({
                       </span>
                     </div>
                     <div className="text-gray-400 capitalize">{entry.action}</div>
+                    {entry.details && <div className="text-gray-500 text-xs mt-1">{entry.details}</div>}
                   </div>
                 ))}
               </div>

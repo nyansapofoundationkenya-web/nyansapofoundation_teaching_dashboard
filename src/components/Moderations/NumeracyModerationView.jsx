@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, XCircle, Volume2, TrendingUp } from "lucide-react";
+import { CheckCircle, XCircle, Volume2, TrendingUp, AlertCircle } from "lucide-react";
 import AudioPlayer from "./numeracy/AudioPlayer";
 import LazyImagePanel from "./numeracy/LazyImagePanel";
 import NumeracyModerationActions from "./NumeracyModerationActions";
@@ -23,18 +23,25 @@ export default function NumeracyModerationView({
   setError,
   // Flag props
   isFlagged,
-  existingAudioReasons,
-  existingImageReasons,
+  existingFlagReview,
   onSaveFlagReasons,
   savingFlagReasons,
   isModerated,
-  // ✅ New action props from NumeracyModerationContent
+  // Action props
   onCorrect,
   onIncorrect,
   onSaveEdit,
   onConfirmModeration,
   currentPassedStatus,
 }) {
+  // Helper function to parse flag review string
+  const getFlagReviewArray = (flagReviewString) => {
+    if (!flagReviewString || typeof flagReviewString !== 'string') return [];
+    return flagReviewString.split(',').map(reason => reason.trim()).filter(reason => reason);
+  };
+
+  const flagReviewArray = getFlagReviewArray(existingFlagReview);
+
   const handleWorkoutUrlResolved = (url) => {
     updateNumeracyResult({ metadata: { workout_screenshot_url: url } });
   };
@@ -52,8 +59,7 @@ export default function NumeracyModerationView({
       onDeleteRound={onDeleteRound}
       disabled={isModerated}
       isFlagged={isFlagged}
-      existingAudioReasons={existingAudioReasons}
-      existingImageReasons={existingImageReasons}
+      existingFlagReview={existingFlagReview}
       onSaveFlagReasons={onSaveFlagReasons}
       savingFlagReasons={savingFlagReasons}
       currentPassedStatus={currentPassedStatus}
@@ -464,6 +470,30 @@ export default function NumeracyModerationView({
           </div>
         </div>
       </div>
+      
+      {/* Flag Review Display */}
+      {flagReviewArray.length > 0 && (
+        <div className="bg-yellow-500/10 border-b border-yellow-500/30 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertCircle className="w-5 h-5 text-yellow-400" />
+            <h3 className="font-semibold text-yellow-400">Flag Review Reasons</h3>
+            {!isModerated && (
+              <span className="text-xs text-gray-400 ml-2">(Pending moderation)</span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {flagReviewArray.map((reason, idx) => (
+              <span 
+                key={idx}
+                className="px-3 py-1.5 text-sm rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/30"
+              >
+                {reason}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      
       <div className="p-4">{renderSectionContent()}</div>
     </div>
   );
