@@ -5,6 +5,7 @@ import { collection, getDocs, doc, getDoc, addDoc, updateDoc, increment, writeBa
 import { db } from "../firebase/config"
 import Papa from "papaparse"
 import { useSelector } from "react-redux"
+import * as XLSX from "xlsx"
 
 export function useSchools(organizationId) {
   const [schools, setSchools] = useState([])
