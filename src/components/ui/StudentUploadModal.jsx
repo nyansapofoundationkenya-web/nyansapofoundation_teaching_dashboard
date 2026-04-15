@@ -108,8 +108,8 @@ export default function StudentUploadModal({ isOpen, onClose, organizationId, pr
       // Sample data
       const sampleData = [
         ["John Doe", "3", "male", "8", "beginner", "Group A"],
-        ["Jane Smith", "4", "female", "9", "intermediate", "Group B"],
-        ["Mike Johnson", "5", "male", "10", "advanced", "Group C"]
+        ["Jane Smith", "4", "female", "9", "story", "Group B"],
+        ["Mike Johnson", "5", "male", "10", "word", "Group C"]
       ];
       
       // Create worksheet data with headers and sample data
