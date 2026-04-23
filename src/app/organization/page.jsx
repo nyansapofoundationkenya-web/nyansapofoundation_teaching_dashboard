@@ -9,9 +9,61 @@ import UserProfileModal from "@/components/Dashboard/UserProfileModal";
 import {
   Search, Users, School, FolderKanban,
   GraduationCap, Calendar, Plus,
-  ChevronRight, Building2, User,
+  ChevronRight, Building2, User, Trash2,
 } from "lucide-react";
 import { FiLogOut } from "react-icons/fi";
+
+// Validation function for organization names
+const validateOrganizationName = (name) => {
+  const trimmedName = name.trim();
+  
+  // Check if empty
+  if (!trimmedName) {
+    return { valid: false, message: "Organization name is required" };
+  }
+  
+  // Check length
+  if (trimmedName.length < 3) {
+    return { valid: false, message: "Organization name must be at least 3 characters" };
+  }
+  
+  if (trimmedName.length > 50) {
+    return { valid: false, message: "Organization name must be less than 50 characters" };
+  }
+  
+  // Allow only letters (including accented), numbers, spaces, hyphens, apostrophes, periods, commas, and ampersands
+  const validNameRegex = /^[a-zA-Z0-9\s\-'.,&]+$/;
+  
+  if (!validNameRegex.test(trimmedName)) {
+    return { 
+      valid: false, 
+      message: "Organization name can only contain letters, numbers, spaces, hyphens (-), apostrophes ('), periods (.), commas (,), and ampersands (&)" 
+    };
+  }
+  
+  // Prevent names that are just numbers
+  if (/^\d+$/.test(trimmedName)) {
+    return { valid: false, message: "Organization name cannot be only numbers" };
+  }
+  
+  // Prevent names with excessive repeated characters (4 or more in a row)
+  if (/(.)\1{4,}/.test(trimmedName)) {
+    return { valid: false, message: "Organization name cannot have too many repeated characters" };
+  }
+  
+  // Prevent names that start or end with space
+  if (trimmedName.startsWith(' ') || trimmedName.endsWith(' ')) {
+    return { valid: false, message: "Organization name cannot start or end with spaces" };
+  }
+  
+  return { valid: true, message: "" };
+};
+
+// Sanitize function to clean input as user types
+const sanitizeOrgName = (value) => {
+  // Remove any disallowed characters as user types
+  return value.replace(/[^a-zA-Z0-9\s\-'.,&]/g, '');
+};
 
 export default function OrganizationPage({
   onOrganizationSelect = () => {},
@@ -20,8 +72,14 @@ export default function OrganizationPage({
 }) {
   const router = useRouter();
   const { handleLogout } = useAuth();
-  const { organizations, loading, error, handleFetchOrganizations, handleAddOrganization } =
-    useOrganizations();
+  const { 
+    organizations, 
+    loading, 
+    error, 
+    handleFetchOrganizations, 
+    handleAddOrganization,
+    handleDeleteOrganization 
+  } = useOrganizations();
 
   const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
 
@@ -32,6 +90,9 @@ export default function OrganizationPage({
   const [createSandbox, setCreateSandbox] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [orgToDelete, setOrgToDelete] = useState(null);
+  const [deletingOrg, setDeletingOrg] = useState(false);
+  const [nameValidation, setNameValidation] = useState({ valid: true, message: "" });
 
   useEffect(() => {
     if (currentUser?.uid && !dataFetched) {
@@ -65,22 +126,88 @@ export default function OrganizationPage({
     return filtered;
   }, [baseOrganizations, searchQuery]);
 
-  const isAdmin = currentUser?.role === "super_admin";
+  const isSuperAdmin = currentUser?.role === "super_admin";
+
+  // Check if organization can be deleted (has 0 projects, teachers, schools, students)
+  const canDeleteOrganization = (org) => {
+    return (
+      (org.total_projects === 0 || !org.total_projects) &&
+      (org.total_teachers === 0 || !org.total_teachers) &&
+      (org.total_schools === 0 || !org.total_schools) &&
+      (org.total_students === 0 || !org.total_students)
+    );
+  };
+
+  const handleOrgNameChange = (e) => {
+    const sanitized = sanitizeOrgName(e.target.value);
+    setNewOrgName(sanitized);
+    const validation = validateOrganizationName(sanitized);
+    setNameValidation(validation);
+  };
 
   const handleAddOrg = async () => {
-    if (!newOrgName.trim()) return;
+    // Validate the name
+    const validation = validateOrganizationName(newOrgName);
+    
+    if (!validation.valid) {
+      alert(validation.message);
+      return;
+    }
+
+    const trimmedName = newOrgName.trim();
+
+    // Check for duplicate organization names (case-insensitive)
+    const existingOrg = organizations.find(
+      org => org.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+    
+    if (existingOrg) {
+      alert(`An organization named "${trimmedName}" already exists. Please use a different name.`);
+      return;
+    }
+
     try {
       setAddingOrg(true);
-      await handleAddOrganization(newOrgName.trim(), createSandbox);
+      await handleAddOrganization(trimmedName, createSandbox);
       setNewOrgName("");
       setCreateSandbox(false);
       setShowAddModal(false);
       setDataFetched(false);
+      setNameValidation({ valid: true, message: "" });
     } catch (err) {
       console.error("Error adding organization:", err);
-      alert("Failed to add organization. Please try again.");
+      alert(err.message || "Failed to add organization. Please try again.");
     } finally {
       setAddingOrg(false);
+    }
+  };
+
+  const handleDeleteOrg = async () => {
+    if (!orgToDelete) return;
+    
+    // Double-check permissions
+    if (!isSuperAdmin) {
+      alert("Only super administrators can delete organizations");
+      return;
+    }
+    
+    // Double-check that organization is empty
+    if (!canDeleteOrganization(orgToDelete)) {
+      alert("Cannot delete organization with existing projects, teachers, schools, or students");
+      return;
+    }
+
+    try {
+      setDeletingOrg(true);
+      await handleDeleteOrganization(orgToDelete.id);
+      setOrgToDelete(null);
+      setDataFetched(false); // Refresh the list
+      alert("Organization deleted successfully");
+    } catch (err) {
+      console.error("Error deleting organization:", err);
+      alert(err.message || "Failed to delete organization. Please try again.");
+    } finally {
+      setDeletingOrg(false);
     }
   };
 
@@ -228,6 +355,9 @@ export default function OrganizationPage({
                   org={org}
                   formatDate={formatDate}
                   onClick={() => handleOrganizationClick(org)}
+                  onDelete={isSuperAdmin && canDeleteOrganization(org) ? () => setOrgToDelete(org) : null}
+                  canDelete={canDeleteOrganization(org)}
+                  isSuperAdmin={isSuperAdmin}
                 />
               ))}
             </div>
@@ -236,7 +366,7 @@ export default function OrganizationPage({
       </main>
 
       {/* Sticky bottom: compact Add button, admin only */}
-      {isAdmin && (
+      {isSuperAdmin && (
         <div className="sticky bottom-0 z-20 px-6 py-3 bg-background/95 backdrop-blur-sm border-t border-white/5">
           <div className="max-w-5xl mx-auto flex justify-center">
             <button
@@ -269,16 +399,44 @@ export default function OrganizationPage({
 
             <div className="mb-4">
               <label className="block text-xs font-medium text-gray-400 mb-2">
-                Organization Name
+                Organization Name (3-50 characters)
               </label>
               <input
                 type="text"
                 value={newOrgName}
-                onChange={(e) => setNewOrgName(e.target.value)}
-                className="w-full px-4 py-3 bg-background-lighter border border-gray-500 rounded-xl text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent text-sm"
-                placeholder="Enter organization name"
+                onChange={handleOrgNameChange}
+                className={`w-full px-4 py-3 bg-background-lighter border rounded-xl text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent text-sm ${
+                  nameValidation.valid ? 'border-gray-500' : 'border-red-500'
+                }`}
+                placeholder="Enter organization name (e.g., 'Victor's Academy' or 'St. Mary School')"
                 onKeyPress={(e) => e.key === "Enter" && handleAddOrg()}
+                minLength={3}
+                maxLength={50}
               />
+              
+              {/* Real-time validation feedback */}
+              {newOrgName && (
+                <div className="mt-2">
+                  {!nameValidation.valid && (
+                    <p className="text-xs text-red-400">
+                      {nameValidation.message}
+                    </p>
+                  )}
+                  {nameValidation.valid && (
+                    <p className="text-xs text-green-400">
+                      ✓ Valid organization name
+                    </p>
+                  )}
+                </div>
+              )}
+              
+              <p className="text-xs text-gray-500 mt-1">
+                {newOrgName.length}/50 characters
+              </p>
+              
+              <p className="text-xs text-gray-500 mt-2">
+ Allowed: letters, numbers, spaces, hyphens (-), apostrophes ('), periods (.), commas (,), and ampersands (&)
+              </p>
             </div>
 
             {/* Sandbox Toggle */}
@@ -316,7 +474,12 @@ export default function OrganizationPage({
 
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => { setShowAddModal(false); setNewOrgName(""); setCreateSandbox(false); }}
+                onClick={() => { 
+                  setShowAddModal(false); 
+                  setNewOrgName(""); 
+                  setCreateSandbox(false);
+                  setNameValidation({ valid: true, message: "" });
+                }}
                 disabled={addingOrg}
                 className="px-4 py-2 rounded-xl text-sm text-gray-400 hover:text-foreground hover:bg-background-lighter transition-colors"
               >
@@ -324,10 +487,43 @@ export default function OrganizationPage({
               </button>
               <button
                 onClick={handleAddOrg}
-                disabled={addingOrg || !newOrgName.trim()}
+                disabled={addingOrg || !newOrgName.trim() || !nameValidation.valid}
                 className="px-5 py-2 rounded-xl text-sm font-semibold bg-primary-3 text-primary-1 hover:bg-yellow-400 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {addingOrg ? "Creating..." : "Create"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {orgToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
+        >
+          <div className="w-full max-w-md bg-background-light rounded-3xl p-6 shadow-2xl border border-background-lighter">
+            <h2 className="text-base font-bold text-foreground mb-3">Delete Organization</h2>
+            <p className="text-sm text-gray-300 mb-6">
+              Are you sure you want to delete <span className="font-semibold text-primary-3">{orgToDelete.name}</span>?
+              This action cannot be undone.
+            </p>
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setOrgToDelete(null)}
+                disabled={deletingOrg}
+                className="px-4 py-2 rounded-xl text-sm text-gray-400 hover:text-foreground hover:bg-background-lighter transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteOrg}
+                disabled={deletingOrg}
+                className="px-5 py-2 rounded-xl text-sm font-semibold bg-red-600 text-white hover:bg-red-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {deletingOrg ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>
@@ -337,9 +533,8 @@ export default function OrganizationPage({
   );
 }
 
-// Org Card
-
-function OrgCard({ org, formatDate, onClick }) {
+// Org Card with Delete Button
+function OrgCard({ org, formatDate, onClick, onDelete, canDelete, isSuperAdmin }) {
   const [hovered, setHovered] = useState(false);
 
   const stats = [
@@ -349,21 +544,42 @@ function OrgCard({ org, formatDate, onClick }) {
     { icon: FolderKanban,  label: "Projects", value: org.total_projects || 0, color: "#e67e22" },
   ];
 
+  const handleDeleteClick = (e) => {
+    e.stopPropagation(); // Prevent triggering the card click
+    if (onDelete) onDelete();
+  };
+
   return (
     <div
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="rounded-2xl p-5 cursor-pointer transition-all duration-200 flex flex-col bg-background-light border border-background-lighter hover:border-primary-3/50 hover:bg-background-lighter hover:-translate-y-0.5 hover:shadow-lg"
+      className="rounded-2xl p-5 cursor-pointer transition-all duration-200 flex flex-col bg-background-light border border-background-lighter hover:border-primary-3/50 hover:bg-background-lighter hover:-translate-y-0.5 hover:shadow-lg relative"
     >
       <div className="flex items-start justify-between mb-3">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${hovered ? "bg-primary-3/20" : "bg-primary-3/10"}`}>
           <Building2 size={18} className="text-primary-3" />
         </div>
-        <ChevronRight
-          size={15}
-          className={`text-primary-3 transition-all duration-200 ${hovered ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-1"}`}
-        />
+        <div className="flex items-center gap-2">
+          {isSuperAdmin && (
+            <button
+              onClick={handleDeleteClick}
+              disabled={!canDelete}
+              className={`p-1.5 rounded-lg transition-all ${
+                canDelete 
+                  ? "text-red-500 hover:bg-red-500/10 hover:text-red-400" 
+                  : "text-gray-600 cursor-not-allowed"
+              }`}
+              title={canDelete ? "Delete organization" : "Cannot delete: Organization has existing data"}
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
+          <ChevronRight
+            size={15}
+            className={`text-primary-3 transition-all duration-200 ${hovered ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-1"}`}
+          />
+        </div>
       </div>
 
       <h3 className="font-bold text-foreground text-base mb-1 truncate">{org.name}</h3>
