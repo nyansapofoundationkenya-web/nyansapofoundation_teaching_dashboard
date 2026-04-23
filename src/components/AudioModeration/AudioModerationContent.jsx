@@ -46,6 +46,22 @@ export default function AudioModerationContent({
     return groups;
   };
 
+  // Helper function to remove undefined values from objects
+  const cleanUndefined = (obj) => {
+    if (!obj) return {};
+    const cleaned = {};
+    Object.keys(obj).forEach(key => {
+      if (obj[key] !== undefined && obj[key] !== null) {
+        if (typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
+          cleaned[key] = cleanUndefined(obj[key]);
+        } else {
+          cleaned[key] = obj[key];
+        }
+      }
+    });
+    return cleaned;
+  };
+
   // Initial data fetch
   useEffect(() => {
     const initializeData = async () => {
@@ -133,14 +149,21 @@ export default function AudioModerationContent({
       const updatedData  = { ...assessmentData };
       const allResults   = [...updatedData.literacy_results.reading_results];
 
-      // Split top-level fields (like flagged) from metadata updates
-      const { flagged, ...metadataUpdates } = updates;
+      // Clean updates to remove undefined values
+      const cleanedUpdates = cleanUndefined(updates);
 
       allResults[globalIndex] = {
         ...allResults[globalIndex],
-        ...(flagged !== undefined && { flagged }),
-        metadata: { ...allResults[globalIndex].metadata, ...metadataUpdates },
+        metadata: { 
+          ...allResults[globalIndex].metadata, 
+          ...cleanedUpdates 
+        },
       };
+
+      // Handle flagged separately if provided
+      if (updates.flagged !== undefined) {
+        allResults[globalIndex].flagged = updates.flagged;
+      }
 
       updatedData.literacy_results.reading_results = allResults;
       const allVerified = areAllResultsModerated(allResults);
@@ -156,68 +179,75 @@ export default function AudioModerationContent({
         "verified": allVerified,
       });
 
-      // If this flagged item just got moderated → increment resolved counter
-      if (metadataUpdates.modeltranscriptionverified === true && currentResult.flagged) {
-        await incrementResolved();
+      // If reopening (setting verified to false), handle counter
+      const isReopening = updates.modeltranscriptionverified === false;
+      if (isReopening) {
+        console.log("Moderation reopened for item", currentLocalIndex);
+      } else {
+        // If this flagged item just got moderated → increment resolved counter
+        if (updates.modeltranscriptionverified === true && currentResult.flagged) {
+          await incrementResolved();
+        }
       }
 
       setModerationHistory(prev => [{
         section: currentSection,
         index: currentLocalIndex + 1,
-        action: metadataUpdates.modeltranscriptionverified ? "moderated" : "updated",
+        action: updates.modeltranscriptionverified === true ? "moderated" : 
+                updates.modeltranscriptionverified === false ? "reopened" : "updated",
         timestamp: new Date().toISOString(),
       }, ...prev.slice(0, 9)]);
 
     } catch (err) {
       console.error("Error updating assessment:", err);
-      setError("Failed to update assessment");
+      setError(`Failed to update assessment: ${err.message}`);
     }
   };
 
-const handleSaveFlagReasons = async (newReasons) => {
-  const sectionResults = groupedResults[currentSection] || [];
-  const currentResult  = sectionResults[currentLocalIndex];
-  if (!currentResult) return;
+  const handleSaveFlagReasons = async (newReasons) => {
+    const sectionResults = groupedResults[currentSection] || [];
+    const currentResult  = sectionResults[currentLocalIndex];
+    if (!currentResult) return;
 
-  // Convert array to comma-separated string
-  const flagReviewString = newReasons.join(', ');
-  
-  // Get existing flag review string
-  const existingFlagReview = currentResult?.metadata?.flag_review || '';
-  const existingReasonsArray = existingFlagReview ? existingFlagReview.split(',').map(r => r.trim()) : [];
-  
-  // Check if reasons actually changed
-  const hasChanged = existingReasonsArray.length !== newReasons.length ||
-    existingReasonsArray.some(r => !newReasons.includes(r)) ||
-    newReasons.some(r => !existingReasonsArray.includes(r));
-  
-  if (!hasChanged) return;
+    // Convert array to comma-separated string
+    const flagReviewString = newReasons.join(', ');
+    
+    // Get existing flag review string
+    const existingFlagReview = currentResult?.metadata?.flag_review || '';
+    const existingReasonsArray = existingFlagReview ? existingFlagReview.split(',').map(r => r.trim()) : [];
+    
+    // Check if reasons actually changed
+    const hasChanged = existingReasonsArray.length !== newReasons.length ||
+      existingReasonsArray.some(r => !newReasons.includes(r)) ||
+      newReasons.some(r => !existingReasonsArray.includes(r));
+    
+    if (!hasChanged) return;
 
-  setSavingFlagReasons(true);
-  try {
-    // Save flag review to metadata
-    await updateAssessmentResult({ 
-      flag_review: flagReviewString
-    });
-    
-    // Also increment resolved counter
-    await incrementResolved();
-    
-    setModerationHistory(prev => [{
-      section: currentSection,
-      index: currentLocalIndex + 1,
-      action: "flag_review_updated",
-      details: `Reasons: ${flagReviewString}`,
-      timestamp: new Date().toISOString(),
-    }, ...prev.slice(0, 9)]);
-    
-  } catch (err) {
-    console.error("Failed to save flag reasons:", err);
-    setError("Failed to save flag reasons");
-  } finally {
-    setSavingFlagReasons(false);
-  }
-};
+    setSavingFlagReasons(true);
+    try {
+      // Save flag review to metadata
+      await updateAssessmentResult({ 
+        flag_review: flagReviewString
+      });
+      
+      // Also increment resolved counter
+      await incrementResolved();
+      
+      setModerationHistory(prev => [{
+        section: currentSection,
+        index: currentLocalIndex + 1,
+        action: "flag_review_updated",
+        details: `Reasons: ${flagReviewString}`,
+        timestamp: new Date().toISOString(),
+      }, ...prev.slice(0, 9)]);
+      
+    } catch (err) {
+      console.error("Failed to save flag reasons:", err);
+      setError(`Failed to save flag reasons: ${err.message}`);
+    } finally {
+      setSavingFlagReasons(false);
+    }
+  };
 
   // ── Delete round ──────────────────────────────────────────────────────────
   const extractFilePathFromUrl = (url) => {
@@ -282,7 +312,37 @@ const handleSaveFlagReasons = async (newReasons) => {
       setError(null);
     } catch (err) {
       console.error("❌ Error deleting round:", err);
-      setError("Failed to delete round");
+      setError(`Failed to delete round: ${err.message}`);
+    }
+  };
+
+  // ── Handle reopen moderation (sets modeltranscriptionverified: false) ──
+  const handleReopenModeration = async () => {
+    try {
+      const sectionResults = groupedResults[currentSection] || [];
+      const currentResult = sectionResults[currentLocalIndex];
+      if (!currentResult) return;
+      
+      // Prepare previous moderation data (only include defined values)
+      const previousModeration = {};
+      if (currentResult.metadata?.passed !== undefined) previousModeration.passed = currentResult.metadata.passed;
+      if (currentResult.metadata?.transcript !== undefined) previousModeration.transcript = currentResult.metadata.transcript;
+      previousModeration.timestamp = new Date().toISOString();
+      
+      // Set modeltranscriptionverified back to false
+      await updateAssessmentResult({
+        modeltranscriptionverified: false,
+        previous_moderation: previousModeration,
+      });
+      
+      // Clear any error states
+      setError(null);
+      
+      console.log("Moderation reopened successfully");
+      
+    } catch (err) {
+      console.error("Error reopening moderation:", err);
+      setError(`Failed to reopen moderation: ${err.message}`);
     }
   };
 
@@ -523,9 +583,10 @@ const handleSaveFlagReasons = async (newReasons) => {
                       onSaveEdit={handleSaveEdit}
                       onDeleteRound={() => setShowDeleteConfirm(true)}
                       onConfirmModeration={handleConfirmModeration}
+                      onReopenModeration={handleReopenModeration}
                       disabled={isModerated}
                       isFlagged={currentResult?.flagged === true}
-                      existingFlagReasons={currentResult?.flag_review || []}
+                      existingFlagReasons={currentResult?.metadata?.flag_review ? currentResult.metadata.flag_review.split(',') : []}
                       onSaveFlagReasons={handleSaveFlagReasons}
                       savingFlagReasons={savingFlagReasons}
                       hasMadeDecision={hasMadeDecision}

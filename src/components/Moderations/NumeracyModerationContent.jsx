@@ -87,6 +87,22 @@ export default function NumeracyModerationContent({
     } catch { /* silent */ }
   };
 
+  // Helper function to remove undefined values from objects
+  const cleanUndefined = (obj) => {
+    if (!obj) return {};
+    const cleaned = {};
+    Object.keys(obj).forEach(key => {
+      if (obj[key] !== undefined && obj[key] !== null) {
+        if (typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
+          cleaned[key] = cleanUndefined(obj[key]);
+        } else {
+          cleaned[key] = obj[key];
+        }
+      }
+    });
+    return cleaned;
+  };
+
   // ── Update result ─────────────────────────────────────────────────────────
   const updateNumeracyResult = async (updates) => {
     try {
@@ -105,24 +121,48 @@ export default function NumeracyModerationContent({
       // Split top-level fields (like flagged) from the rest
       const { flagged, metadata: metadataUpdates, ...otherTopLevel } = updates;
 
+      // Clean undefined values from metadata updates
+      const cleanedMetadata = cleanUndefined(metadataUpdates || {});
+      
+      // Only add moderation_timestamp if we're not reopening and if we have a decision
+      const shouldAddTimestamp = cleanedMetadata.modeltranscriptionverified === true || 
+                                  cleanedMetadata.passed !== undefined;
+      
       const updatedResult = {
         ...freshResults[freshIndex],
         ...otherTopLevel,
         ...(flagged !== undefined && { flagged }),
         metadata: {
           ...freshResults[freshIndex].metadata,
-          ...(metadataUpdates || {}),
-          moderation_timestamp: new Date().toISOString(),
+          ...cleanedMetadata,
+          ...(shouldAddTimestamp && { 
+            moderation_timestamp: new Date().toISOString() 
+          }),
         },
       };
-      freshResults[freshIndex] = updatedResult;
+      
+      // Remove any undefined values at the root level
+      const cleanedResult = cleanUndefined(updatedResult);
+      freshResults[freshIndex] = cleanedResult;
 
-      await updateDoc(docRef, { [`numeracy_results.${freshSection}`]: freshResults });
+      // Prepare the update data - ensure no undefined values
+      const updateData = {
+        [`numeracy_results.${freshSection}`]: freshResults
+      };
+      
+      await updateDoc(docRef, updateData);
 
-      // If this flagged item just got moderated → increment resolved counter
-      const justModerated = metadataUpdates?.modeltranscriptionverified === true;
-      if (justModerated && freshResults[freshIndex]?.flagged === false && freshData.numeracy_results?.[freshSection]?.[freshIndex]?.flagged === true) {
-        await incrementResolved();
+      // If reopening (setting verified to false), handle counter
+      const isReopening = cleanedMetadata.modeltranscriptionverified === false;
+      if (isReopening) {
+        console.log("Moderation reopened for item", freshIndex);
+      } else {
+        // Existing logic for when an item gets moderated
+        const justModerated = cleanedMetadata.modeltranscriptionverified === true;
+        if (justModerated && freshResults[freshIndex]?.flagged === false && 
+            freshData.numeracy_results?.[freshSection]?.[freshIndex]?.flagged === true) {
+          await incrementResolved();
+        }
       }
 
       setAssessmentData(prev => ({
@@ -133,34 +173,44 @@ export default function NumeracyModerationContent({
       return true;
     } catch (err) {
       console.error("Error updating numeracy result:", err);
-      setError("Failed to update result");
+      setError(`Failed to update result: ${err.message}`);
       return false;
     }
   };
 
   // ── Handle correct (sets passed: true only) ──
   const handleCorrect = async () => {
-    await updateNumeracyResult({
+    const updates = {
       metadata: {
         passed: true,
         badaudio: false,
         moderation_decision: "approved",
-      },
-      ...(currentSection === "count_and_match" && { passed: true }),
-      ...(currentSection === "highest_value" && { passed: true }),
-    });
+      }
+    };
+    
+    // Add top-level passed for specific sections
+    if (currentSection === "count_and_match" || currentSection === "highest_value") {
+      updates.passed = true;
+    }
+    
+    await updateNumeracyResult(updates);
   };
 
   // ── Handle incorrect (sets passed: false only) ──
   const handleIncorrect = async () => {
-    await updateNumeracyResult({
+    const updates = {
       metadata: {
         passed: false,
         moderation_decision: "rejected",
-      },
-      ...(currentSection === "count_and_match" && { passed: false }),
-      ...(currentSection === "highest_value" && { passed: false }),
-    });
+      }
+    };
+    
+    // Add top-level passed for specific sections
+    if (currentSection === "count_and_match" || currentSection === "highest_value") {
+      updates.passed = false;
+    }
+    
+    await updateNumeracyResult(updates);
   };
 
   // ── Handle save edit (NO modeltranscriptionverified) ──
@@ -169,10 +219,11 @@ export default function NumeracyModerationContent({
       setError("Transcript cannot be empty");
       return;
     }
+    const currentResult = getCurrentResult();
     await updateNumeracyResult({
       metadata: {
         transcript: editedTranscript,
-        original_transcript: getCurrentResult()?.metadata?.transcript || getCurrentResult()?.student_answer || "",
+        original_transcript: currentResult?.metadata?.transcript || currentResult?.student_answer || "",
       }
     });
     setEditMode(false);
@@ -188,6 +239,39 @@ export default function NumeracyModerationContent({
         moderated: true,
       }
     });
+  };
+
+  // ── Handle reopen moderation (sets modeltranscriptionverified: false) ──
+  const handleReopenModeration = async () => {
+    try {
+      const currentResult = getCurrentResult();
+      if (!currentResult) return;
+      
+      // Prepare previous moderation data (only include defined values)
+      const previousModeration = {};
+      if (currentResult.metadata?.passed !== undefined) previousModeration.passed = currentResult.metadata.passed;
+      if (currentResult.metadata?.transcript !== undefined) previousModeration.transcript = currentResult.metadata.transcript;
+      if (currentResult.metadata?.moderation_decision !== undefined) previousModeration.moderation_decision = currentResult.metadata.moderation_decision;
+      previousModeration.timestamp = new Date().toISOString();
+      
+      // Set modeltranscriptionverified back to false
+      await updateNumeracyResult({
+        metadata: {
+          modeltranscriptionverified: false,
+          moderated: false,
+          previous_moderation: previousModeration,
+        }
+      });
+      
+      // Clear any error states
+      setError(null);
+      
+      console.log("Moderation reopened successfully");
+      
+    } catch (err) {
+      console.error("Error reopening moderation:", err);
+      setError(`Failed to reopen moderation: ${err.message}`);
+    }
   };
 
   // ── Save flag reasons — now saves as comma-separated string in metadata ─
@@ -223,7 +307,7 @@ export default function NumeracyModerationContent({
       
     } catch (err) {
       console.error("Failed to save flag reasons:", err);
-      setError("Failed to process flag reasons");
+      setError(`Failed to process flag reasons: ${err.message}`);
     } finally {
       setSavingFlagReasons(false);
     }
@@ -281,13 +365,13 @@ export default function NumeracyModerationContent({
       setError(null);
     } catch (err) {
       console.error("❌ Error deleting round:", err);
-      setError("Failed to delete round");
+      setError(`Failed to delete round: ${err.message}`);
     }
   };
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const isResultModerated = (result) =>
-    result.metadata?.modeltranscriptionverified === true;
+    result?.metadata?.modeltranscriptionverified === true;
 
   const getNextUnmoderatedIndex = (results, startIndex = 0) => {
     if (!Array.isArray(results)) return -1;
@@ -408,6 +492,7 @@ export default function NumeracyModerationContent({
             studentId={studentId}
             updateNumeracyResult={updateNumeracyResult}
             onDeleteRound={() => setShowDeleteConfirm(true)}
+            onReopenModeration={handleReopenModeration}
             editMode={editMode}
             setEditMode={setEditMode}
             editedTranscript={editedTranscript}

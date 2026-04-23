@@ -23,6 +23,7 @@ export default function ModerationActions({
   onSaveEdit,
   onDeleteRound,
   onConfirmModeration,
+  onReopenModeration,
   disabled = false,
   isFlagged = false,
   existingFlagReasons = [],
@@ -45,16 +46,44 @@ export default function ModerationActions({
     if (hasChanges) await onSaveFlagReasons(updated);
   };
 
-  // Already moderated state
+  // Already moderated state with Reopen button
   if (disabled) {
     return (
-      <div className="flex items-center justify-center gap-2.5 py-3.5 px-5 rounded-2xl border"
-        style={{ background: 'rgba(76,175,80,0.08)', borderColor: 'rgba(76,175,80,0.25)' }}
-      >
-        <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: 'rgba(76,175,80,0.2)' }}>
-          <Check size={11} style={{ color: 'var(--secondary-2)' }} />
+      <div className="space-y-3">
+        <div
+          className="flex items-center justify-between gap-2.5 py-3.5 px-5 rounded-2xl border"
+          style={{ background: 'rgba(76,175,80,0.08)', borderColor: 'rgba(76,175,80,0.25)' }}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: 'rgba(76,175,80,0.2)' }}>
+              <Check size={11} style={{ color: 'var(--secondary-2)' }} />
+            </div>
+            <span className="text-sm font-semibold" style={{ color: 'var(--secondary-2)' }}>Moderation Complete</span>
+          </div>
+          
+          {/* Reopen Moderation Button */}
+          <button
+            onClick={onReopenModeration}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            style={{ 
+              background: 'rgba(255,255,255,0.07)', 
+              border: '1px solid rgba(255,255,255,0.12)',
+              color: 'rgba(255,255,255,0.7)'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.22)';
+              e.currentTarget.style.color = 'rgba(255,255,255,0.9)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.07)';
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
+              e.currentTarget.style.color = 'rgba(255,255,255,0.7)';
+            }}
+          >
+            Reopen Moderation
+          </button>
         </div>
-        <span className="text-sm font-semibold" style={{ color: 'var(--secondary-2)' }}>Moderated</span>
       </div>
     );
   }

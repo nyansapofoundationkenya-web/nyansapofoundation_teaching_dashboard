@@ -16,6 +16,7 @@ export default function NumeracyModerationView({
   studentId,
   updateNumeracyResult,
   onDeleteRound,
+  onReopenModeration,
   editMode,
   setEditMode,
   editedTranscript,
@@ -46,6 +47,13 @@ export default function NumeracyModerationView({
     updateNumeracyResult({ metadata: { workout_screenshot_url: url } });
   };
 
+  // Handle reopen moderation
+  const handleReopenModeration = () => {
+    if (onReopenModeration) {
+      onReopenModeration();
+    }
+  };
+
   // ── Shared actions block ──────────────────────────────────────────────────
   const renderActions = () => (
     <NumeracyModerationActions
@@ -56,10 +64,12 @@ export default function NumeracyModerationView({
       onCorrect={onCorrect}
       onIncorrect={onIncorrect}
       onConfirmModeration={onConfirmModeration}
+      onReopenModeration={handleReopenModeration}
       onDeleteRound={onDeleteRound}
       disabled={isModerated}
       isFlagged={isFlagged}
-      existingFlagReview={existingFlagReview}
+      existingAudioReasons={flagReviewArray}
+      existingImageReasons={flagReviewArray}
       onSaveFlagReasons={onSaveFlagReasons}
       savingFlagReasons={savingFlagReasons}
       currentPassedStatus={currentPassedStatus}

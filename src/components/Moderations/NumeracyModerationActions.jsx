@@ -16,13 +16,51 @@ const AUDIO_FLAG_REASONS = [
 ];
 
 const IMAGE_FLAG_REASONS = [
-  { id: "image_too_blurry",       label: "Image Too Blurry",          description: "Can't read the student's working — image is out of focus" },
-  { id: "incomplete_working",     label: "Incomplete Working Shown",   description: "Student cut off their working — full method not visible" },
-  { id: "wrong_page_captured",    label: "Wrong Page Captured",        description: "Screenshot shows something unrelated to this question" },
-  { id: "no_working_shown",       label: "No Working Shown",           description: "Answer only — no method or calculation visible" },
-  { id: "overexposed_dark",       label: "Overexposed / Too Dark",     description: "Lighting makes the image unreadable" },
-  { id: "scoring_discrepancy",    label: "Scoring Discrepancy",        description: "The working shown looks correct but the student was still marked wrong" },
-  { id: "wrong_answer_written",   label: "Wrong Answer Written",       description: "Student wrote a different answer than what was captured" },
+  {
+    id: "image_quality_issues",
+    label: "Image Quality Issues",
+    description: "Image was too blurry, dark, or unclear to read properly"
+  },
+  {
+    id: "incorrect_transcription",
+    label: "Incorrect Transcription",
+    description: "The model misread the handwriting or text in the image"
+  },
+  {
+    id: "scoring_discrepancy",
+    label: "Scoring Discrepancy",
+    description: "The answer looks correct but the student was still marked wrong"
+  },
+  {
+    id: "wrong_student_image",
+    label: "Wrong Student Image",
+    description: "The image does not belong to this student"
+  },
+  {
+    id: "partial_image",
+    label: "Partial Image",
+    description: "Part of the handwriting or answer is cut off or not visible"
+  },
+  {
+    id: "illegible_handwriting",
+    label: "Illegible Handwriting",
+    description: "The student's handwriting is too difficult to read clearly"
+  },
+  {
+    id: "multiple_answers",
+    label: "Multiple Answers",
+    description: "The image shows multiple answers or crossed-out text"
+  },
+  {
+    id: "handwriting_style_not_recognized",
+    label: "Handwriting Style Not Recognized",
+    description: "The student's unique handwriting style confused the model"
+  },
+  {
+    id: "uncertain_recognition",
+    label: "Uncertain Recognition",
+    description: "The model was not confident in the transcription — result may be unreliable"
+  }
 ];
 
 const SECTION_MEDIA_TYPE = {
@@ -42,6 +80,7 @@ export default function NumeracyModerationActions({
   onIncorrect,
   onDeleteRound,
   onConfirmModeration,
+  onReopenModeration,
   disabled = false,
   isFlagged = false,
   existingAudioReasons = [],
@@ -72,17 +111,44 @@ export default function NumeracyModerationActions({
     if (hasChanges) await onSaveFlagReasons(mediaType, updated, existing);
   };
 
-  // Already moderated
+  // Already moderated - show completed state with reopen button
   if (disabled) {
     return (
-      <div
-        className="flex items-center justify-center gap-2.5 py-3.5 px-5 rounded-2xl border"
-        style={{ background: 'rgba(76,175,80,0.08)', borderColor: 'rgba(76,175,80,0.25)' }}
-      >
-        <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: 'rgba(76,175,80,0.2)' }}>
-          <Check size={11} style={{ color: 'var(--secondary-2)' }} />
+      <div className="space-y-3">
+        <div
+          className="flex items-center justify-between gap-2.5 py-3.5 px-5 rounded-2xl border"
+          style={{ background: 'rgba(76,175,80,0.08)', borderColor: 'rgba(76,175,80,0.25)' }}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: 'rgba(76,175,80,0.2)' }}>
+              <Check size={11} style={{ color: 'var(--secondary-2)' }} />
+            </div>
+            <span className="text-sm font-semibold" style={{ color: 'var(--secondary-2)' }}>Moderation Complete</span>
+          </div>
+          
+          {/* Reopen Moderation Button */}
+          <button
+            onClick={onReopenModeration}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            style={{ 
+              background: 'rgba(255,255,255,0.07)', 
+              border: '1px solid rgba(255,255,255,0.12)',
+              color: 'rgba(255,255,255,0.7)'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.22)';
+              e.currentTarget.style.color = 'rgba(255,255,255,0.9)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.07)';
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
+              e.currentTarget.style.color = 'rgba(255,255,255,0.7)';
+            }}
+          >
+            Reopen Moderation
+          </button>
         </div>
-        <span className="text-sm font-semibold" style={{ color: 'var(--secondary-2)' }}>Moderation Complete</span>
       </div>
     );
   }
