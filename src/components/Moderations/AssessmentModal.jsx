@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { doc, setDoc, getDoc, collection, getDocs } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid";
 import { useAssessment } from "@/hooks/useAssessment";
 import { db } from "@/firebase/config";
@@ -10,15 +10,15 @@ import AssessmentNameStep from "./assessments/AssessmentNameStep";
 import AssessmentConfigStep from "./assessments/AssessmentConfigStep";
 
 export default function AssessmentModal({ organizationId, onClose }) {
-  const { 
-    projects, 
-    schools, 
-    students, 
-    loading, 
-    fetchSchools, 
+  const {
+    projects,
+    schools,
+    students,
+    loading,
+    fetchSchools,
     fetchStudentsForSchools,
     clearStudents,
-    fetchBaselineStudents
+    fetchBaselineStudents,
   } = useAssessment(organizationId);
 
   // Form state
@@ -29,10 +29,10 @@ export default function AssessmentModal({ organizationId, onClose }) {
     type: "Literacy",
     level: "Baseline",
     assessmentNumber: null,
-    to_be_done: new Date().toISOString().split('T')[0],
+    to_be_done: new Date().toISOString().split("T")[0],
   });
   const [selectAllSchools, setSelectAllSchools] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // double-submit guard
   const [error, setError] = useState("");
   const [currentAssessment, setCurrentAssessment] = useState(null);
   const [loadingAssessment, setLoadingAssessment] = useState(false);
@@ -43,96 +43,92 @@ export default function AssessmentModal({ organizationId, onClose }) {
   const [step, setStep] = useState(1);
   const [noContentAvailable, setNoContentAvailable] = useState(false);
 
-  // Fetch students when project, schools, or level changes
+  // ── Fetch students when project, schools, or level changes ────
   useEffect(() => {
     if (formData.projectId && formData.schoolIds.length > 0) {
       setStudentsLoading(true);
-      
       if (formData.level === "Endline") {
-        // For Endline, fetch baseline students (same as baseline assessments)
-        fetchBaselineStudents(formData.projectId, formData.schoolIds)
-          .finally(() => {
-            setStudentsLoading(false);
-          });
+        fetchBaselineStudents(formData.projectId, formData.schoolIds).finally(
+          () => setStudentsLoading(false)
+        );
       } else {
-        // For Baseline and Mindline, fetch regular students
-        fetchStudentsForSchools(formData.projectId, formData.schoolIds, formData.level)
-          .finally(() => {
-            setStudentsLoading(false);
-          });
+        fetchStudentsForSchools(
+          formData.projectId,
+          formData.schoolIds,
+          formData.level
+        ).finally(() => setStudentsLoading(false));
       }
     } else {
       clearStudents();
       setStudentsLoading(false);
     }
-  }, [formData.projectId, formData.schoolIds, formData.level, fetchStudentsForSchools, fetchBaselineStudents, clearStudents]);
+  }, [
+    formData.projectId,
+    formData.schoolIds,
+    formData.level,
+    fetchStudentsForSchools,
+    fetchBaselineStudents,
+    clearStudents,
+  ]);
 
-  // Handle select all schools
+  // ── Handle select all schools ─────────────────────────────────
   useEffect(() => {
     if (selectAllSchools && schools.length > 0) {
-      setFormData(prev => ({ ...prev, schoolIds: schools.map(s => s.id) }));
+      setFormData((prev) => ({
+        ...prev,
+        schoolIds: schools.map((s) => s.id),
+      }));
       setStudentsLoading(true);
     } else if (!selectAllSchools) {
-      setFormData(prev => ({ ...prev, schoolIds: [] }));
+      setFormData((prev) => ({ ...prev, schoolIds: [] }));
       setStudentsLoading(false);
     }
   }, [selectAllSchools, schools.length]);
 
-  // Fetch available assessment numbers with organization filtering
+  // ── Fetch available assessment numbers ────────────────────────
   useEffect(() => {
     const fetchAvailableAssessmentNumbers = async () => {
       if (!organizationId || !formData.type) return;
-      
       setLoadingAssessment(true);
       try {
         const collectionName = formData.type.toLowerCase();
         const querySnapshot = await getDocs(collection(db, collectionName));
         const numbers = [];
-        
+
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          // Check if this assessment is accessible by this organization
           if (data.org_ids) {
-            // If org_ids is an array, check if organizationId is in it
-            if (Array.isArray(data.org_ids)) {
-              if (data.org_ids.includes(organizationId)) {
-                const num = parseInt(doc.id);
-                if (!isNaN(num)) {
-                  numbers.push(num);
-                }
-              }
-            } 
-            // If org_ids is a single string, check for equality
-            else if (data.org_ids === organizationId) {
+            const accessible = Array.isArray(data.org_ids)
+              ? data.org_ids.includes(organizationId)
+              : data.org_ids === organizationId;
+            if (accessible) {
               const num = parseInt(doc.id);
-              if (!isNaN(num)) {
-                numbers.push(num);
-              }
+              if (!isNaN(num)) numbers.push(num);
             }
           }
         });
-        
-        // Sort numbers to get min and max
+
         const sortedNumbers = [...numbers].sort((a, b) => a - b);
-        
+
         if (sortedNumbers.length > 0) {
-          const minNum = Math.min(...sortedNumbers);
-          const maxNum = Math.max(...sortedNumbers);
-          setMinAssessmentNumber(minNum);
-          setMaxAssessmentNumber(maxNum);
+          setMinAssessmentNumber(Math.min(...sortedNumbers));
+          setMaxAssessmentNumber(Math.max(...sortedNumbers));
           setAvailableAssessmentNumbers(sortedNumbers);
           setNoContentAvailable(false);
-          
-          // Set the first available assessment number
-          if (formData.assessmentNumber === null || !sortedNumbers.includes(formData.assessmentNumber)) {
-            setFormData(prev => ({ ...prev, assessmentNumber: minNum }));
+          if (
+            formData.assessmentNumber === null ||
+            !sortedNumbers.includes(formData.assessmentNumber)
+          ) {
+            setFormData((prev) => ({
+              ...prev,
+              assessmentNumber: sortedNumbers[0],
+            }));
           }
         } else {
-          // No assessments exist yet for this organization
           setMinAssessmentNumber(0);
           setMaxAssessmentNumber(0);
           setAvailableAssessmentNumbers([]);
-          setFormData(prev => ({ ...prev, assessmentNumber: null }));
+          setFormData((prev) => ({ ...prev, assessmentNumber: null }));
           setNoContentAvailable(true);
         }
       } catch (error) {
@@ -140,7 +136,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
         setMinAssessmentNumber(0);
         setMaxAssessmentNumber(0);
         setAvailableAssessmentNumbers([]);
-        setFormData(prev => ({ ...prev, assessmentNumber: null }));
+        setFormData((prev) => ({ ...prev, assessmentNumber: null }));
         setNoContentAvailable(true);
       } finally {
         setLoadingAssessment(false);
@@ -152,33 +148,30 @@ export default function AssessmentModal({ organizationId, onClose }) {
     }
   }, [formData.type, organizationId]);
 
-  // Fetch current assessment with better validation
+  // ── Fetch current assessment content ──────────────────────────
   useEffect(() => {
     const fetchCurrentAssessment = async () => {
       if (!formData.type || formData.assessmentNumber === null) {
         setCurrentAssessment(null);
         return;
       }
-      
       setLoadingAssessment(true);
       try {
         const collectionName = formData.type.toLowerCase();
-        const docRef = doc(db, collectionName, formData.assessmentNumber.toString());
+        const docRef = doc(
+          db,
+          collectionName,
+          formData.assessmentNumber.toString()
+        );
         const docSnap = await getDoc(docRef);
-        
+
         if (docSnap.exists()) {
           const data = docSnap.data();
-          // Verify this assessment is accessible by the organization
           if (data.org_ids) {
             const isAccessible = Array.isArray(data.org_ids)
               ? data.org_ids.includes(organizationId)
               : data.org_ids === organizationId;
-            
-            if (isAccessible) {
-              setCurrentAssessment(data);
-            } else {
-              setCurrentAssessment(null);
-            }
+            setCurrentAssessment(isAccessible ? data : null);
           } else {
             setCurrentAssessment(null);
           }
@@ -200,105 +193,64 @@ export default function AssessmentModal({ organizationId, onClose }) {
     }
   }, [formData.type, formData.assessmentNumber, organizationId]);
 
-  // Fetch schools when project changes
+  // ── Fetch schools when project changes ────────────────────────
   useEffect(() => {
     if (formData.projectId) {
       fetchSchools(formData.projectId);
       setStudentsLoading(false);
     } else {
-      setFormData(prev => ({ ...prev, schoolIds: [] }));
+      setFormData((prev) => ({ ...prev, schoolIds: [] }));
       clearStudents();
       setSelectAllSchools(false);
       setStudentsLoading(false);
     }
   }, [formData.projectId, fetchSchools, clearStudents]);
 
-  // Function to check if we can create assessments
+  // ── Validation: can we proceed to submit? ─────────────────────
   const canCreateAssessments = () => {
-    // Step 1 validation: Assessment name
-    if (step === 1) {
-      return formData.assessmentName.trim().length > 0;
-    }
-    
-    // Step 2 validation
-    
-    // 1. Check if assessment content exists
-    if (noContentAvailable || !currentAssessment || availableAssessmentNumbers.length === 0) {
-      return false;
-    }
-    
-    // 2. Check if project is selected
-    if (!formData.projectId) {
-      return false;
-    }
-    
-    // 3. Check if at least one school is selected
-    if (formData.schoolIds.length === 0) {
-      return false;
-    }
-    
-    // 4. Check if date is selected
-    if (!formData.to_be_done) {
-      return false;
-    }
-    
-    // 5. Check if students are still loading
-    if (studentsLoading) {
-      return false;
-    }
-    
+    if (step === 1) return formData.assessmentName.trim().length > 0;
+    if (noContentAvailable || !currentAssessment || availableAssessmentNumbers.length === 0) return false;
+    if (!formData.projectId) return false;
+    if (formData.schoolIds.length === 0) return false;
+    if (!formData.to_be_done) return false;
+    if (studentsLoading) return false;
     return true;
   };
 
-  // Handle individual school toggle
+  // ── School toggle ─────────────────────────────────────────────
   const toggleSchool = (schoolId) => {
     const isCurrentlySelected = formData.schoolIds.includes(schoolId);
-    const newSelectedLength = isCurrentlySelected 
-      ? formData.schoolIds.length - 1 
+    const newSelectedLength = isCurrentlySelected
+      ? formData.schoolIds.length - 1
       : formData.schoolIds.length + 1;
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       schoolIds: prev.schoolIds.includes(schoolId)
-        ? prev.schoolIds.filter(id => id !== schoolId)
+        ? prev.schoolIds.filter((id) => id !== schoolId)
         : [...prev.schoolIds, schoolId],
     }));
 
-    // Reset students loading when schools change
-    if (!isCurrentlySelected && newSelectedLength > 0) {
-      setStudentsLoading(true);
-    }
-
-    if (isCurrentlySelected) {
-      if (formData.schoolIds.length === schools.length) {
-        setSelectAllSchools(false);
-      }
-    } else {
-      if (newSelectedLength === schools.length) {
-        setSelectAllSchools(true);
-      }
-    }
+    if (!isCurrentlySelected && newSelectedLength > 0) setStudentsLoading(true);
+    if (isCurrentlySelected && formData.schoolIds.length === schools.length)
+      setSelectAllSchools(false);
+    else if (!isCurrentlySelected && newSelectedLength === schools.length)
+      setSelectAllSchools(true);
   };
 
-  // Handle level change
   const handleLevelChange = (level) => {
-    setFormData(prev => ({ 
-      ...prev, 
-      level,
-      schoolIds: [] // Reset school selections
-    }));
+    setFormData((prev) => ({ ...prev, level, schoolIds: [] }));
     setSelectAllSchools(false);
     clearStudents();
     setStudentsLoading(false);
   };
 
-  // Navigation for assessment preview
   const nextAssessment = () => {
     const currentIndex = availableAssessmentNumbers.indexOf(formData.assessmentNumber);
     if (currentIndex < availableAssessmentNumbers.length - 1) {
-      setFormData(prev => ({ 
-        ...prev, 
-        assessmentNumber: availableAssessmentNumbers[currentIndex + 1] 
+      setFormData((prev) => ({
+        ...prev,
+        assessmentNumber: availableAssessmentNumbers[currentIndex + 1],
       }));
     }
   };
@@ -306,119 +258,153 @@ export default function AssessmentModal({ organizationId, onClose }) {
   const prevAssessment = () => {
     const currentIndex = availableAssessmentNumbers.indexOf(formData.assessmentNumber);
     if (currentIndex > 0) {
-      setFormData(prev => ({ 
-        ...prev, 
-        assessmentNumber: availableAssessmentNumbers[currentIndex - 1] 
+      setFormData((prev) => ({
+        ...prev,
+        assessmentNumber: availableAssessmentNumbers[currentIndex - 1],
       }));
     }
   };
 
-  // Generate assessment name using user input and school name
   const generateAssessmentName = (schoolName) => {
-    const userAssessmentName = formData.assessmentName.trim();
-    const cleanSchoolName = schoolName.replace(/\s+/g, '_');
-    
-    return `${userAssessmentName}_${cleanSchoolName}`;
+    const cleanSchoolName = schoolName.replace(/\s+/g, "_");
+    return `${formData.assessmentName.trim()}_${cleanSchoolName}`;
   };
 
+  // ── Duplicate check ───────────────────────────────────────────
+  // An assessment is a duplicate when ALL six fields match:
+  //   user_assessment_name + organization_id + project_id +
+  //   school_id + type + level + assessmentNumber
+  //
+  // Same name + different school = fine (each school gets its own).
+  // Same name + same school + different level = fine.
+  // All fields matching = duplicate → blocked.
+  const checkForDuplicates = async () => {
+    const trimmedName = formData.assessmentName.trim().toLowerCase();
+
+    const existingSnapshot = await getDocs(
+      query(
+        collection(db, "assessments"),
+        where("organization_id", "==", organizationId),
+        where("project_id", "==", formData.projectId),
+        where("type", "==", formData.type),
+        where("level", "==", formData.level),
+        where("assessmentNumber", "==", formData.assessmentNumber)
+      )
+    );
+
+    // From the filtered results find any that also match the name and one
+    // of the selected school IDs.
+    const duplicateSchools = [];
+
+    existingSnapshot.docs.forEach((doc) => {
+      const data = doc.data();
+      const nameMatches =
+        (data.user_assessment_name || "").trim().toLowerCase() === trimmedName;
+      const schoolSelected = formData.schoolIds.includes(data.school_id);
+
+      if (nameMatches && schoolSelected) {
+        const school = schools.find((s) => s.id === data.school_id);
+        duplicateSchools.push(school?.name || data.school_id);
+      }
+    });
+
+    return duplicateSchools; // empty array = no duplicates
+  };
+
+  // ── Submit handler ────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // If step 1, proceed to step 2
+
+    // Step 1 → Step 2
     if (step === 1) {
       if (formData.assessmentName.trim().length === 0) {
-        setError("Please enter an assessment name");
+        setError("Please enter an assessment name.");
         return;
       }
       setStep(2);
       setError("");
       return;
     }
-    
-    // Step 2: Create assessments
+
+    // Step 2: validate
     if (!canCreateAssessments()) {
       if (noContentAvailable) {
         setError("No assessment content available. Please contact your administrator.");
         return;
       }
-      
       if (!currentAssessment) {
-        setError("Please select valid assessment content");
+        setError("Please select valid assessment content.");
         return;
       }
-      
       if (studentsLoading) {
         setError("Please wait while students are loading...");
         return;
       }
-      
       setError("Please fill in all required fields.");
       return;
     }
 
-    // Check for schools without students
-    const schoolsWithoutStudents = formData.schoolIds.filter(schoolId => 
-      !students[schoolId] || students[schoolId].length === 0
-    );
-    
-    // If there are schools without students, show confirmation dialog
-    if (schoolsWithoutStudents.length > 0) {
-      const schoolNamesWithoutStudents = schoolsWithoutStudents
-        .map(id => schools.find(s => s.id === id)?.name || id)
-        .join(", ");
-      
-      const schoolsWithStudents = formData.schoolIds.filter(schoolId => 
-        students[schoolId] && students[schoolId].length > 0
-      );
-      const schoolNamesWithStudents = schoolsWithStudents
-        .map(id => schools.find(s => s.id === id)?.name || id)
-        .join(", ");
-      
-      // Create confirmation message
-      let confirmMessage = `You are creating assessments for ${formData.schoolIds.length} schools.\n\n`;
-      
-      if (schoolsWithStudents.length > 0) {
-        confirmMessage += `Schools WITH students (${schoolsWithStudents.length}):\n${schoolNamesWithStudents}\n\n`;
-      }
-      
-      confirmMessage += `Schools WITHOUT students (${schoolsWithoutStudents.length}):\n${schoolNamesWithoutStudents}\n\n`;
-      confirmMessage += `⚠️ Assessments for schools without students will be created empty.\n`;
-      confirmMessage += `You can add students to these assessments later.\n`;
-      confirmMessage += `Do you want to continue?`;
-      
-      const confirmed = window.confirm(confirmMessage);
-      
-      if (!confirmed) {
-        return;
-      }
-    }
+    // ── Double-submit guard ───────────────────────────────────────
+    if (isSubmitting) return;
 
-    console.log("Starting assessment creation...");
     setIsSubmitting(true);
     setError("");
 
     try {
-      // Format current date as YYYY-MM-DD for created_date
-      const currentDate = new Date().toISOString().split('T')[0];
-      
-      // Track created assessments
+      // ── Duplicate check ─────────────────────────────────────────
+      const duplicateSchools = await checkForDuplicates();
+
+      if (duplicateSchools.length > 0) {
+        setError(
+          `An assessment named "${formData.assessmentName.trim()}" with the same type (${formData.type}), level (${formData.level}), and assessment number already exists for: ${duplicateSchools.join(", ")}. Please use a different name, level, or a different assessment content.`
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
+      // ── Schools without students confirmation ───────────────────
+      const schoolsWithoutStudents = formData.schoolIds.filter(
+        (schoolId) => !students[schoolId] || students[schoolId].length === 0
+      );
+
+      if (schoolsWithoutStudents.length > 0) {
+        const schoolNamesWithoutStudents = schoolsWithoutStudents
+          .map((id) => schools.find((s) => s.id === id)?.name || id)
+          .join(", ");
+
+        const schoolsWithStudents = formData.schoolIds.filter(
+          (schoolId) => students[schoolId] && students[schoolId].length > 0
+        );
+
+        let confirmMessage = `You are creating assessments for ${formData.schoolIds.length} schools.\n\n`;
+        if (schoolsWithStudents.length > 0) {
+          confirmMessage += `Schools WITH students (${schoolsWithStudents.length}):\n${schoolsWithStudents.map((id) => schools.find((s) => s.id === id)?.name || id).join(", ")}\n\n`;
+        }
+        confirmMessage += `Schools WITHOUT students (${schoolsWithoutStudents.length}):\n${schoolNamesWithoutStudents}\n\n`;
+        confirmMessage += `⚠️ Assessments for schools without students will be created empty.\nYou can add students later.\nDo you want to continue?`;
+
+        const confirmed = window.confirm(confirmMessage);
+        if (!confirmed) {
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // ── Create assessments ──────────────────────────────────────
+      const currentDate = new Date().toISOString().split("T")[0];
       const createdAssessments = [];
       const emptySchools = [];
-      
-      // Create an array to track all promises
       const creationPromises = [];
 
       for (const schoolId of formData.schoolIds) {
-        const school = schools.find(s => s.id === schoolId);
-        
+        const school = schools.find((s) => s.id === schoolId);
         if (!school) {
           console.warn(`School not found: ${schoolId}`);
           continue;
         }
 
         const schoolStuds = students[schoolId] || [];
-        
-        const assignedStudents = schoolStuds.map(student => ({
+        const assignedStudents = schoolStuds.map((student) => ({
           assessment_status: "not_started",
           baseline: "",
           completed_assessment: false,
@@ -433,18 +419,10 @@ export default function AssessmentModal({ organizationId, onClose }) {
         }));
 
         const assessmentId = uuidv4();
-        
-        // Generate assessment name using user input and school name
         const assessmentName = generateAssessmentName(school.name);
 
-        console.log(`Creating assessment for ${school.name} with ${schoolStuds.length} students`);
+        if (schoolStuds.length === 0) emptySchools.push(school.name);
 
-        // Track empty schools for logging
-        if (schoolStuds.length === 0) {
-          emptySchools.push(school.name);
-        }
-
-        // Prepare the main assessment document data
         const assessmentData = {
           created_at: new Date().toISOString(),
           id: assessmentId,
@@ -462,102 +440,80 @@ export default function AssessmentModal({ organizationId, onClose }) {
           status: "created",
           student_count: assignedStudents.length,
           user_assessment_name: formData.assessmentName.trim(),
-          calculation_type: currentAssessment?.name ? currentAssessment.name.toLowerCase() : "",
-          has_students: schoolStuds.length > 0, // Add flag to indicate if school has students
+          calculation_type: currentAssessment?.name
+            ? currentAssessment.name.toLowerCase()
+            : "",
+          has_students: schoolStuds.length > 0,
         };
 
         createdAssessments.push(school.name);
-        
-        // Create the main assessment document
-        const assessmentPromise = setDoc(doc(db, "assessments", assessmentId), assessmentData)
+
+        const assessmentPromise = setDoc(
+          doc(db, "assessments", assessmentId),
+          assessmentData
+        )
           .then(() => {
-            console.log(`Main assessment document created for ${school.name}`);
-            
-            // Only create assessment-results if there are students
             if (schoolStuds.length > 0) {
-              const resultsPromises = schoolStuds.map(async (student) => {
+              const resultsPromises = schoolStuds.map((student) => {
                 const resultId = `${assessmentId}_${student.id}`;
-                const resultData = {
-                  assessmentId: assessmentId,
-                  school_id: schoolId,
-                  student_id: student.id,
-                  student_first_name: student.first_name || "",
-                  student_last_name: student.last_name || "",
-                  student_name: `${student.first_name || ""} ${student.last_name || ""}`.trim(),
-                  student_grade: Number(student.grade) || 0,
-                  competence_level: 0,
-                  assessment_level: formData.level,
-                  to_be_done: formData.to_be_done,
-                  created_at: new Date().toISOString(),
-                  status: "pending",
-                  calculation_type: currentAssessment?.name ? currentAssessment.name.toLowerCase() : "",
-                };
-                
                 return setDoc(
                   doc(db, "assessments", assessmentId, "assessments-results", resultId),
-                  resultData
+                  {
+                    assessmentId,
+                    school_id: schoolId,
+                    student_id: student.id,
+                    student_first_name: student.first_name || "",
+                    student_last_name: student.last_name || "",
+                    student_name: `${student.first_name || ""} ${student.last_name || ""}`.trim(),
+                    student_grade: Number(student.grade) || 0,
+                    competence_level: 0,
+                    assessment_level: formData.level,
+                    to_be_done: formData.to_be_done,
+                    created_at: new Date().toISOString(),
+                    status: "pending",
+                    calculation_type: currentAssessment?.name
+                      ? currentAssessment.name.toLowerCase()
+                      : "",
+                  }
                 );
               });
-
-              return Promise.all(resultsPromises)
-                .then(() => console.log(`Results subcollection created for ${school.name}`))
-                .catch(error => {
-                  console.error(`Error creating results for ${school.name}:`, error);
-                  throw error;
-                });
-            } else {
-              console.log(`No students found for ${school.name}, skipping results creation`);
-              return Promise.resolve();
+              return Promise.all(resultsPromises);
             }
           })
-          .catch(error => {
-            console.error(`Error creating main assessment for ${school.name}:`, error);
+          .catch((error) => {
+            console.error(`Error creating assessment for ${school.name}:`, error);
             throw error;
           });
 
         creationPromises.push(assessmentPromise);
       }
 
-      // Wait for all assessments to be created
       if (creationPromises.length === 0) {
         throw new Error("No schools selected for assessment creation.");
       }
 
-      console.log(`Creating assessments for ${creationPromises.length} schools...`);
       await Promise.all(creationPromises);
-      
-      // Show success summary
-      let successMessage = `✅ Assessments created successfully!\n\n`;
-      successMessage += `Created ${createdAssessments.length} assessments:\n`;
-      successMessage += `${createdAssessments.join(', ')}\n\n`;
-      
+
+      let successMessage = `✅ Assessments created successfully!\n\nCreated ${createdAssessments.length} assessments:\n${createdAssessments.join(", ")}`;
       if (emptySchools.length > 0) {
-        successMessage += `⚠️ ${emptySchools.length} schools are empty (no students):\n`;
-        successMessage += `${emptySchools.join(', ')}\n`;
-        successMessage += `You can add students to these assessments later.`;
+        successMessage += `\n\n⚠️ ${emptySchools.length} schools had no students:\n${emptySchools.join(", ")}\nYou can add students later.`;
       }
-      
-      console.log(successMessage);
+
       alert(successMessage);
-      
       onClose();
-      
     } catch (err) {
       console.error("Error creating assessments:", err);
-      
+
       let errorMessage = "Failed to create assessments. Please try again.";
-      
-      if (err.message.includes("permission")) {
+      if (err.message.includes("permission"))
         errorMessage = "Permission denied. Please check your Firebase rules.";
-      } else if (err.message.includes("network")) {
+      else if (err.message.includes("network"))
         errorMessage = "Network error. Please check your internet connection.";
-      } else if (err.message.includes("No schools selected")) {
+      else if (err.message.includes("No schools selected"))
         errorMessage = "No schools selected for assessment creation.";
-      }
-      
+
       setError(`${errorMessage} Details: ${err.message}`);
     } finally {
-      console.log("Assessment creation process finished");
       setIsSubmitting(false);
     }
   };
@@ -565,6 +521,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black bg-opacity-50">
       <div className="bg-background-light rounded-2xl shadow-xl w-full max-w-4xl flex flex-col h-[calc(100%-2rem)] sm:h-[95vh] max-h-screen border border-gray-600 mx-4 sm:mx-0">
+
         {/* Header */}
         <div className="flex-shrink-0 p-6 border-b border-gray-600">
           <h2 className="text-xl font-semibold text-foreground">
@@ -572,7 +529,8 @@ export default function AssessmentModal({ organizationId, onClose }) {
           </h2>
           <button
             onClick={onClose}
-            className="absolute top-6 right-6 text-gray-400 hover:text-gray-200 transition-colors"
+            disabled={isSubmitting}
+            className="absolute top-6 right-6 text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-50"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -583,10 +541,14 @@ export default function AssessmentModal({ organizationId, onClose }) {
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto scrollbar-hide p-6 space-y-6">
           <form onSubmit={handleSubmit}>
-            {error && <div className="p-3 bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl">{error}</div>}
+            {error && (
+              <div className="p-3 bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl mb-4">
+                {error}
+              </div>
+            )}
 
             {step === 1 ? (
-              <AssessmentNameStep 
+              <AssessmentNameStep
                 formData={formData}
                 setFormData={setFormData}
                 setStep={setStep}
@@ -628,21 +590,23 @@ export default function AssessmentModal({ organizationId, onClose }) {
               <button
                 type="button"
                 onClick={onClose}
-                className="px-8 py-3 text-gray-300 bg-background-lighter rounded-xl hover:bg-background transition-all border border-gray-600 hover:border-gray-500"
+                disabled={isSubmitting}
+                className="px-8 py-3 text-gray-300 bg-background-lighter rounded-xl hover:bg-background transition-all border border-gray-600 hover:border-gray-500 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="button"
+                disabled={isSubmitting || formData.assessmentName.trim().length === 0}
                 onClick={() => {
                   if (formData.assessmentName.trim().length === 0) {
-                    setError("Please enter an assessment name");
+                    setError("Please enter an assessment name.");
                     return;
                   }
                   setStep(2);
                   setError("");
                 }}
-                className="px-8 py-3 bg-primary-2 hover:bg-blue-400 text-white font-semibold rounded-xl transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                className="px-8 py-3 bg-primary-2 hover:bg-blue-400 text-white font-semibold rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
               </button>
@@ -652,32 +616,33 @@ export default function AssessmentModal({ organizationId, onClose }) {
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="px-8 py-3 text-gray-300 bg-background-lighter rounded-xl hover:bg-background transition-all border border-gray-600 hover:border-gray-500"
+                disabled={isSubmitting}
+                className="px-8 py-3 text-gray-300 bg-background-lighter rounded-xl hover:bg-background transition-all border border-gray-600 hover:border-gray-500 disabled:opacity-50"
               >
                 Back
               </button>
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="px-8 py-3 bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold rounded-xl disabled:opacity-50 transition-all shadow-md hover:shadow-lg transform hover:scale-105 disabled:hover:scale-100 disabled:cursor-not-allowed"
                 disabled={isSubmitting || !canCreateAssessments()}
+                className="px-8 py-3 bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold rounded-xl disabled:opacity-50 transition-all shadow-md disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isSubmitting ? (
-                  <span className="flex items-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-primary-1" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-primary-1" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                     </svg>
                     Creating...
-                  </span>
+                  </>
                 ) : studentsLoading ? (
-                  <span className="flex items-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-primary-1" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-primary-1" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                     </svg>
                     Loading Students...
-                  </span>
+                  </>
                 ) : noContentAvailable || !currentAssessment ? (
                   "No Content Available"
                 ) : (
