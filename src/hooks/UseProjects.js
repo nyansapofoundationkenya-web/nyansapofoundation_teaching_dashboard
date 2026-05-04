@@ -17,7 +17,8 @@ import {
   limit,
   increment,
   deleteDoc,
-  writeBatch
+  writeBatch,
+  where
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useSelector } from 'react-redux';
@@ -34,38 +35,94 @@ export function useProjects(organizationId) {
     return collection(db, `organization/${organizationId}/projects`);
   };
 
-  const createProject = async ({ name, location }) => {
-    if (!organizationId) throw new Error("Missing organization ID");
-  
-    setLoading(true);
-    try {
-      const locationArray = location
-        .split(",")
-        .map((loc) => loc.trim())
-        .filter(Boolean);
-  
-      const newProject = {
-        name,
-        location: locationArray,
-        createdAt: new Date(),
-      };
-  
-      // Step 1: Create the project and get the document reference
-      const projectRef = await addDoc(getProjectsCollectionRef(), newProject);
-  
-      // Step 2: Update the organization's document to include this project ID
-      const orgRef = doc(db, "organization", organizationId);
-      await updateDoc(orgRef, {
-        projects: arrayUnion(projectRef.id),
-        total_projects: increment(1) 
-      });
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
+
+const createProject = async ({ name, location }) => {
+  if (!organizationId) throw new Error("Missing organization ID");
+
+  // ── Name validation ───────────────────────────────────────────
+  const trimmedName = (name ?? "").trim();
+
+  if (!trimmedName) {
+    throw new Error("Project name is required.");
+  }
+  if (!/^[a-zA-Z\s]+$/.test(trimmedName)) {
+    throw new Error(
+      "Project name can only contain letters and spaces (no numbers or special characters)."
+    );
+  }
+  if (trimmedName.length > 30) {
+    throw new Error("Project name must be 30 characters or fewer.");
+  }
+
+  // ── Normalise the incoming location for comparison ────────────
+  const incomingLocations = location
+    .split(",")
+    .map((loc) => loc.trim().toLowerCase())
+    .filter(Boolean)
+    .sort(); // sort so ["nairobi","mombasa"] === ["mombasa","nairobi"]
+
+  // ── Duplicate check: same name AND same location ──────────────
+  // Fetch all existing projects for this organization once,
+  // then compare in JS (avoids needing a composite Firestore index).
+  const existingSnapshot = await getDocs(getProjectsCollectionRef());
+
+  const isDuplicate = existingSnapshot.docs.some((doc) => {
+    const data = doc.data();
+
+    // Case-insensitive name match
+    const sameName =
+      data.name.trim().toLowerCase() === trimmedName.toLowerCase();
+
+    if (!sameName) return false;
+
+    // Location match — normalise stored locations the same way
+    const storedLocations = (data.location ?? [])
+      .map((loc) => loc.trim().toLowerCase())
+      .sort();
+
+    const sameLocation =
+      storedLocations.length === incomingLocations.length &&
+      storedLocations.every((loc, i) => loc === incomingLocations[i]);
+
+    return sameName && sameLocation;
+  });
+
+  if (isDuplicate) {
+    throw new Error(
+      `A project named "${trimmedName}" already exists in the same location. Please use a different name or location.`
+    );
+  }
+  // ─────────────────────────────────────────────────────────────
+
+  setLoading(true);
+  try {
+    const locationArray = location
+      .split(",")
+      .map((loc) => loc.trim())
+      .filter(Boolean);
+
+    const newProject = {
+      name: trimmedName, // always save the trimmed version
+      location: locationArray,
+      createdAt: new Date(),
+    };
+
+    // Step 1: Create the project and get the document reference
+    const projectRef = await addDoc(getProjectsCollectionRef(), newProject);
+
+    // Step 2: Update the organization's document to include this project ID
+    const orgRef = doc(db, "organization", organizationId);
+    await updateDoc(orgRef, {
+      projects: arrayUnion(projectRef.id),
+      total_projects: increment(1),
+    });
+  } catch (err) {
+    setError(err.message);
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
 
   //Fetch All Projects (role-aware)
 const fetchAllProjects = async () => {

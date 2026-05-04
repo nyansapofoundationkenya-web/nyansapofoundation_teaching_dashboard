@@ -13,15 +13,17 @@ import { PlusIcon } from "@heroicons/react/24/outline";
 export default function OrganizationDashboardPage() {
   const { organizationId } = useParams();
   const { handleFetchOrganizationById } = useOrganizations();
-  const { projects, fetchAllProjects, addProjectManager, createProject } = useProjects(organizationId);
+  const { projects, fetchAllProjects, addProjectManager, createProject } =
+    useProjects(organizationId);
 
   const [organization, setOrganization] = useState(null);
   const [isManagerModalOpen, setIsManagerModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createError, setCreateError] = useState(null); // ← new: surfaces hook errors
 
-  // Get user role to control who can create projects
   const { user: currentUser } = useSelector((state) => state.auth);
-  const isAdminOrSuperAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
+  const isAdminOrSuperAdmin =
+    currentUser?.role === "admin" || currentUser?.role === "super_admin";
 
   useEffect(() => {
     if (organizationId) {
@@ -30,7 +32,7 @@ export default function OrganizationDashboardPage() {
     }
   }, [organizationId]);
 
-  // ── Create Project (same fields & logic as Welcome page) ────────────────
+  // ── Create Project ────────────────────────────────────────────
   const projectFields = [
     {
       name: "name",
@@ -49,29 +51,35 @@ export default function OrganizationDashboardPage() {
   ];
 
   const handleCreateProject = async (data) => {
+    setCreateError(null); // clear any previous error
     try {
       await createProject(data);
       setIsCreateModalOpen(false);
-      fetchAllProjects(); // refresh list
+      fetchAllProjects();
     } catch (err) {
-      console.error("Error creating project:", err);
-      // You can add toast/notification here later if desired
+      // Show the error message (duplicate name, validation, etc.) inside the modal
+      setCreateError(err.message);
     }
   };
 
-  // ── Add Project Manager (unchanged, just not triggered) ──────────────────
-  const handleAddProjectManager = async ({ name, email, phone, selectedProjects }) => {
+  // Clear the error when the modal is closed
+  const handleCloseCreateModal = () => {
+    setIsCreateModalOpen(false);
+    setCreateError(null);
+  };
+
+  // ── Add Project Manager ───────────────────────────────────────
+  const handleAddProjectManager = async ({
+    name,
+    email,
+    phone,
+    selectedProjects,
+  }) => {
     const selectedProjectIds = Array.isArray(selectedProjects)
       ? selectedProjects
       : [selectedProjects];
 
-    await addProjectManager({
-      name,
-      email,
-      phone,
-      selectedProjectIds,
-    });
-
+    await addProjectManager({ name, email, phone, selectedProjectIds });
     setIsManagerModalOpen(false);
   };
 
@@ -83,18 +91,19 @@ export default function OrganizationDashboardPage() {
       name: "selectedProjects",
       label: "Assign Projects",
       type: "multiselect",
-      options: projects.map((p) => ({
-        value: p.id,
-        label: p.name
-      }))
-    }
+      options: projects.map((p) => ({ value: p.id, label: p.name })),
+    },
   ];
 
   return (
-    <DashboardLayout title="Projects" organizationId={organizationId} currentSection={"projects"}>
+    <DashboardLayout
+      title="Projects"
+      organizationId={organizationId}
+      currentSection={"projects"}
+    >
       <div className="min-h-screen text-foreground flex flex-col gap-4 p-4">
 
-        {/* Small top bar with only the Create button on the right */}
+        {/* Top bar */}
         <div className="flex justify-end items-center pb-2">
           {isAdminOrSuperAdmin && (
             <button
@@ -109,18 +118,19 @@ export default function OrganizationDashboardPage() {
 
         <ProjectList organizationId={organizationId} />
 
-        {/* Create Project Modal – same as Welcome page */}
+        {/* Create Project Modal */}
         {isAdminOrSuperAdmin && (
           <Modal
             isOpen={isCreateModalOpen}
-            onClose={() => setIsCreateModalOpen(false)}
+            onClose={handleCloseCreateModal}
             title="Create New Project"
             fields={projectFields}
             onSubmit={handleCreateProject}
+            submitError={createError} // ← passed down to show inside the modal
           />
         )}
 
-        {/* Add Project Manager Modal – kept but not used */}
+        {/* Add Project Manager Modal */}
         <Modal
           isOpen={isManagerModalOpen}
           onClose={() => setIsManagerModalOpen(false)}
