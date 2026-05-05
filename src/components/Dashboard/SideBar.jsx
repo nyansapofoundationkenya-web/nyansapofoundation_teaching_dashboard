@@ -14,7 +14,8 @@ import {
   FiClipboard,
   FiFileText,
   FiCheckSquare ,
-  FiMessageSquare
+  FiMessageSquare,
+  FiBook
 } from "react-icons/fi";
 import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/icons/logo";
@@ -31,7 +32,8 @@ const MENU_WEIGHTS = {
   ASSESSMENTS: 600,   
   ATTENDANCE: 700,
   AI_ASSISTANT: 800,  
-  SURVEY: 900
+  SURVEY: 900,
+  LITERACY: 1000
 };
 
 // Skeleton Loading Component
@@ -188,6 +190,13 @@ const Sidebar = ({
       "ai-assistant",
       MENU_WEIGHTS.AI_ASSISTANT  // Weight 800 - after Attendance
     ),
+    createMenuItem(
+    "Map Assessments", 
+    <FiBook size={20} />,
+    `/dashboard/${organizationId}/map_assessments`,
+    "map-assessments",     
+    MENU_WEIGHTS.LITERACY                   
+  ),
   ];
 
   const adminMenuItems = [
@@ -197,7 +206,8 @@ const Sidebar = ({
       `/dashboard/${organizationId}/ai-assistant`,
       "ai-assistant",
       MENU_WEIGHTS.AI_ASSISTANT  
-    ),
+    )
+     
   ];
   const managerMenuItems = [
   ];
