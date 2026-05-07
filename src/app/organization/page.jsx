@@ -9,61 +9,38 @@ import UserProfileModal from "@/components/Dashboard/UserProfileModal";
 import {
   Search, Users, School, FolderKanban,
   GraduationCap, Calendar, Plus,
-  ChevronRight, Building2, User, Trash2,
+  ChevronRight, Building2, User, Trash2, FlaskConical,
 } from "lucide-react";
 import { FiLogOut } from "react-icons/fi";
 
-// Validation function for organization names
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const isSandboxOrg = (org) => /[-\s]sandbox$/i.test(org.name?.trim());
+
 const validateOrganizationName = (name) => {
   const trimmedName = name.trim();
-  
-  // Check if empty
-  if (!trimmedName) {
-    return { valid: false, message: "Organization name is required" };
-  }
-  
-  // Check length
-  if (trimmedName.length < 3) {
-    return { valid: false, message: "Organization name must be at least 3 characters" };
-  }
-  
-  if (trimmedName.length > 50) {
-    return { valid: false, message: "Organization name must be less than 50 characters" };
-  }
-  
-  // Allow only letters (including accented), numbers, spaces, hyphens, apostrophes, periods, commas, and ampersands
+  if (!trimmedName) return { valid: false, message: "Organization name is required" };
+  if (trimmedName.length < 3) return { valid: false, message: "Organization name must be at least 3 characters" };
+  if (trimmedName.length > 50) return { valid: false, message: "Organization name must be less than 50 characters" };
   const validNameRegex = /^[a-zA-Z0-9\s\-'.,&]+$/;
-  
   if (!validNameRegex.test(trimmedName)) {
-    return { 
-      valid: false, 
-      message: "Organization name can only contain letters, numbers, spaces, hyphens (-), apostrophes ('), periods (.), commas (,), and ampersands (&)" 
+    return {
+      valid: false,
+      message: "Organization name can only contain letters, numbers, spaces, hyphens (-), apostrophes ('), periods (.), commas (,), and ampersands (&)",
     };
   }
-  
-  // Prevent names that are just numbers
-  if (/^\d+$/.test(trimmedName)) {
-    return { valid: false, message: "Organization name cannot be only numbers" };
-  }
-  
-  // Prevent names with excessive repeated characters (4 or more in a row)
-  if (/(.)\1{4,}/.test(trimmedName)) {
-    return { valid: false, message: "Organization name cannot have too many repeated characters" };
-  }
-  
-  // Prevent names that start or end with space
-  if (trimmedName.startsWith(' ') || trimmedName.endsWith(' ')) {
-    return { valid: false, message: "Organization name cannot start or end with spaces" };
-  }
-  
+  if (/^\d+$/.test(trimmedName)) return { valid: false, message: "Organization name cannot be only numbers" };
+  if (/(.)\1{4,}/.test(trimmedName)) return { valid: false, message: "Organization name cannot have too many repeated characters" };
   return { valid: true, message: "" };
 };
 
-// Sanitize function to clean input as user types
-const sanitizeOrgName = (value) => {
-  // Remove any disallowed characters as user types
-  return value.replace(/[^a-zA-Z0-9\s\-'.,&]/g, '');
-};
+const sanitizeOrgName = (value) => value.replace(/[^a-zA-Z0-9\s\-'.,&]/g, "");
+
+// ---------------------------------------------------------------------------
+// Main Page
+// ---------------------------------------------------------------------------
 
 export default function OrganizationPage({
   onOrganizationSelect = () => {},
@@ -72,17 +49,19 @@ export default function OrganizationPage({
 }) {
   const router = useRouter();
   const { handleLogout } = useAuth();
-  const { 
-    organizations, 
-    loading, 
-    error, 
-    handleFetchOrganizations, 
+  const {
+    organizations,
+    loading,
+    error,
+    handleFetchOrganizations,
     handleAddOrganization,
-    handleDeleteOrganization 
+    handleDeleteOrganization,
   } = useOrganizations();
 
   const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
 
+  // UI state
+  const [activeTab, setActiveTab] = useState("organizations"); // "organizations" | "sandboxes"
   const [showAddModal, setShowAddModal] = useState(false);
   const [newOrgName, setNewOrgName] = useState("");
   const [addingOrg, setAddingOrg] = useState(false);
@@ -94,29 +73,37 @@ export default function OrganizationPage({
   const [deletingOrg, setDeletingOrg] = useState(false);
   const [nameValidation, setNameValidation] = useState({ valid: true, message: "" });
 
+  // Fetch on mount
   useEffect(() => {
     if (currentUser?.uid && !dataFetched) {
-      handleFetchOrganizations().catch(err => console.error("Fetch Organizations Error:", err));
+      handleFetchOrganizations().catch((err) => console.error("Fetch Organizations Error:", err));
       setDataFetched(true);
     }
   }, [currentUser?.uid, dataFetched, handleFetchOrganizations]);
 
+  // Filter to orgs this user can see
   const getFilteredOrganizations = useCallback(() => {
     if (!currentUser || !organizations.length) return [];
-    const userOrganizations = currentUser.organizations || [];
     if (currentUser.role === "super_admin") return organizations;
-    return organizations.filter(org =>
-      userOrganizations.some(userOrg => userOrg.id === org.id)
+    const userOrganizations = currentUser.organizations || [];
+    return organizations.filter((org) =>
+      userOrganizations.some((userOrg) => userOrg.id === org.id)
     );
   }, [currentUser, organizations]);
 
   const baseOrganizations = getFilteredOrganizations();
 
+  // Split into real orgs vs sandboxes
+  const realOrgs = useMemo(() => baseOrganizations.filter((o) => !isSandboxOrg(o)), [baseOrganizations]);
+  const sandboxOrgs = useMemo(() => baseOrganizations.filter((o) => isSandboxOrg(o)), [baseOrganizations]);
+
+  // Apply search + sort to whichever tab is active
   const filteredOrganizations = useMemo(() => {
-    let filtered = [...baseOrganizations];
+    const source = activeTab === "sandboxes" ? sandboxOrgs : realOrgs;
+    let filtered = [...source];
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(org => org.name.toLowerCase().includes(query));
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter((org) => org.name.toLowerCase().includes(q));
     }
     filtered.sort((a, b) => {
       const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
@@ -124,43 +111,34 @@ export default function OrganizationPage({
       return dateB - dateA;
     });
     return filtered;
-  }, [baseOrganizations, searchQuery]);
+  }, [activeTab, realOrgs, sandboxOrgs, searchQuery]);
 
   const isSuperAdmin = currentUser?.role === "super_admin";
 
-  // Check if organization can be deleted (has 0 projects, teachers, schools, students)
-  const canDeleteOrganization = (org) => {
-    return (
-      (org.total_projects === 0 || !org.total_projects) &&
-      (org.total_teachers === 0 || !org.total_teachers) &&
-      (org.total_schools === 0 || !org.total_schools) &&
-      (org.total_students === 0 || !org.total_students)
-    );
-  };
+  const canDeleteOrganization = (org) =>
+    (!org.total_projects || org.total_projects === 0) &&
+    (!org.total_teachers || org.total_teachers === 0) &&
+    (!org.total_schools || org.total_schools === 0) &&
+    (!org.total_students || org.total_students === 0);
+
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
 
   const handleOrgNameChange = (e) => {
     const sanitized = sanitizeOrgName(e.target.value);
     setNewOrgName(sanitized);
-    const validation = validateOrganizationName(sanitized);
-    setNameValidation(validation);
+    setNameValidation(validateOrganizationName(sanitized));
   };
 
   const handleAddOrg = async () => {
-    // Validate the name
     const validation = validateOrganizationName(newOrgName);
-    
-    if (!validation.valid) {
-      alert(validation.message);
-      return;
-    }
+    if (!validation.valid) { alert(validation.message); return; }
 
     const trimmedName = newOrgName.trim();
-
-    // Check for duplicate organization names (case-insensitive)
     const existingOrg = organizations.find(
-      org => org.name.toLowerCase() === trimmedName.toLowerCase()
+      (org) => org.name.toLowerCase() === trimmedName.toLowerCase()
     );
-    
     if (existingOrg) {
       alert(`An organization named "${trimmedName}" already exists. Please use a different name.`);
       return;
@@ -184,24 +162,16 @@ export default function OrganizationPage({
 
   const handleDeleteOrg = async () => {
     if (!orgToDelete) return;
-    
-    // Double-check permissions
-    if (!isSuperAdmin) {
-      alert("Only super administrators can delete organizations");
-      return;
-    }
-    
-    // Double-check that organization is empty
+    if (!isSuperAdmin) { alert("Only super administrators can delete organizations"); return; }
     if (!canDeleteOrganization(orgToDelete)) {
       alert("Cannot delete organization with existing projects, teachers, schools, or students");
       return;
     }
-
     try {
       setDeletingOrg(true);
       await handleDeleteOrganization(orgToDelete.id);
       setOrgToDelete(null);
-      setDataFetched(false); // Refresh the list
+      setDataFetched(false);
       alert("Organization deleted successfully");
     } catch (err) {
       console.error("Error deleting organization:", err);
@@ -244,10 +214,14 @@ export default function OrganizationPage({
 
   const isLoading = (loading || userLoading) && !dataFetched;
 
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
 
-      {/* Sticky top: greeting + search */}
+      {/* ── Sticky header ─────────────────────────────────────────────────── */}
       <div className="sticky top-0 z-20 bg-background pt-6 pb-3 px-6">
         <div className="max-w-5xl mx-auto">
 
@@ -264,7 +238,6 @@ export default function OrganizationPage({
               </h1>
             </div>
 
-            {/* User + logout */}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsProfileModalOpen(true)}
@@ -283,21 +256,64 @@ export default function OrganizationPage({
             </div>
           </div>
 
+          {/* Tab toggle */}
+          <div className="flex items-center gap-2 mb-4">
+            <button
+              onClick={() => { setActiveTab("organizations"); setSearchQuery(""); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                activeTab === "organizations"
+                  ? "bg-primary-3 text-primary-1 shadow"
+                  : "bg-background-light text-gray-400 hover:text-foreground"
+              }`}
+            >
+              <Building2 size={14} />
+              Organizations
+              <span className={`text-xs px-1.5 py-0.5 rounded-md font-bold ${
+                activeTab === "organizations" ? "bg-primary-1/20 text-primary-1" : "bg-background-lighter text-gray-400"
+              }`}>
+                {realOrgs.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab("sandboxes"); setSearchQuery(""); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                activeTab === "sandboxes"
+                  ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 shadow"
+                  : "bg-background-light text-gray-400 hover:text-foreground"
+              }`}
+            >
+              <FlaskConical size={14} />
+              Sandboxes
+              <span className={`text-xs px-1.5 py-0.5 rounded-md font-bold ${
+                activeTab === "sandboxes" ? "bg-blue-500/20 text-blue-300" : "bg-background-lighter text-gray-400"
+              }`}>
+                {sandboxOrgs.length}
+              </span>
+            </button>
+          </div>
+
           {/* Search row */}
           <div className="flex items-center gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
               <input
                 type="text"
-                placeholder="Search organizations..."
+                placeholder={`Search ${activeTab}...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-background-light border border-gray-600 rounded-xl text-sm text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 transition-all"
               />
             </div>
-            <div className="px-3 py-2 bg-primary-3/10 border border-primary-3/30 rounded-xl shrink-0">
-              <span className="text-xs font-semibold text-primary-3">
-                {filteredOrganizations.length} {filteredOrganizations.length === 1 ? "Org" : "Orgs"}
+            <div className={`px-3 py-2 rounded-xl shrink-0 border ${
+              activeTab === "sandboxes"
+                ? "bg-blue-500/10 border-blue-500/30"
+                : "bg-primary-3/10 border-primary-3/30"
+            }`}>
+              <span className={`text-xs font-semibold ${activeTab === "sandboxes" ? "text-blue-400" : "text-primary-3"}`}>
+                {filteredOrganizations.length} {filteredOrganizations.length === 1
+                  ? (activeTab === "sandboxes" ? "Sandbox" : "Org")
+                  : (activeTab === "sandboxes" ? "Sandboxes" : "Orgs")}
               </span>
             </div>
           </div>
@@ -312,7 +328,7 @@ export default function OrganizationPage({
         </div>
       </div>
 
-      {/* Scrollable cards */}
+      {/* ── Scrollable cards ──────────────────────────────────────────────── */}
       <main className="flex-1 px-6 py-4 overflow-y-auto">
         <div className="max-w-5xl mx-auto">
 
@@ -332,27 +348,32 @@ export default function OrganizationPage({
             </div>
           )}
 
-          {/* Empty */}
+          {/* Empty state */}
           {!isLoading && filteredOrganizations.length === 0 && (
             <div className="flex flex-col items-center justify-center py-24 text-center">
               <div className="w-14 h-14 rounded-2xl bg-background-light flex items-center justify-center mb-4">
-                <Building2 size={24} className="text-gray-600" />
+                {activeTab === "sandboxes"
+                  ? <FlaskConical size={24} className="text-blue-500/50" />
+                  : <Building2 size={24} className="text-gray-600" />}
               </div>
               <p className="text-sm text-gray-400">
                 {searchQuery
-                  ? `No organizations match "${searchQuery}"`
-                  : "No organizations available for your account."}
+                  ? `No ${activeTab} match "${searchQuery}"`
+                  : activeTab === "sandboxes"
+                    ? "No sandbox environments available."
+                    : "No organizations available for your account."}
               </p>
             </div>
           )}
 
-          {/* Cards — pb-24 so sticky footer never covers last row */}
+          {/* Cards */}
           {!isLoading && filteredOrganizations.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-24">
               {filteredOrganizations.map((org) => (
                 <OrgCard
                   key={org.id}
                   org={org}
+                  isSandbox={isSandboxOrg(org)}
                   formatDate={formatDate}
                   onClick={() => handleOrganizationClick(org)}
                   onDelete={isSuperAdmin && canDeleteOrganization(org) ? () => setOrgToDelete(org) : null}
@@ -365,8 +386,8 @@ export default function OrganizationPage({
         </div>
       </main>
 
-      {/* Sticky bottom: compact Add button, admin only */}
-      {isSuperAdmin && (
+      {/* ── Sticky footer: Add button (super admin only) ───────────────────── */}
+      {isSuperAdmin && activeTab === "organizations" && (
         <div className="sticky bottom-0 z-20 px-6 py-3 bg-background/95 backdrop-blur-sm border-t border-white/5">
           <div className="max-w-5xl mx-auto flex justify-center">
             <button
@@ -380,7 +401,7 @@ export default function OrganizationPage({
         </div>
       )}
 
-      {/* User Profile Modal */}
+      {/* ── User Profile Modal ─────────────────────────────────────────────── */}
       <UserProfileModal
         user={currentUser}
         isOpen={isProfileModalOpen}
@@ -388,7 +409,7 @@ export default function OrganizationPage({
         onUpdate={async (data) => console.log("Updating profile:", data)}
       />
 
-      {/* Add Organization Modal */}
+      {/* ── Add Organization Modal ─────────────────────────────────────────── */}
       {showAddModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -399,53 +420,42 @@ export default function OrganizationPage({
 
             <div className="mb-4">
               <label className="block text-xs font-medium text-gray-400 mb-2">
-                Organization Name (3-50 characters)
+                Organization Name (3–50 characters)
               </label>
               <input
                 type="text"
                 value={newOrgName}
                 onChange={handleOrgNameChange}
                 className={`w-full px-4 py-3 bg-background-lighter border rounded-xl text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent text-sm ${
-                  nameValidation.valid ? 'border-gray-500' : 'border-red-500'
+                  nameValidation.valid ? "border-gray-500" : "border-red-500"
                 }`}
-                placeholder="Enter organization name (e.g., 'Victor's Academy' or 'St. Mary School')"
+                placeholder="e.g. Victor's Academy or St. Mary School"
                 onKeyPress={(e) => e.key === "Enter" && handleAddOrg()}
                 minLength={3}
                 maxLength={50}
               />
-              
-              {/* Real-time validation feedback */}
+
               {newOrgName && (
                 <div className="mt-2">
                   {!nameValidation.valid && (
-                    <p className="text-xs text-red-400">
-                      {nameValidation.message}
-                    </p>
+                    <p className="text-xs text-red-400">{nameValidation.message}</p>
                   )}
                   {nameValidation.valid && (
-                    <p className="text-xs text-green-400">
-                      ✓ Valid organization name
-                    </p>
+                    <p className="text-xs text-green-400">✓ Valid organization name</p>
                   )}
                 </div>
               )}
-              
-              <p className="text-xs text-gray-500 mt-1">
-                {newOrgName.length}/50 characters
-              </p>
-              
+              <p className="text-xs text-gray-500 mt-1">{newOrgName.length}/50 characters</p>
               <p className="text-xs text-gray-500 mt-2">
- Allowed: letters, numbers, spaces, hyphens (-), apostrophes ('), periods (.), commas (,), and ampersands (&)
+                Allowed: letters, numbers, spaces, hyphens (-), apostrophes ('), periods (.), commas (,), and ampersands (&)
               </p>
             </div>
 
-            {/* Sandbox Toggle */}
+            {/* Sandbox toggle */}
             <div
               onClick={() => setCreateSandbox((prev) => !prev)}
               className={`mb-6 p-4 rounded-xl cursor-pointer transition-all border ${
-                createSandbox
-                  ? "bg-primary-3/10 border-primary-3/40"
-                  : "bg-background-lighter border-gray-600"
+                createSandbox ? "bg-primary-3/10 border-primary-3/40" : "bg-background-lighter border-gray-600"
               }`}
             >
               <div className="flex items-start gap-3">
@@ -463,10 +473,10 @@ export default function OrganizationPage({
                   )}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-foreground">Create Sandbox Organization</p>
+                  <p className="text-sm font-medium text-foreground">Create Sandbox Environment</p>
                   <p className="text-xs text-gray-400 mt-1">
-                    Creates a test environment "{newOrgName.trim() || "your-org"}-sandbox" to practice
-                    assessments before real evaluations.
+                    Also creates a test environment "{newOrgName.trim() || "your-org"}-sandbox" so you can
+                    practice assessments before real evaluations.
                   </p>
                 </div>
               </div>
@@ -474,9 +484,9 @@ export default function OrganizationPage({
 
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => { 
-                  setShowAddModal(false); 
-                  setNewOrgName(""); 
+                onClick={() => {
+                  setShowAddModal(false);
+                  setNewOrgName("");
                   setCreateSandbox(false);
                   setNameValidation({ valid: true, message: "" });
                 }}
@@ -497,19 +507,21 @@ export default function OrganizationPage({
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* ── Delete Confirmation Modal ─────────────────────────────────────── */}
       {orgToDelete && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
         >
           <div className="w-full max-w-md bg-background-light rounded-3xl p-6 shadow-2xl border border-background-lighter">
-            <h2 className="text-base font-bold text-foreground mb-3">Delete Organization</h2>
+            <h2 className="text-base font-bold text-foreground mb-3">
+              Delete {isSandboxOrg(orgToDelete) ? "Sandbox" : "Organization"}
+            </h2>
             <p className="text-sm text-gray-300 mb-6">
-              Are you sure you want to delete <span className="font-semibold text-primary-3">{orgToDelete.name}</span>?
+              Are you sure you want to delete{" "}
+              <span className="font-semibold text-primary-3">{orgToDelete.name}</span>?{" "}
               This action cannot be undone.
             </p>
-            
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setOrgToDelete(null)}
@@ -533,8 +545,11 @@ export default function OrganizationPage({
   );
 }
 
-// Org Card with Delete Button
-function OrgCard({ org, formatDate, onClick, onDelete, canDelete, isSuperAdmin }) {
+// ---------------------------------------------------------------------------
+// Org Card
+// ---------------------------------------------------------------------------
+
+function OrgCard({ org, isSandbox, formatDate, onClick, onDelete, canDelete, isSuperAdmin }) {
   const [hovered, setHovered] = useState(false);
 
   const stats = [
@@ -545,20 +560,39 @@ function OrgCard({ org, formatDate, onClick, onDelete, canDelete, isSuperAdmin }
   ];
 
   const handleDeleteClick = (e) => {
-    e.stopPropagation(); // Prevent triggering the card click
+    e.stopPropagation();
     if (onDelete) onDelete();
   };
+
+  // Sandbox cards get a subtle blue tint to distinguish them
+  const cardBorder = isSandbox
+    ? "border-blue-500/30 hover:border-blue-400/60"
+    : "border-background-lighter hover:border-primary-3/50";
+
+  const iconBg = isSandbox
+    ? hovered ? "bg-blue-500/20" : "bg-blue-500/10"
+    : hovered ? "bg-primary-3/20" : "bg-primary-3/10";
+
+  const IconComponent = isSandbox ? FlaskConical : Building2;
+  const iconColor = isSandbox ? "text-blue-400" : "text-primary-3";
 
   return (
     <div
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="rounded-2xl p-5 cursor-pointer transition-all duration-200 flex flex-col bg-background-light border border-background-lighter hover:border-primary-3/50 hover:bg-background-lighter hover:-translate-y-0.5 hover:shadow-lg relative"
+      className={`rounded-2xl p-5 cursor-pointer transition-all duration-200 flex flex-col bg-background-light border ${cardBorder} hover:bg-background-lighter hover:-translate-y-0.5 hover:shadow-lg relative`}
     >
+      {/* Sandbox label pill */}
+      {isSandbox && (
+        <span className="absolute top-3 right-10 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/25 uppercase tracking-wide">
+          Sandbox
+        </span>
+      )}
+
       <div className="flex items-start justify-between mb-3">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${hovered ? "bg-primary-3/20" : "bg-primary-3/10"}`}>
-          <Building2 size={18} className="text-primary-3" />
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${iconBg}`}>
+          <IconComponent size={18} className={iconColor} />
         </div>
         <div className="flex items-center gap-2">
           {isSuperAdmin && (
@@ -566,23 +600,25 @@ function OrgCard({ org, formatDate, onClick, onDelete, canDelete, isSuperAdmin }
               onClick={handleDeleteClick}
               disabled={!canDelete}
               className={`p-1.5 rounded-lg transition-all ${
-                canDelete 
-                  ? "text-red-500 hover:bg-red-500/10 hover:text-red-400" 
+                canDelete
+                  ? "text-red-500 hover:bg-red-500/10 hover:text-red-400"
                   : "text-gray-600 cursor-not-allowed"
               }`}
-              title={canDelete ? "Delete organization" : "Cannot delete: Organization has existing data"}
+              title={canDelete ? "Delete" : "Cannot delete: Organization has existing data"}
             >
               <Trash2 size={16} />
             </button>
           )}
           <ChevronRight
             size={15}
-            className={`text-primary-3 transition-all duration-200 ${hovered ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-1"}`}
+            className={`${isSandbox ? "text-blue-400" : "text-primary-3"} transition-all duration-200 ${
+              hovered ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-1"
+            }`}
           />
         </div>
       </div>
 
-      <h3 className="font-bold text-foreground text-base mb-1 truncate">{org.name}</h3>
+      <h3 className="font-bold text-foreground text-base mb-1 truncate pr-16">{org.name}</h3>
 
       <div className="flex items-center gap-1.5 mb-4">
         <Calendar size={11} className="text-gray-500" />
