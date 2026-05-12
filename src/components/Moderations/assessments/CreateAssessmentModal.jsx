@@ -4,6 +4,24 @@ import { useState, useCallback } from "react";
 import { db } from "@/firebase/config";
 import { collection, getDocs, setDoc, doc, serverTimestamp } from "firebase/firestore";
 
+// ── Language-aware labels ─────────────────────────────────────────────────────
+const LABELS = {
+  english: {
+    letters:    { title: "Letters to Identify",          description: "Letters the student should be able to identify", addBtn: "Add letter"    },
+    words:      { title: "Words to Read",                description: "Words the student should be able to read",       addBtn: "Add word"      },
+    paragraphs: { title: "Reading Paragraphs",           description: "Paragraphs for reading comprehension",           addBtn: "Add paragraph" },
+    stories:    { title: "Stories & Comprehension",      description: "Stories with multiple-choice comprehension questions", addBtn: "Add story" },
+    questions:  { label: "Comprehension Questions (Multiple Choice):" },
+  },
+  swahili: {
+    letters:    { title: "Silabi za Kutambua",           description: "Silabi ambazo mwanafunzi anapaswa kuweza kutambua", addBtn: "Ongeza silabi"  },
+    words:      { title: "Maneno ya Kusoma",             description: "Maneno ambayo mwanafunzi anapaswa kuweza kusoma",   addBtn: "Ongeza neno"    },
+    paragraphs: { title: "Aya za Kusoma",                description: "Aya za ufahamu wa kusoma",                          addBtn: "Ongeza aya"     },
+    stories:    { title: "Hadithi na Ufahamu",           description: "Hadithi zenye maswali ya kuchagua jibu sahihi",     addBtn: "Ongeza hadithi" },
+    questions:  { label: "Maswali ya Ufahamu (Chaguo Nyingi):" },
+  },
+};
+
 // Icons
 const Icons = {
   close: (
@@ -88,17 +106,17 @@ const Icons = {
   ),
 };
 
-// ── Helper: blank question with multiple-choice structure ──
+// ── Helper: blank question ─────────────────────────────────────────────────────
 function blankQuestion() {
   return {
     question: "",
-    correct_choice: "",          // single correct answer
-    wrong_choices: ["", "", "", ""], // up to 4 wrong answers
+    correct_choice: "",
+    wrong_choices: ["", "", "", ""],
   };
 }
 
 export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
-  const [step, setStep] = useState(1); // 1: type, 2: details, 3: content
+  const [step, setStep] = useState(1);
   const [type, setType] = useState("literacy");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -124,6 +142,10 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
   const [divisions, setDivisions] = useState([]);
   const [wordProblems, setWordProblems] = useState([]);
 
+  // Convenience: current language labels
+  const lbl = LABELS[language] ?? LABELS.english;
+  const isSwahili = language === "swahili";
+
   const resetForm = useCallback(() => {
     setStep(1);
     setType("literacy");
@@ -145,10 +167,7 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
     setError(null);
   }, []);
 
-  const handleClose = () => {
-    resetForm();
-    onClose();
-  };
+  const handleClose = () => { resetForm(); onClose(); };
 
   const validateStep = () => {
     if (step === 2) {
@@ -169,15 +188,13 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
     try {
       const collectionName = type === "literacy" ? "literacy" : "numeracy";
 
-      // ── Derive next numeric ID ──
-      // Fetch all docs, parse their IDs as numbers, take max + 1 (start at 0)
       const snapshot = await getDocs(collection(db, collectionName));
       let maxId = -1;
       snapshot.forEach(d => {
         const parsed = parseInt(d.id, 10);
         if (!isNaN(parsed) && parsed > maxId) maxId = parsed;
       });
-      const nextId = String(maxId + 1); // "0", "1", "2", …
+      const nextId = String(maxId + 1);
 
       const baseData = {
         name: name.trim(),
@@ -206,9 +223,7 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
                 .map(q => ({
                   question: q.question,
                   multiple_choices: {
-                    correct_choices: q.correct_choice?.trim()
-                      ? [q.correct_choice.trim()]
-                      : [],
+                    correct_choices: q.correct_choice?.trim() ? [q.correct_choice.trim()] : [],
                     wrong_choices: (q.wrong_choices || []).filter(w => w.trim()),
                   },
                 })),
@@ -253,56 +268,40 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
     { value: "Endline",  label: "Endline",  description: "End of term"   },
   ];
 
-  // ── Story question updater helpers ──
+  // ── Story question helpers ──────────────────────────────────────────────────
   const updateQuestion = (sIdx, qIdx, field, value) => {
-    setStories(prev => {
-      const next = prev.map((s, i) => i !== sIdx ? s : {
-        ...s,
-        questions: s.questions.map((q, j) =>
-          j !== qIdx ? q : { ...q, [field]: value }
-        ),
-      });
-      return next;
-    });
+    setStories(prev => prev.map((s, i) => i !== sIdx ? s : {
+      ...s,
+      questions: s.questions.map((q, j) => j !== qIdx ? q : { ...q, [field]: value }),
+    }));
   };
 
   const updateWrongChoice = (sIdx, qIdx, wIdx, value) => {
-    setStories(prev =>
-      prev.map((s, i) => i !== sIdx ? s : {
-        ...s,
-        questions: s.questions.map((q, j) =>
-          j !== qIdx ? q : {
-            ...q,
-            wrong_choices: q.wrong_choices.map((w, k) => k === wIdx ? value : w),
-          }
-        ),
-      })
-    );
+    setStories(prev => prev.map((s, i) => i !== sIdx ? s : {
+      ...s,
+      questions: s.questions.map((q, j) => j !== qIdx ? q : {
+        ...q,
+        wrong_choices: q.wrong_choices.map((w, k) => k === wIdx ? value : w),
+      }),
+    }));
   };
 
   const addWrongChoice = (sIdx, qIdx) => {
-    setStories(prev =>
-      prev.map((s, i) => i !== sIdx ? s : {
-        ...s,
-        questions: s.questions.map((q, j) =>
-          j !== qIdx ? q : { ...q, wrong_choices: [...q.wrong_choices, ""] }
-        ),
-      })
-    );
+    setStories(prev => prev.map((s, i) => i !== sIdx ? s : {
+      ...s,
+      questions: s.questions.map((q, j) => j !== qIdx ? q : {
+        ...q, wrong_choices: [...q.wrong_choices, ""],
+      }),
+    }));
   };
 
   const removeWrongChoice = (sIdx, qIdx, wIdx) => {
-    setStories(prev =>
-      prev.map((s, i) => i !== sIdx ? s : {
-        ...s,
-        questions: s.questions.map((q, j) =>
-          j !== qIdx ? q : {
-            ...q,
-            wrong_choices: q.wrong_choices.filter((_, k) => k !== wIdx),
-          }
-        ),
-      })
-    );
+    setStories(prev => prev.map((s, i) => i !== sIdx ? s : {
+      ...s,
+      questions: s.questions.map((q, j) => j !== qIdx ? q : {
+        ...q, wrong_choices: q.wrong_choices.filter((_, k) => k !== wIdx),
+      }),
+    }));
   };
 
   return (
@@ -310,6 +309,7 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
 
       <div className="relative bg-background rounded-2xl border border-gray-700 shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-700">
           <div>
@@ -342,7 +342,7 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
             </div>
           )}
 
-          {/* ── Step 1 ── */}
+          {/* ── Step 1: Type ── */}
           {step === 1 && (
             <div className="space-y-4">
               <p className="text-gray-300 mb-6">Select the type of assessment you want to create.</p>
@@ -372,7 +372,7 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
             </div>
           )}
 
-          {/* ── Step 2 ── */}
+          {/* ── Step 2: Details ── */}
           {step === 2 && (
             <div className="space-y-6">
               <div>
@@ -429,121 +429,167 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
           {/* ── Step 3: Literacy ── */}
           {step === 3 && type === "literacy" && (
             <div className="space-y-6">
-              {/* Letters */}
-              <ContentSection title="Letters to Identify" icon={Icons.letter} description="Letters the student should be able to identify">
+
+              {/* Letters / Silabi */}
+              <ContentSection title={lbl.letters.title} icon={Icons.letter} description={lbl.letters.description}>
                 <div className="flex flex-wrap gap-2">
                   {letters.map((letter, idx) => (
                     <div key={idx} className="flex items-center gap-1">
                       <input
-                        type="text" value={letter} maxLength={1}
-                        onChange={e => { const n=[...letters]; n[idx]=e.target.value.toUpperCase(); setLetters(n); }}
-                        className="w-12 h-12 bg-background border border-gray-600 rounded-xl text-center text-lg font-bold text-primary-2 focus:border-primary-2 focus:outline-none"
+                        type="text"
+                        value={letter}
+                        // English: single uppercase character; Swahili: free-form syllable (e.g. "ji", "ba")
+                        maxLength={isSwahili ? 10 : 1}
+                        onChange={e => {
+                          const n = [...letters];
+                          n[idx] = isSwahili ? e.target.value : e.target.value.toUpperCase();
+                          setLetters(n);
+                        }}
+                        className={`h-12 bg-background border border-gray-600 rounded-xl text-center text-lg font-bold text-primary-2 focus:border-primary-2 focus:outline-none transition-all ${
+                          isSwahili ? "w-20 px-2" : "w-12"
+                        }`}
                       />
-                      <button onClick={() => setLetters(letters.filter((_,i)=>i!==idx))} className="p-1 text-gray-500 hover:text-red-400 transition">{Icons.trash}</button>
+                      <button onClick={() => setLetters(letters.filter((_, i) => i !== idx))} className="p-1 text-gray-500 hover:text-red-400 transition">
+                        {Icons.trash}
+                      </button>
                     </div>
                   ))}
                 </div>
-                <button onClick={() => setLetters([...letters,""])} className="mt-2 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">{Icons.plus} Add letter</button>
+                <button onClick={() => setLetters([...letters, ""])} className="mt-2 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">
+                  {Icons.plus} {lbl.letters.addBtn}
+                </button>
               </ContentSection>
 
-              {/* Words */}
-              <ContentSection title="Words to Read" icon={Icons.word} description="Words the student should be able to read">
+              {/* Words / Maneno */}
+              <ContentSection title={lbl.words.title} icon={Icons.word} description={lbl.words.description}>
                 <div className="space-y-2">
                   {words.map((word, idx) => (
                     <div key={idx} className="flex items-center gap-2">
                       <input
-                        type="text" value={word} placeholder="Enter word"
-                        onChange={e => { const n=[...words]; n[idx]=e.target.value; setWords(n); }}
+                        type="text"
+                        value={word}
+                        placeholder={isSwahili ? "Andika neno" : "Enter word"}
+                        onChange={e => { const n = [...words]; n[idx] = e.target.value; setWords(n); }}
                         className="flex-1 bg-background border border-gray-600 rounded-xl px-4 py-2 text-sm focus:border-primary-2 focus:outline-none"
                       />
-                      <button onClick={() => setWords(words.filter((_,i)=>i!==idx))} className="p-2 text-gray-500 hover:text-red-400 transition">{Icons.trash}</button>
+                      <button onClick={() => setWords(words.filter((_, i) => i !== idx))} className="p-2 text-gray-500 hover:text-red-400 transition">
+                        {Icons.trash}
+                      </button>
                     </div>
                   ))}
                 </div>
-                <button onClick={() => setWords([...words,""])} className="mt-2 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">{Icons.plus} Add word</button>
+                <button onClick={() => setWords([...words, ""])} className="mt-2 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">
+                  {Icons.plus} {lbl.words.addBtn}
+                </button>
               </ContentSection>
 
-              {/* Paragraphs */}
-              <ContentSection title="Reading Paragraphs" icon={Icons.paragraph} description="Paragraphs for reading comprehension">
+              {/* Paragraphs / Aya */}
+              <ContentSection title={lbl.paragraphs.title} icon={Icons.paragraph} description={lbl.paragraphs.description}>
                 <div className="space-y-2">
                   {paragraphs.map((para, idx) => (
                     <div key={idx} className="flex items-start gap-2">
                       <textarea
-                        value={para} placeholder="Enter paragraph text..." rows={3}
-                        onChange={e => { const n=[...paragraphs]; n[idx]=e.target.value; setParagraphs(n); }}
+                        value={para}
+                        placeholder={isSwahili ? "Andika aya hapa..." : "Enter paragraph text..."}
+                        rows={3}
+                        onChange={e => { const n = [...paragraphs]; n[idx] = e.target.value; setParagraphs(n); }}
                         className="flex-1 bg-background border border-gray-600 rounded-xl px-4 py-2 text-sm focus:border-primary-2 focus:outline-none resize-none"
                       />
-                      <button onClick={() => setParagraphs(paragraphs.filter((_,i)=>i!==idx))} className="p-2 text-gray-500 hover:text-red-400 transition mt-1">{Icons.trash}</button>
+                      <button onClick={() => setParagraphs(paragraphs.filter((_, i) => i !== idx))} className="p-2 text-gray-500 hover:text-red-400 transition mt-1">
+                        {Icons.trash}
+                      </button>
                     </div>
                   ))}
                 </div>
-                <button onClick={() => setParagraphs([...paragraphs,""])} className="mt-2 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">{Icons.plus} Add paragraph</button>
+                <button onClick={() => setParagraphs([...paragraphs, ""])} className="mt-2 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">
+                  {Icons.plus} {lbl.paragraphs.addBtn}
+                </button>
               </ContentSection>
 
-              {/* Stories — with multiple-choice questions */}
-              <ContentSection title="Stories & Comprehension" icon={Icons.story} description="Stories with multiple-choice comprehension questions">
+              {/* Stories / Hadithi & Ufahamu */}
+              <ContentSection title={lbl.stories.title} icon={Icons.story} description={lbl.stories.description}>
                 <div className="space-y-4">
                   {stories.map((story, sIdx) => (
                     <div key={sIdx} className="bg-background rounded-xl border border-gray-700 p-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-primary-2">Story {sIdx + 1}</span>
-                        <button onClick={() => setStories(stories.filter((_,i)=>i!==sIdx))} className="p-1 text-gray-500 hover:text-red-400 transition">{Icons.trash}</button>
+                        <span className="text-sm font-semibold text-primary-2">
+                          {isSwahili ? `Hadithi ${sIdx + 1}` : `Story ${sIdx + 1}`}
+                        </span>
+                        <button onClick={() => setStories(stories.filter((_, i) => i !== sIdx))} className="p-1 text-gray-500 hover:text-red-400 transition">
+                          {Icons.trash}
+                        </button>
                       </div>
 
                       <input
-                        type="text" value={story.title || ""} placeholder="Story title (optional)"
-                        onChange={e => { const n=[...stories]; n[sIdx]={...n[sIdx],title:e.target.value}; setStories(n); }}
+                        type="text"
+                        value={story.title || ""}
+                        placeholder={isSwahili ? "Kichwa cha hadithi (si lazima)" : "Story title (optional)"}
+                        onChange={e => { const n = [...stories]; n[sIdx] = { ...n[sIdx], title: e.target.value }; setStories(n); }}
                         className="w-full bg-background-lighter border border-gray-600 rounded-lg px-3 py-2 text-sm focus:border-primary-2 focus:outline-none"
                       />
                       <textarea
-                        value={story.story || ""} placeholder="Story text..." rows={4}
-                        onChange={e => { const n=[...stories]; n[sIdx]={...n[sIdx],story:e.target.value}; setStories(n); }}
+                        value={story.story || ""}
+                        placeholder={isSwahili ? "Andika hadithi hapa..." : "Story text..."}
+                        rows={4}
+                        onChange={e => { const n = [...stories]; n[sIdx] = { ...n[sIdx], story: e.target.value }; setStories(n); }}
                         className="w-full bg-background-lighter border border-gray-600 rounded-lg px-3 py-2 text-sm focus:border-primary-2 focus:outline-none resize-none"
                       />
 
-                      {/* Questions with multiple choice */}
+                      {/* Comprehension Questions / Maswali ya Ufahamu */}
                       <div className="pl-4 border-l-2 border-primary-2/30 space-y-4">
-                        <p className="text-xs font-semibold text-gray-400">Comprehension Questions (Multiple Choice):</p>
+                        <p className="text-xs font-semibold text-gray-400">{lbl.questions.label}</p>
 
                         {(story.questions || []).map((q, qIdx) => (
                           <div key={qIdx} className="bg-background-lighter rounded-lg border border-gray-700 p-3 space-y-2">
-                            {/* Question row */}
+                            {/* Question text */}
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-gray-500 w-5 flex-shrink-0">{qIdx + 1}.</span>
                               <input
-                                type="text" value={q.question || ""} placeholder="Question text"
+                                type="text"
+                                value={q.question || ""}
+                                placeholder={isSwahili ? "Andika swali hapa" : "Question text"}
                                 onChange={e => updateQuestion(sIdx, qIdx, "question", e.target.value)}
                                 className="flex-1 bg-background border border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:border-primary-2 focus:outline-none"
                               />
                               <button
                                 onClick={() => {
-                                  const n=[...stories];
-                                  n[sIdx].questions=n[sIdx].questions.filter((_,i)=>i!==qIdx);
+                                  const n = [...stories];
+                                  n[sIdx].questions = n[sIdx].questions.filter((_, i) => i !== qIdx);
                                   setStories(n);
                                 }}
                                 className="p-1 text-gray-500 hover:text-red-400 transition flex-shrink-0"
-                              >{Icons.trash}</button>
+                              >
+                                {Icons.trash}
+                              </button>
                             </div>
 
                             {/* Correct answer */}
                             <div className="flex items-center gap-2 pl-7">
                               <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
                               <input
-                                type="text" value={q.correct_choice || ""} placeholder="Correct answer"
+                                type="text"
+                                value={q.correct_choice || ""}
+                                placeholder={isSwahili ? "Jibu sahihi" : "Correct answer"}
                                 onChange={e => updateQuestion(sIdx, qIdx, "correct_choice", e.target.value)}
                                 className="flex-1 bg-background border border-green-600/50 rounded-lg px-3 py-1.5 text-sm focus:border-green-500 focus:outline-none text-green-300 placeholder-green-700"
                               />
-                              <span className="text-xs text-green-500 font-semibold flex-shrink-0">Correct</span>
+                              <span className="text-xs text-green-500 font-semibold flex-shrink-0">
+                                {isSwahili ? "Sahihi" : "Correct"}
+                              </span>
                             </div>
 
                             {/* Wrong answers */}
                             <div className="pl-7 space-y-1.5">
-                              <p className="text-xs text-gray-500">Wrong choices:</p>
+                              <p className="text-xs text-gray-500">
+                                {isSwahili ? "Majibu yasiyosahihi:" : "Wrong choices:"}
+                              </p>
                               {(q.wrong_choices || []).map((w, wIdx) => (
                                 <div key={wIdx} className="flex items-center gap-2">
                                   <span className="w-2 h-2 rounded-full bg-red-400/50 flex-shrink-0" />
                                   <input
-                                    type="text" value={w} placeholder={`Wrong answer ${wIdx + 1}`}
+                                    type="text"
+                                    value={w}
+                                    placeholder={isSwahili ? `Jibu lisilo sahihi ${wIdx + 1}` : `Wrong answer ${wIdx + 1}`}
                                     onChange={e => updateWrongChoice(sIdx, qIdx, wIdx, e.target.value)}
                                     className="flex-1 bg-background border border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:border-red-500/50 focus:outline-none text-gray-300"
                                   />
@@ -557,7 +603,7 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
                                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                   </svg>
-                                  Add wrong choice
+                                  {isSwahili ? "Ongeza jibu lisilo sahihi" : "Add wrong choice"}
                                 </button>
                               )}
                             </div>
@@ -566,26 +612,26 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
 
                         <button
                           onClick={() => {
-                            const n=[...stories];
-                            n[sIdx].questions=[...(n[sIdx].questions||[]), blankQuestion()];
+                            const n = [...stories];
+                            n[sIdx].questions = [...(n[sIdx].questions || []), blankQuestion()];
                             setStories(n);
                           }}
                           className="text-xs text-primary-2 hover:text-primary-3 flex items-center gap-1 transition"
                         >
-                          {Icons.plus} Add question
+                          {Icons.plus} {isSwahili ? "Ongeza swali" : "Add question"}
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
-                <button onClick={() => setStories([...stories,{title:"",story:"",questions:[]}])} className="mt-2 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">
-                  {Icons.plus} Add story
+                <button onClick={() => setStories([...stories, { title: "", story: "", questions: [] }])} className="mt-2 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">
+                  {Icons.plus} {lbl.stories.addBtn}
                 </button>
               </ContentSection>
             </div>
           )}
 
-          {/* ── Step 3: Numeracy ── */}
+          {/* ── Step 3: Numeracy ── (unchanged) */}
           {step === 3 && type === "numeracy" && (
             <div className="space-y-6">
               <ContentSection title="Count & Match Numbers" icon={Icons.number} description="Numbers for counting and matching exercises">
@@ -593,14 +639,14 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
                   {countAndMatchNumbersList.map((num, idx) => (
                     <div key={idx} className="flex items-center gap-1">
                       <input type="number" value={num}
-                        onChange={e => { const n=[...countAndMatchNumbersList]; n[idx]=e.target.value; setCountAndMatchNumbersList(n); }}
+                        onChange={e => { const n = [...countAndMatchNumbersList]; n[idx] = e.target.value; setCountAndMatchNumbersList(n); }}
                         className="w-16 h-12 bg-background border border-gray-600 rounded-xl text-center text-lg font-bold text-primary-2 focus:border-primary-2 focus:outline-none"
                       />
-                      <button onClick={() => setCountAndMatchNumbersList(countAndMatchNumbersList.filter((_,i)=>i!==idx))} className="p-1 text-gray-500 hover:text-red-400 transition">{Icons.trash}</button>
+                      <button onClick={() => setCountAndMatchNumbersList(countAndMatchNumbersList.filter((_, i) => i !== idx))} className="p-1 text-gray-500 hover:text-red-400 transition">{Icons.trash}</button>
                     </div>
                   ))}
                 </div>
-                <button onClick={() => setCountAndMatchNumbersList([...countAndMatchNumbersList,""])} className="mt-2 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">{Icons.plus} Add number</button>
+                <button onClick={() => setCountAndMatchNumbersList([...countAndMatchNumbersList, ""])} className="mt-2 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">{Icons.plus} Add number</button>
               </ContentSection>
 
               <ContentSection title="Number Recognition" icon={Icons.number} description="Numbers students should recognize">
@@ -608,14 +654,14 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
                   {numberRecognitionList.map((num, idx) => (
                     <div key={idx} className="flex items-center gap-1">
                       <input type="number" value={num}
-                        onChange={e => { const n=[...numberRecognitionList]; n[idx]=e.target.value; setNumberRecognitionList(n); }}
+                        onChange={e => { const n = [...numberRecognitionList]; n[idx] = e.target.value; setNumberRecognitionList(n); }}
                         className="w-16 h-12 bg-background border border-gray-600 rounded-xl text-center text-lg font-bold text-primary-2 focus:border-primary-2 focus:outline-none"
                       />
-                      <button onClick={() => setNumberRecognitionList(numberRecognitionList.filter((_,i)=>i!==idx))} className="p-1 text-gray-500 hover:text-red-400 transition">{Icons.trash}</button>
+                      <button onClick={() => setNumberRecognitionList(numberRecognitionList.filter((_, i) => i !== idx))} className="p-1 text-gray-500 hover:text-red-400 transition">{Icons.trash}</button>
                     </div>
                   ))}
                 </div>
-                <button onClick={() => setNumberRecognitionList([...numberRecognitionList,""])} className="mt-2 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">{Icons.plus} Add number</button>
+                <button onClick={() => setNumberRecognitionList([...numberRecognitionList, ""])} className="mt-2 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">{Icons.plus} Add number</button>
               </ContentSection>
 
               <MathSection title="Addition Problems"       icon={Icons.math} items={additions}       setItems={setAdditions}       operator="+" />
@@ -628,20 +674,20 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
                   {wordProblems.map((wp, idx) => (
                     <div key={idx} className="flex items-start gap-2 bg-background rounded-xl border border-gray-700 p-3">
                       <div className="flex-1 space-y-2">
-                        <textarea value={wp.problem||""} placeholder="Problem description..." rows={2}
-                          onChange={e => { const n=[...wordProblems]; n[idx].problem=e.target.value; setWordProblems(n); }}
+                        <textarea value={wp.problem || ""} placeholder="Problem description..." rows={2}
+                          onChange={e => { const n = [...wordProblems]; n[idx].problem = e.target.value; setWordProblems(n); }}
                           className="w-full bg-background-lighter border border-gray-600 rounded-lg px-3 py-2 text-sm focus:border-primary-2 focus:outline-none resize-none"
                         />
-                        <input type="text" value={wp.answer||""} placeholder="Answer"
-                          onChange={e => { const n=[...wordProblems]; n[idx].answer=e.target.value; setWordProblems(n); }}
+                        <input type="text" value={wp.answer || ""} placeholder="Answer"
+                          onChange={e => { const n = [...wordProblems]; n[idx].answer = e.target.value; setWordProblems(n); }}
                           className="w-full bg-background-lighter border border-gray-600 rounded-lg px-3 py-2 text-sm focus:border-primary-2 focus:outline-none"
                         />
                       </div>
-                      <button onClick={() => setWordProblems(wordProblems.filter((_,i)=>i!==idx))} className="p-2 text-gray-500 hover:text-red-400 transition">{Icons.trash}</button>
+                      <button onClick={() => setWordProblems(wordProblems.filter((_, i) => i !== idx))} className="p-2 text-gray-500 hover:text-red-400 transition">{Icons.trash}</button>
                     </div>
                   ))}
                 </div>
-                <button onClick={() => setWordProblems([...wordProblems,{problem:"",answer:""}])} className="mt-2 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">{Icons.plus} Add word problem</button>
+                <button onClick={() => setWordProblems([...wordProblems, { problem: "", answer: "" }])} className="mt-2 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">{Icons.plus} Add word problem</button>
               </ContentSection>
             </div>
           )}
@@ -702,22 +748,24 @@ function MathSection({ title, icon, items, setItems, operator }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {items.map((item, idx) => (
           <div key={idx} className="flex items-center gap-2 bg-background rounded-xl border border-gray-700 p-3">
-            <input type="number" value={item.firstNumber||""} placeholder="0"
-              onChange={e => { const n=[...items]; n[idx].firstNumber=e.target.value; setItems(n); }}
+            <input type="number" value={item.firstNumber || ""} placeholder="0"
+              onChange={e => { const n = [...items]; n[idx].firstNumber = e.target.value; setItems(n); }}
               className="w-16 bg-background-lighter border border-gray-600 rounded-lg px-2 py-1.5 text-center text-sm font-bold focus:border-primary-2 focus:outline-none"
             />
             <span className="text-primary-3 font-bold text-lg">{operator}</span>
-            <input type="number" value={item.secondNumber||""} placeholder="0"
-              onChange={e => { const n=[...items]; n[idx].secondNumber=e.target.value; setItems(n); }}
+            <input type="number" value={item.secondNumber || ""} placeholder="0"
+              onChange={e => { const n = [...items]; n[idx].secondNumber = e.target.value; setItems(n); }}
               className="w-16 bg-background-lighter border border-gray-600 rounded-lg px-2 py-1.5 text-center text-sm font-bold focus:border-primary-2 focus:outline-none"
             />
             <span className="text-gray-500 font-bold text-lg">=</span>
             <span className="text-gray-600 font-bold text-lg">?</span>
-            <button onClick={() => setItems(items.filter((_,i)=>i!==idx))} className="ml-auto p-1.5 text-gray-500 hover:text-red-400 transition">{Icons.trash}</button>
+            <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="ml-auto p-1.5 text-gray-500 hover:text-red-400 transition">
+              {Icons.trash}
+            </button>
           </div>
         ))}
       </div>
-      <button onClick={() => setItems([...items,{firstNumber:"",secondNumber:""}])} className="mt-3 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">
+      <button onClick={() => setItems([...items, { firstNumber: "", secondNumber: "" }])} className="mt-3 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">
         {Icons.plus} Add problem
       </button>
     </ContentSection>

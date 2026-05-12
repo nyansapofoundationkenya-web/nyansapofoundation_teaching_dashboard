@@ -444,6 +444,9 @@ export default function AssessmentModal({ organizationId, onClose }) {
             ? currentAssessment.name.toLowerCase()
             : "",
           has_students: schoolStuds.length > 0,
+          ...(currentAssessment?.language
+            ? { language: currentAssessment.language }
+            : {}),
         };
 
         createdAssessments.push(school.name);
@@ -474,6 +477,9 @@ export default function AssessmentModal({ organizationId, onClose }) {
                     calculation_type: currentAssessment?.name
                       ? currentAssessment.name.toLowerCase()
                       : "",
+                    ...(currentAssessment?.language
+                      ? { language: currentAssessment.language }
+                      : {}),
                   }
                 );
               });

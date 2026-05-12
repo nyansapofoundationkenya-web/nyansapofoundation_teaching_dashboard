@@ -402,12 +402,13 @@ function AssessmentCard({
 
   const getSummary = () => {
     if (type === "literacy") {
-      const parts = [];
-      if (assessment.letters?.length) parts.push(`${assessment.letters.length} letters`);
-      if (assessment.words?.length) parts.push(`${assessment.words.length} words`);
-      if (assessment.paragraphs?.length) parts.push(`${assessment.paragraphs.length} paragraphs`);
-      if (assessment.stories?.length) parts.push(`${assessment.stories.length} stories`);
-      return parts.join(" • ") || "No content";
+    const isSwahili = assessment.language === "swahili";
+    const parts = [];
+    if (assessment.letters?.length) parts.push(`${assessment.letters.length} ${isSwahili ? "silabi" : "letters"}`);
+    if (assessment.words?.length) parts.push(`${assessment.words.length} ${isSwahili ? "maneno" : "words"}`);
+    if (assessment.paragraphs?.length) parts.push(`${assessment.paragraphs.length} ${isSwahili ? "aya" : "paragraphs"}`);
+    if (assessment.stories?.length) parts.push(`${assessment.stories.length} ${isSwahili ? "ufahamu" : "stories"}`);
+    return parts.join(" • ") || "No content";
     } else {
       const parts = [];
       if (assessment.countAndMatchNumbersList?.length) parts.push("count/match");

@@ -1,4 +1,3 @@
-// @/components/AssessmentPreview.jsx
 "use client";
 
 const LEVEL_STYLES = {
@@ -10,6 +9,23 @@ const LEVEL_STYLES = {
 const LANGUAGE_LABELS = {
   english: { label: "English", emoji: "🇬🇧" },
   swahili: { label: "Swahili", emoji: "🇰🇪" },
+};
+
+const PREVIEW_LABELS = {
+  english: {
+    letters:    "Letters to Identify",
+    words:      "Words to Read",
+    paragraphs: "Reading Paragraphs",
+    story:      "Story Reading & Comprehension",
+    questions:  "Comprehension Questions:",
+  },
+  swahili: {
+    letters:    "Silabi za Kutambua",
+    words:      "Maneno ya Kusoma",
+    paragraphs: "Aya za Kusoma",
+    story:      "Hadithi na Ufahamu",
+    questions:  "Maswali ya Ufahamu:",
+  },
 };
 
 function MetaBadges({ assessment }) {
@@ -101,6 +117,9 @@ export default function AssessmentPreview({ currentAssessment, loadingAssessment
   }
 
   if (type === "Literacy") {
+    // Falls back to English for older content that has no language field
+    const lbl = PREVIEW_LABELS[currentAssessment.language] ?? PREVIEW_LABELS.english;
+
     return (
       <div className="space-y-6">
         {/* Grade / meta */}
@@ -109,14 +128,14 @@ export default function AssessmentPreview({ currentAssessment, loadingAssessment
           <MetaBadges assessment={currentAssessment} />
         </div>
 
-        {/* Letters */}
+        {/* Letters / Silabi */}
         {currentAssessment.letters?.length > 0 && (
           <div>
             <h5 className="text-sm font-semibold text-foreground mb-3 flex items-center">
               <svg className="w-4 h-4 mr-2 text-primary-2" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
               </svg>
-              Letters to Identify
+              {lbl.letters}
             </h5>
             <div className="flex flex-wrap gap-2">
               {currentAssessment.letters.map((letter, idx) => (
@@ -126,14 +145,14 @@ export default function AssessmentPreview({ currentAssessment, loadingAssessment
           </div>
         )}
 
-        {/* Words */}
+        {/* Words / Maneno */}
         {currentAssessment.words?.length > 0 && (
           <div>
             <h5 className="text-sm font-semibold text-foreground mb-3 flex items-center">
               <svg className="w-4 h-4 mr-2 text-secondary-2" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
               </svg>
-              Words to Read
+              {lbl.words}
             </h5>
             <div className="flex flex-wrap gap-2">
               {currentAssessment.words.map((word, idx) => (
@@ -143,14 +162,14 @@ export default function AssessmentPreview({ currentAssessment, loadingAssessment
           </div>
         )}
 
-        {/* Paragraphs */}
+        {/* Paragraphs / Aya */}
         {currentAssessment.paragraphs?.length > 0 && (
           <div>
             <h5 className="text-sm font-semibold text-foreground mb-3 flex items-center">
               <svg className="w-4 h-4 mr-2 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
               </svg>
-              Reading Paragraphs
+              {lbl.paragraphs}
             </h5>
             <div className="space-y-3 bg-background-lighter p-4 rounded-xl border border-gray-600">
               {currentAssessment.paragraphs.map((para, idx) => (
@@ -160,14 +179,14 @@ export default function AssessmentPreview({ currentAssessment, loadingAssessment
           </div>
         )}
 
-        {/* Stories */}
+        {/* Stories / Hadithi */}
         {currentAssessment.stories?.map((story, idx) => (
           <div key={idx} className="bg-secondary-1/20 border border-secondary-1/30 rounded-xl p-4">
             <h5 className="text-sm font-semibold text-secondary-1 mb-3 flex items-center">
               <svg className="w-4 h-4 mr-2 text-secondary-1" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
               </svg>
-              Story Reading & Comprehension
+              {lbl.story}
               {story.title && <span className="ml-2 font-normal text-gray-400">— {story.title}</span>}
             </h5>
 
@@ -178,22 +197,19 @@ export default function AssessmentPreview({ currentAssessment, loadingAssessment
               </p>
             </div>
 
-            {/* Questions with choices */}
+            {/* Questions / Maswali */}
             {story.questions?.length > 0 && (
               <>
-                <h6 className="text-xs font-semibold text-secondary-1 mb-3">Comprehension Questions:</h6>
+                <h6 className="text-xs font-semibold text-secondary-1 mb-3">{lbl.questions}</h6>
                 <div className="space-y-4">
                   {story.questions.map((q, qIdx) => (
                     <div key={qIdx} className="bg-background-light rounded-xl border border-gray-700 p-3">
-                      {/* Question text */}
                       <div className="flex items-start gap-2">
                         <span className="bg-secondary-1/20 text-secondary-1 text-xs font-semibold px-2 py-1 rounded flex-shrink-0 mt-0.5">
                           {qIdx + 1}
                         </span>
                         <p className="text-foreground text-sm font-medium">{q.question}</p>
                       </div>
-
-                      {/* Multiple choice options */}
                       <MultipleChoiceOptions question={q} />
                     </div>
                   ))}
