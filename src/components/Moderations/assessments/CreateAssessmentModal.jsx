@@ -313,17 +313,22 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-700">
           <div>
-            <h2 className="text-xl font-bold text-foreground">Create Assessment</h2>
+            <h2 className="text-xl font-bold text-foreground">
+              {language === "swahili" ? "Unda Tathmini" : "Create Assessment"}
+            </h2>
             <p className="text-sm text-gray-400 mt-1">
-              Step {step} of 3:{" "}
-              {step === 1 ? "Choose type" : step === 2 ? "Basic details" : type === "literacy" ? "Literacy content" : "Numeracy content"}
+              {language === "swahili" ? "Hatua" : "Step"} {step} {language === "swahili" ? "kati ya" : "of"} 3:{" "}
+              {step === 1 ? (language === "swahili" ? "Chagua aina" : "Choose type") :
+              step === 2 ? (language === "swahili" ? "Maelezo ya msingi" : "Basic details") :
+              type === "literacy"
+                ? (language === "swahili" ? "Maudhui ya Kusoma" : "Literacy content")
+                : (language === "swahili" ? "Maudhui ya Hesabu" : "Numeracy content")}
             </p>
           </div>
           <button onClick={handleClose} className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-background-lighter transition">
             {Icons.close}
           </button>
         </div>
-
         {/* Progress Bar */}
         <div className="flex gap-1 px-6 pt-4">
           {[1, 2, 3].map(s => (
