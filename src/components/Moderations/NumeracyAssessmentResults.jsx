@@ -11,12 +11,12 @@ export default function NumeracyAssessmentResults({
   studentId,
   organizationId,
   results,
-  onFlaggingComplete, 
+  onFlaggingComplete,
 }) {
   const [localResults, setLocalResults] = useState(null);
-  const autoFlaggedRef                  = useRef(false);
-  const router                          = useRouter();
-  const { flagNumeracyItem }            = useFlagItem(assessmentId, studentId, "numeracy");
+  const autoFlaggedRef = useRef(false);
+  const router = useRouter();
+  const { flagNumeracyItem } = useFlagItem(assessmentId, studentId, "numeracy");
 
   useEffect(() => {
     if (!results || autoFlaggedRef.current) return;
@@ -24,7 +24,6 @@ export default function NumeracyAssessmentResults({
     autoFlaggedRef.current = true;
 
     autoFlagAll(results).finally(() => {
-      // Notify parent that flagging is done (whether items were flagged or not)
       onFlaggingComplete?.();
     });
   }, [results]);
@@ -37,17 +36,17 @@ export default function NumeracyAssessmentResults({
       if (!Array.isArray(arr)) continue;
 
       for (let i = 0; i < arr.length; i++) {
-        const item        = arr[i];
-        const passed      = item?.metadata?.passed ?? item?.passed;
+        const item = arr[i];
+        const passed = item?.metadata?.passed ?? item?.passed;
         const isModerated = item?.metadata?.modeltranscriptionverified === true;
 
         if (passed !== false || item?.flagged === true || isModerated) continue;
 
         try {
           await flagNumeracyItem(section, i);
-          setLocalResults(prev => {
+          setLocalResults((prev) => {
             const sectionArr = [...(prev.numeracy_results[section] || [])];
-            sectionArr[i]    = { ...sectionArr[i], flagged: true };
+            sectionArr[i] = { ...sectionArr[i], flagged: true };
             return {
               ...prev,
               numeracy_results: { ...prev.numeracy_results, [section]: sectionArr },
@@ -70,19 +69,30 @@ export default function NumeracyAssessmentResults({
     if (!timeStr) return "—";
     try {
       return new Date(timeStr).toLocaleString("en-US", {
-        month: "short", day: "numeric", year: "numeric",
-        hour: "numeric", minute: "2-digit", hour12: true,
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
       });
-    } catch { return timeStr; }
+    } catch {
+      return timeStr;
+    }
   };
 
   const getOperationSymbol = (type) => {
     switch (type?.toLowerCase()) {
-      case "addition":       return "+";
-      case "subtraction":    return "−";
-      case "multiplication": return "×";
-      case "division":       return "÷";
-      default:               return "";
+      case "addition":
+        return "+";
+      case "subtraction":
+        return "−";
+      case "multiplication":
+        return "×";
+      case "division":
+        return "÷";
+      default:
+        return "";
     }
   };
 
@@ -97,15 +107,18 @@ export default function NumeracyAssessmentResults({
 
   if (!localResults) return <div className="text-foreground">Loading...</div>;
 
-  const numeracyResults   = localResults.numeracy_results || {};
-  const additionOps       = getOperationsByType(numeracyResults.number_operations, "addition");
-  const subtractionOps    = getOperationsByType(numeracyResults.number_operations, "subtraction");
+  const numeracyResults = localResults.numeracy_results || {};
+  const additionOps = getOperationsByType(numeracyResults.number_operations, "addition");
+  const subtractionOps = getOperationsByType(numeracyResults.number_operations, "subtraction");
   const multiplicationOps = getOperationsByType(numeracyResults.number_operations, "multiplication");
-  const divisionOps       = getOperationsByType(numeracyResults.number_operations, "division");
+  const divisionOps = getOperationsByType(numeracyResults.number_operations, "division");
 
+  // ✅ MODIFIED: show student's transcript instead of expected answer
   const OperationCard = ({ operation, opType, globalIndex }) => {
     const section = "number_operations";
-    const passed  = operation.metadata?.passed;
+    const passed = operation.metadata?.passed;
+    const studentAnswer = operation.metadata?.transcript; // student's written answer
+
     return (
       <div
         onClick={() => handleResultsClick(operation, opType, section, globalIndex)}
@@ -120,7 +133,7 @@ export default function NumeracyAssessmentResults({
           </div>
           <div className="border-t-2 border-gray-500 my-1" />
           <div className={`text-xl font-bold ${passed ? "text-green-400" : "text-red-400"}`}>
-            {operation.expected_answer}
+            {studentAnswer}
           </div>
         </div>
         {operation.metadata?.done_time && (
@@ -136,7 +149,7 @@ export default function NumeracyAssessmentResults({
     <div className="p-6 max-w-6xl mx-auto">
       <h1 className="text-2xl font-bold mb-6 text-foreground">Numeracy Assessment</h1>
 
-      {/* ── Count and Match ─────────────────────────────────────────────── */}
+      {/* ── Count and match ── */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4 text-primary-3">Count and match</h2>
         {numeracyResults.count_and_match?.length > 0 ? (
@@ -162,7 +175,7 @@ export default function NumeracyAssessmentResults({
         )}
       </div>
 
-      {/* ── Highest Value ───────────────────────────────────────────────── */}
+      {/* ── Highest Value ── */}
       {numeracyResults.highest_value?.length > 0 && (
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4 text-primary-3">Highest Value</h2>
@@ -192,19 +205,26 @@ export default function NumeracyAssessmentResults({
                     <div className="text-xs text-gray-400 mb-1">Values:</div>
                     <div className="flex flex-wrap gap-1 justify-center">
                       {item.values?.map((value, idx) => (
-                        <span key={idx} className={`px-2 py-1 rounded text-sm ${
-                          value === item.expected_number && item.passed  ? "bg-green-400/20 text-green-300" :
-                          value === item.student_number  && !item.passed ? "bg-red-400/20 text-red-300"
-                                                                         : "bg-gray-700 text-gray-300"
-                        }`}>
+                        <span
+                          key={idx}
+                          className={`px-2 py-1 rounded text-sm ${
+                            value === item.expected_number && item.passed
+                              ? "bg-green-400/20 text-green-300"
+                              : value === item.student_number && !item.passed
+                              ? "bg-red-400/20 text-red-300"
+                              : "bg-gray-700 text-gray-300"
+                          }`}
+                        >
                           {value}
                         </span>
                       ))}
                     </div>
                   </div>
-                  <div className={`mt-2 text-sm font-medium px-2 py-1 rounded ${
-                    item.passed ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-                  }`}>
+                  <div
+                    className={`mt-2 text-sm font-medium px-2 py-1 rounded ${
+                      item.passed ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                    }`}
+                  >
                     {item.passed ? "✓ Correct" : "✗ Incorrect"}
                   </div>
                 </div>
@@ -214,7 +234,7 @@ export default function NumeracyAssessmentResults({
         </div>
       )}
 
-      {/* ── Number Recognition ──────────────────────────────────────────── */}
+      {/* ── Number Recognition (unchanged) ── */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4 text-primary-3">Number recognition</h2>
         {numeracyResults.number_recognition?.length > 0 ? (
@@ -232,9 +252,7 @@ export default function NumeracyAssessmentResults({
                     {item.content}
                   </div>
                   {item.metadata?.done_time && (
-                    <div className="text-[10px] text-gray-500 mt-1">
-                      {formatDoneTime(item.metadata.done_time)}
-                    </div>
+                    <div className="text-[10px] text-gray-500 mt-1">{formatDoneTime(item.metadata.done_time)}</div>
                   )}
                 </div>
               </div>
@@ -245,12 +263,12 @@ export default function NumeracyAssessmentResults({
         )}
       </div>
 
-      {/* ── Operations ──────────────────────────────────────────────────── */}
+      {/* ── Number Operations (now showing student's answer) ── */}
       {[
-        { label: "Addition",       ops: additionOps },
-        { label: "Subtraction",    ops: subtractionOps },
+        { label: "Addition", ops: additionOps },
+        { label: "Subtraction", ops: subtractionOps },
         { label: "Multiplication", ops: multiplicationOps },
-        { label: "Division",       ops: divisionOps },
+        { label: "Division", ops: divisionOps },
       ].map(({ label, ops }) =>
         ops.length > 0 ? (
           <div key={label} className="mb-8">
@@ -269,7 +287,7 @@ export default function NumeracyAssessmentResults({
         ) : null
       )}
 
-      {/* ── Word Problems ───────────────────────────────────────────────── */}
+      {/* ── Word Problems (unchanged) ── */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4 text-primary-3">Word Problems</h2>
         {numeracyResults.word_problem?.length > 0 ? (
@@ -282,9 +300,11 @@ export default function NumeracyAssessmentResults({
               <FlagIndicator flagged={problem.flagged} />
               <div className="flex items-start justify-between mb-3 pr-6">
                 <p className="font-medium text-foreground flex-1">{problem.question}</p>
-                <span className={`ml-4 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                  problem.metadata?.passed ? "bg-secondary-2/20 text-secondary-2" : "bg-red-400/20 text-red-400"
-                }`}>
+                <span
+                  className={`ml-4 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                    problem.metadata?.passed ? "bg-secondary-2/20 text-secondary-2" : "bg-red-400/20 text-red-400"
+                  }`}
+                >
                   {problem.metadata?.passed ? "✓ Correct" : "✗ Incorrect"}
                 </span>
               </div>
@@ -293,11 +313,13 @@ export default function NumeracyAssessmentResults({
                   <span className="text-gray-400">Expected Answer:</span>
                   <span className="text-foreground font-medium">{problem.expected_number}</span>
                 </div>
-                <div className={`flex items-center justify-between py-2 px-3 rounded-lg ${
-                  problem.metadata?.passed
-                    ? "bg-secondary-2/20 text-secondary-2 border border-secondary-2/30"
-                    : "bg-red-400/20 text-red-400 border border-red-400/30"
-                }`}>
+                <div
+                  className={`flex items-center justify-between py-2 px-3 rounded-lg ${
+                    problem.metadata?.passed
+                      ? "bg-secondary-2/20 text-secondary-2 border border-secondary-2/30"
+                      : "bg-red-400/20 text-red-400 border border-red-400/30"
+                  }`}
+                >
                   <span>Student Answer:</span>
                   <div className="flex items-center gap-2">
                     <span className="font-bold">
@@ -326,5 +348,5 @@ export default function NumeracyAssessmentResults({
 
 function getOperationsByType(operations, type) {
   if (!operations || !Array.isArray(operations)) return [];
-  return operations.filter(op => op.type?.toLowerCase() === type.toLowerCase());
+  return operations.filter((op) => op.type?.toLowerCase() === type.toLowerCase());
 }

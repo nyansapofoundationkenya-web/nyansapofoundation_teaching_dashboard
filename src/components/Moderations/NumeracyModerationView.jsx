@@ -294,88 +294,90 @@ export default function NumeracyModerationView({
     );
   };
 
-  const renderNumberOperationsCard = () => {
-    const getOperationSymbol = (type) => {
-      switch (type?.toLowerCase()) {
-        case "addition":       return "+";
-        case "subtraction":    return "-";
-        case "multiplication": return "×";
-        case "division":       return "÷";
-        default:               return "";
-      }
-    };
-    const operationSymbol = getOperationSymbol(currentResult.type);
-    const transcript      = editMode ? editedTranscript : (currentResult.metadata?.transcript || "");
-    const answerUrl       = currentResult.metadata?.screenshot_url || null;
-    const savedWorkoutUrl = currentResult.metadata?.workout_screenshot_url || null;
+const renderNumberOperationsCard = () => {
+  const getOperationSymbol = (type) => {
+    switch (type?.toLowerCase()) {
+      case "addition":       return "+";
+      case "subtraction":    return "-";
+      case "multiplication": return "×";
+      case "division":       return "÷";
+      default:               return "";
+    }
+  };
+  const operationSymbol = getOperationSymbol(currentResult.type);
+  const transcript      = editMode ? editedTranscript : (currentResult.metadata?.transcript || "");
+  const answerUrl       = currentResult.metadata?.screenshot_url || null;
+  const savedWorkoutUrl = currentResult.metadata?.workout_screenshot_url || null;
 
-    return (
-      <>
-        <div className="bg-background-lighter rounded-xl p-6 border border-gray-600 mb-4">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 flex items-center justify-center rounded-full bg-primary-3 text-foreground font-bold">
-                {currentIndex + 1}
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-foreground capitalize">{currentResult.type}</h3>
-                <p className="text-sm text-gray-400">Math operation</p>
-              </div>
+  return (
+    <>
+      <div className="bg-background-lighter rounded-xl p-6 border border-gray-600 mb-4">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 flex items-center justify-center rounded-full bg-primary-3 text-foreground font-bold">
+              {currentIndex + 1}
             </div>
-            <div className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
-              currentResult.metadata?.passed ? "bg-secondary-2/20 text-secondary-2" : "bg-red-400/20 text-red-400"
-            }`}>
-              {currentResult.metadata?.passed ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-              {currentResult.metadata?.passed ? "Correct" : "Incorrect"}
+            <div>
+              <h3 className="text-lg font-semibold text-foreground capitalize">{currentResult.type}</h3>
+              <p className="text-sm text-gray-400">Math operation</p>
             </div>
           </div>
-          <div className="space-y-6">
-            <div className="bg-gray-800/50 rounded-xl p-8 border border-gray-600 text-center space-y-2">
-              <div className="text-6xl font-bold text-gray-300">{currentResult.operations_number1}</div>
-              <div className="text-4xl text-gray-400">{operationSymbol} {currentResult.operations_number2}</div>
-              <div className="border-t-4 border-gray-600 my-6 pt-6">
-                <div className="text-xl text-gray-500 mb-2">Expected Answer:</div>
-                <div className="text-5xl font-bold text-secondary-2">{currentResult.expected_answer}</div>
-              </div>
-            </div>
-            <div className={`rounded-xl p-6 border-2 ${
-              currentResult.metadata?.passed ? "border-secondary-2/30 bg-secondary-2/10" : "border-red-400/30 bg-red-400/10"
-            }`}>
-              <div className="text-sm text-gray-400 mb-4">Student's Response</div>
-              <div className="grid grid-cols-2 gap-6">
-                <div className="bg-background-lighter rounded-lg p-4">
-                  <div className="text-sm text-gray-400 mb-2">Answer Given</div>
-                  <div className={`text-4xl font-bold ${currentResult.metadata?.passed ? "text-secondary-2" : "text-red-400"}`}>
-                    {currentResult.student_answer || "No answer"}
-                  </div>
-                </div>
-                <div className="bg-background-lighter rounded-lg p-4">
-                  <div className="text-sm text-gray-400 mb-2">Verbal Response</div>
-                  <div className="text-lg font-medium">"{transcript || "No transcript"}"</div>
-                </div>
-              </div>
-              {editMode && renderTranscriptEdit()}
-              {answerUrl && (
-                <LazyImagePanel
-                  label="Answer Screenshot"
-                  savedUrl={answerUrl}
-                  findUrl={() => Promise.resolve(answerUrl)}
-                  onUrlResolved={null}
-                />
-              )}
-              <LazyImagePanel
-                label="Workout Screenshot"
-                savedUrl={savedWorkoutUrl}
-                findUrl={() => findNumberOperationsWorkoutUrl(assessmentId, studentId, currentResult)}
-                onUrlResolved={handleWorkoutUrlResolved}
-              />
-            </div>
+          <div className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
+            currentResult.metadata?.passed ? "bg-secondary-2/20 text-secondary-2" : "bg-red-400/20 text-red-400"
+          }`}>
+            {currentResult.metadata?.passed ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+            {currentResult.metadata?.passed ? "Correct" : "Incorrect"}
           </div>
         </div>
-        {renderActions()}
-      </>
-    );
-  };
+        <div className="space-y-6">
+          <div className="bg-gray-800/50 rounded-xl p-8 border border-gray-600 text-center space-y-2">
+            <div className="text-6xl font-bold text-gray-300">{currentResult.operations_number1}</div>
+            <div className="text-4xl text-gray-400">{operationSymbol} {currentResult.operations_number2}</div>
+            <div className="border-t-4 border-gray-600 my-6 pt-6">
+              {/* ✅ Show student's transcript instead of expected answer */}
+              <div className={`text-5xl font-bold ${currentResult.metadata?.passed ? "text-secondary-2" : "text-red-400"}`}>
+                {transcript || currentResult.student_answer || "No answer"}
+              </div>
+            </div>
+          </div>
+          <div className={`rounded-xl p-6 border-2 ${
+            currentResult.metadata?.passed ? "border-secondary-2/30 bg-secondary-2/10" : "border-red-400/30 bg-red-400/10"
+          }`}>
+            <div className="text-sm text-gray-400 mb-4">Student's Response</div>
+            <div className="grid grid-cols-2 gap-6">
+              <div className="bg-background-lighter rounded-lg p-4">
+                <div className="text-sm text-gray-400 mb-2">Answer Given</div>
+                <div className={`text-4xl font-bold ${currentResult.metadata?.passed ? "text-secondary-2" : "text-red-400"}`}>
+                  {currentResult.student_answer || "No answer"}
+                </div>
+              </div>
+              <div className="bg-background-lighter rounded-lg p-4">
+                <div className="text-sm text-gray-400 mb-2">Verbal Response</div>
+                <div className="text-lg font-medium">"{transcript || "No transcript"}"</div>
+              </div>
+            </div>
+            {editMode && renderTranscriptEdit()}
+            {answerUrl && (
+              <LazyImagePanel
+                label="Answer Screenshot"
+                savedUrl={answerUrl}
+                findUrl={() => Promise.resolve(answerUrl)}
+                onUrlResolved={null}
+              />
+            )}
+            <LazyImagePanel
+              label="Workout Screenshot"
+              savedUrl={savedWorkoutUrl}
+              findUrl={() => findNumberOperationsWorkoutUrl(assessmentId, studentId, currentResult)}
+              onUrlResolved={handleWorkoutUrlResolved}
+            />
+          </div>
+        </div>
+      </div>
+      {renderActions()}
+    </>
+  );
+};
 
   const renderWordProblemCard = () => {
     const transcript      = editMode ? editedTranscript : (currentResult.metadata?.transcript || currentResult.student_answer || "");
