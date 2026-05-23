@@ -110,7 +110,7 @@ function blankQuestion() {
   return {
     question: "",
     correct_choice: "",
-    wrong_choices: ["", "", "", ""],
+    wrong_choices: ["", "", "", ""], // always an array
   };
 }
 
@@ -174,25 +174,41 @@ export default function CreateAssessmentModal({
   }, []);
 
   // Populate form with initialData when editing
-  const populateFromAssessment = useCallback((data) => {
-    if (!data) return;
-    setType(data.letters ? "literacy" : "numeracy");
-    setName(data.name || "");
-    setGrade(data.grade || "");
-    setLanguage(data.language || "english");
-    setLevel(data.level || "");
-    setLetters(data.letters || []);
-    setWords(data.words || []);
-    setParagraphs(data.paragraphs || []);
-    setStories(data.stories || []);
-    setCountAndMatchNumbersList(data.countAndMatchNumbersList || []);
-    setNumberRecognitionList(data.numberRecognitionList || []);
-    setAdditions(data.additions || []);
-    setSubtractions(data.subtractions || []);
-    setMultiplications(data.multiplications || []);
-    setDivisions(data.divisions || []);
-    setWordProblems(data.wordProblems || []);
-  }, []);
+const populateFromAssessment = useCallback((data) => {
+  if (!data) return;
+  setType(data.letters ? "literacy" : "numeracy");
+  setName(data.name || "");
+  setGrade(data.grade || "");
+  setLanguage(data.language || "english");
+  setLevel(data.level || "");
+  setLetters(data.letters || []);
+  setWords(data.words || []);
+  setParagraphs(data.paragraphs || []);
+
+  // Transform stories: convert multiple_choices to correct_choice + wrong_choices array
+  const transformedStories = (data.stories || []).map(story => ({
+    title: story.title || "",
+    story: story.story || "",
+    questions: (story.questions || []).map(q => {
+      const mc = q.multiple_choices || { correct_choices: [], wrong_choices: [] };
+      return {
+        question: q.question || "",
+        correct_choice: (mc.correct_choices && mc.correct_choices[0]) || "",
+        wrong_choices: Array.isArray(mc.wrong_choices) ? [...mc.wrong_choices] : [],
+      };
+    }),
+  }));
+  setStories(transformedStories);
+
+  // Numeracy fields (same as before)
+  setCountAndMatchNumbersList(data.countAndMatchNumbersList || []);
+  setNumberRecognitionList(data.numberRecognitionList || []);
+  setAdditions(data.additions || []);
+  setSubtractions(data.subtractions || []);
+  setMultiplications(data.multiplications || []);
+  setDivisions(data.divisions || []);
+  setWordProblems(data.wordProblems || []);
+}, []);
 
   // When modal opens and isEdit mode, fill the form
   useEffect(() => {
@@ -332,24 +348,25 @@ export default function CreateAssessmentModal({
     }));
   };
 
-  const addWrongChoice = (sIdx, qIdx) => {
-    setStories(prev => prev.map((s, i) => i !== sIdx ? s : {
-      ...s,
-      questions: s.questions.map((q, j) => j !== qIdx ? q : {
-        ...q, wrong_choices: [...q.wrong_choices, ""],
-      }),
-    }));
-  };
+const addWrongChoice = (sIdx, qIdx) => {
+  setStories(prev => prev.map((s, i) => i !== sIdx ? s : {
+    ...s,
+    questions: s.questions.map((q, j) => j !== qIdx ? q : {
+      ...q,
+      wrong_choices: [...(q.wrong_choices || []), ""],
+    }),
+  }));
+};
 
-  const removeWrongChoice = (sIdx, qIdx, wIdx) => {
-    setStories(prev => prev.map((s, i) => i !== sIdx ? s : {
-      ...s,
-      questions: s.questions.map((q, j) => j !== qIdx ? q : {
-        ...q, wrong_choices: q.wrong_choices.filter((_, k) => k !== wIdx),
-      }),
-    }));
-  };
-
+const removeWrongChoice = (sIdx, qIdx, wIdx) => {
+  setStories(prev => prev.map((s, i) => i !== sIdx ? s : {
+    ...s,
+    questions: s.questions.map((q, j) => j !== qIdx ? q : {
+      ...q,
+      wrong_choices: (q.wrong_choices || []).filter((_, k) => k !== wIdx),
+    }),
+  }));
+};
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />

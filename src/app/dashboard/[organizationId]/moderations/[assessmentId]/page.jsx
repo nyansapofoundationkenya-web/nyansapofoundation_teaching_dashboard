@@ -8,10 +8,11 @@ import GradeFilter from "@/components/Assessments/GradeFIlter";
 import StudentsList from "@/components/Assessments/StudentsList";
 import StudentMetrics from "@/components/Assessments/StudentMetrics";
 import DurationStatsModal from "@/components/Assessments/DurationStatsModal";
+import AssessmentContentModal from "@/components/Moderations/assessments/AssessmentContentModal";
 import DashboardLayout from "@/app/dashboard/[organizationId]/DashboardLayout";
 import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
-import { ArrowLeft, RotateCw, Clock } from "lucide-react";
+import { ArrowLeft, RotateCw, Clock, FileText } from "lucide-react";
 
 export default function AssessmentDetailsPage() {
   const { organizationId, assessmentId } = useParams();
@@ -27,7 +28,8 @@ export default function AssessmentDetailsPage() {
   const [isReprocessing, setIsReprocessing] = useState(false);
   const [reprocessMessage, setReprocessMessage] = useState(null);
   const [showDurationModal, setShowDurationModal] = useState(false);
-  
+  const [showContentModal, setShowContentModal] = useState(false);
+
   const backUrl = `/dashboard/${organizationId}/moderations`;
 
   // Fetch the assessment from Firestore
@@ -40,10 +42,6 @@ export default function AssessmentDetailsPage() {
         if (!snap.exists()) throw new Error("Assessment not found");
 
         const assessmentData = { id: snap.id, ...snap.data() };
-        
-        // Log the assessment type to verify
-        console.log("Assessment type:", assessmentData.type);
-        
         setAssessment(assessmentData);
       } catch (err) {
         setError(err.message);
@@ -57,62 +55,57 @@ export default function AssessmentDetailsPage() {
 
   const handleSearchChange = (q) => setSearchQuery(q);
   const handleGradeFilterChange = (g) => setGradeFilter(g);
-  
+
   // Get assessment type and normalize it
   const assessmentTypeRaw = assessment?.type || "literacy";
-  // Ensure it's either "numeracy" or "literacy" (lowercase)
-  const assessmentType = assessmentTypeRaw.toLowerCase() === "numeracy" ? "numeracy" : "literacy";
-  
-  // For display purposes
-  const displayAssessmentType = assessmentType === "numeracy" ? "Numeracy" : "Literacy";
+  const assessmentType =
+    assessmentTypeRaw.toLowerCase() === "numeracy" ? "numeracy" : "literacy";
+  const displayAssessmentType =
+    assessmentType === "numeracy" ? "Numeracy" : "Literacy";
 
-  // Filter students (search + grade) — showing ALL assigned students
+  // Filter students (search + grade)
   const filteredStudents = useMemo(() => {
     if (!assessment?.assigned_students) return [];
 
     return assessment.assigned_students.filter((student) => {
-      const fullName = `${student.first_name || ""} ${student.last_name || ""}`.trim().toLowerCase();
+      const fullName =
+        `${student.first_name || ""} ${student.last_name || ""}`.trim().toLowerCase();
       const matchesSearch = fullName.includes(searchQuery.toLowerCase().trim());
-
       const matchesGrade =
         gradeFilter === "All Grades" ||
         String(student.grade ?? "") === gradeFilter;
-
       return matchesSearch && matchesGrade;
     });
   }, [assessment?.assigned_students, searchQuery, gradeFilter]);
 
   // Handle reprocess assessment (super admin only)
   const handleReprocessAssessment = async () => {
-    if (!confirm("Are you sure you want to reprocess this assessment? This will recalculate all student results.")) {
-      return;
-    }
+    if (
+      !confirm(
+        "Are you sure you want to reprocess this assessment? This will recalculate all student results."
+      )
+    ) return;
 
     setIsReprocessing(true);
     setReprocessMessage(null);
 
     try {
-      const response = await fetch("https://us-east1-nyansapoai-v2.cloudfunctions.net/reprocess_assessment", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ assessmentId }),
-      });
+      const response = await fetch(
+        "https://us-east1-nyansapoai-v2.cloudfunctions.net/reprocess_assessment",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assessmentId }),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.text();
         throw new Error(errorData || "Failed to reprocess assessment");
       }
 
-      const result = await response.json();
       setReprocessMessage({ type: "success", text: "Assessment reprocessed successfully!" });
-      
-      // Refresh assessment data after reprocessing
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
-      
+      setTimeout(() => window.location.reload(), 2000);
     } catch (err) {
       console.error("Reprocess error:", err);
       setReprocessMessage({ type: "error", text: `Error: ${err.message}` });
@@ -124,7 +117,11 @@ export default function AssessmentDetailsPage() {
   // Loading state
   if (loading) {
     return (
-      <DashboardLayout title="Assessment Details" organizationId={organizationId} currentSection={"assessments"}>
+      <DashboardLayout
+        title="Assessment Details"
+        organizationId={organizationId}
+        currentSection="assessments"
+      >
         <div className="p-6 space-y-6">
           <StudentMetrics loading={true} />
           <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
@@ -145,7 +142,11 @@ export default function AssessmentDetailsPage() {
   // Error state
   if (error) {
     return (
-      <DashboardLayout title="Assessment Details" organizationId={organizationId} currentSection={"assessments"}>
+      <DashboardLayout
+        title="Assessment Details"
+        organizationId={organizationId}
+        currentSection="assessments"
+      >
         <div className="p-6 flex items-center justify-center min-h-[300px]">
           <div className="text-red-400">Error: {error}</div>
         </div>
@@ -156,7 +157,11 @@ export default function AssessmentDetailsPage() {
   // Not-found state
   if (!assessment) {
     return (
-      <DashboardLayout title="Assessment Details" organizationId={organizationId} currentSection={"assessments"}>
+      <DashboardLayout
+        title="Assessment Details"
+        organizationId={organizationId}
+        currentSection="assessments"
+      >
         <div className="p-6 flex items-center justify-center min-h-[300px]">
           <div className="text-foreground">Assessment not found</div>
         </div>
@@ -164,14 +169,17 @@ export default function AssessmentDetailsPage() {
     );
   }
 
-  // Main content
   return (
-    <DashboardLayout title={assessment.name} organizationId={organizationId} currentSection={"assessments"}>
+    <DashboardLayout
+      title={assessment.name}
+      organizationId={organizationId}
+      currentSection="assessments"
+    >
       <div className="p-6 space-y-6">
-        {/* Header row – title, grade filter & search */}
+        {/* Header */}
         <div className="bg-background-light border-b border-gray-600 px-6 py-4 rounded-2xl shadow-lg">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            {/* Left Section (Back + Title) */}
+            {/* Left — back + title */}
             <div className="flex flex-col">
               <div
                 onClick={() => router.push(backUrl)}
@@ -180,16 +188,22 @@ export default function AssessmentDetailsPage() {
                 <ArrowLeft size={18} className="mr-1" />
                 <span className="text-sm font-medium">Back</span>
               </div>
-
               <h1 className="text-xl font-semibold text-foreground">{assessment.name}</h1>
-              <p className="text-sm text-gray-400 mt-1">
-                {displayAssessmentType} Assessment
-              </p>
+              <p className="text-sm text-gray-400 mt-1">{displayAssessmentType} Assessment</p>
             </div>
 
-            {/* Right Section - Action Buttons Group */}
+            {/* Right — action buttons */}
             <div className="flex flex-wrap items-center gap-3">
-              {/* View Duration Stats Button */}
+              {/* View Assessment Content */}
+              <button
+                onClick={() => setShowContentModal(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 bg-primary-2/20 hover:bg-primary-2/30 border border-primary-2/40 text-primary-2 shadow-sm hover:shadow-md"
+              >
+                <FileText size={18} />
+                View Content
+              </button>
+
+              {/* View Duration Stats */}
               <button
                 onClick={() => setShowDurationModal(true)}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl"
@@ -198,8 +212,8 @@ export default function AssessmentDetailsPage() {
                 View Duration Stats
               </button>
 
-              {/* Reprocess Button - Only visible to super_admin */}
-              {userRole === 'super_admin' && (
+              {/* Reprocess — super_admin only */}
+              {userRole === "super_admin" && (
                 <button
                   onClick={handleReprocessAssessment}
                   disabled={isReprocessing}
@@ -213,7 +227,7 @@ export default function AssessmentDetailsPage() {
                   {isReprocessing ? "Processing..." : "Recalculate"}
                 </button>
               )}
-              
+
               <GradeFilter
                 selectedGrade={gradeFilter}
                 onGradeChange={handleGradeFilterChange}
@@ -225,14 +239,16 @@ export default function AssessmentDetailsPage() {
               />
             </div>
           </div>
-          
-          {/* Reprocess Message */}
+
+          {/* Reprocess message */}
           {reprocessMessage && (
-            <div className={`mt-4 p-3 rounded-xl text-sm ${
-              reprocessMessage.type === "success" 
-                ? "bg-green-500/20 text-green-300 border border-green-500/30" 
-                : "bg-red-500/20 text-red-300 border border-red-500/30"
-            }`}>
+            <div
+              className={`mt-4 p-3 rounded-xl text-sm ${
+                reprocessMessage.type === "success"
+                  ? "bg-green-500/20 text-green-300 border border-green-500/30"
+                  : "bg-red-500/20 text-red-300 border border-red-500/30"
+              }`}
+            >
               {reprocessMessage.text}
             </div>
           )}
@@ -271,6 +287,14 @@ export default function AssessmentDetailsPage() {
       <DurationStatsModal
         isOpen={showDurationModal}
         onClose={() => setShowDurationModal(false)}
+        assessmentId={assessmentId}
+        assessmentType={assessmentType}
+      />
+
+      {/* Assessment Content Side Panel */}
+      <AssessmentContentModal
+        isOpen={showContentModal}
+        onClose={() => setShowContentModal(false)}
         assessmentId={assessmentId}
         assessmentType={assessmentType}
       />

@@ -32,7 +32,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
     to_be_done: new Date().toISOString().split("T")[0],
   });
   const [selectAllSchools, setSelectAllSchools] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false); // double-submit guard
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [currentAssessment, setCurrentAssessment] = useState(null);
   const [loadingAssessment, setLoadingAssessment] = useState(false);
@@ -42,6 +42,33 @@ export default function AssessmentModal({ organizationId, onClose }) {
   const [maxAssessmentNumber, setMaxAssessmentNumber] = useState(0);
   const [step, setStep] = useState(1);
   const [noContentAvailable, setNoContentAvailable] = useState(false);
+
+  // ── Letter / word selection state (max 5 each) ────────────────
+  const [selectedLetters, setSelectedLetters] = useState([]);
+  const [selectedWords, setSelectedWords] = useState([]);
+
+  // Reset selections whenever the assessment content changes
+  useEffect(() => {
+    setSelectedLetters([]);
+    setSelectedWords([]);
+  }, [formData.assessmentNumber, formData.type]);
+
+  // ── Toggle helpers ─────────────────────────────────────────────
+  const toggleLetter = (letter) => {
+    setSelectedLetters((prev) => {
+      if (prev.includes(letter)) return prev.filter((l) => l !== letter);
+      if (prev.length >= 5) return prev; // cap at 5
+      return [...prev, letter];
+    });
+  };
+
+  const toggleWord = (word) => {
+    setSelectedWords((prev) => {
+      if (prev.includes(word)) return prev.filter((w) => w !== word);
+      if (prev.length >= 5) return prev; // cap at 5
+      return [...prev, word];
+    });
+  };
 
   // ── Fetch students when project, schools, or level changes ────
   useEffect(() => {
@@ -206,7 +233,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
     }
   }, [formData.projectId, fetchSchools, clearStudents]);
 
-  // ── Validation: can we proceed to submit? ─────────────────────
+  // ── Validation ─────────────────────────────────────────────────
   const canCreateAssessments = () => {
     if (step === 1) return formData.assessmentName.trim().length > 0;
     if (noContentAvailable || !currentAssessment || availableAssessmentNumbers.length === 0) return false;
@@ -214,6 +241,15 @@ export default function AssessmentModal({ organizationId, onClose }) {
     if (formData.schoolIds.length === 0) return false;
     if (!formData.to_be_done) return false;
     if (studentsLoading) return false;
+
+    // For Literacy: only require a selection when there are more than 5 items
+    if (formData.type === "Literacy") {
+      const lettersNeedPicking = (currentAssessment.letters?.length ?? 0) > 5;
+      const wordsNeedPicking = (currentAssessment.words?.length ?? 0) > 5;
+      if (lettersNeedPicking && selectedLetters.length === 0) return false;
+      if (wordsNeedPicking && selectedWords.length === 0) return false;
+    }
+
     return true;
   };
 
@@ -270,14 +306,30 @@ export default function AssessmentModal({ organizationId, onClose }) {
     return `${formData.assessmentName.trim()}_${cleanSchoolName}`;
   };
 
+  // ── Build the assessment_content document ─────────────────────
+  // For Literacy:
+  //   - letters/words with > 5 items → save only the user's selection
+  //   - letters/words with ≤ 5 items → save all of them as-is
+  // For Numeracy: full content as-is
+  const buildAssessmentContent = () => {
+    if (!currentAssessment) return {};
+
+    if (formData.type === "Literacy") {
+      const { letters, words, ...rest } = currentAssessment;
+      const lettersNeedPicking = (letters?.length ?? 0) > 5;
+      const wordsNeedPicking = (words?.length ?? 0) > 5;
+      return {
+        ...rest,
+        letters: lettersNeedPicking ? selectedLetters : (letters ?? []),
+        words: wordsNeedPicking ? selectedWords : (words ?? []),
+      };
+    }
+
+    // Numeracy — save everything unchanged
+    return { ...currentAssessment };
+  };
+
   // ── Duplicate check ───────────────────────────────────────────
-  // An assessment is a duplicate when ALL six fields match:
-  //   user_assessment_name + organization_id + project_id +
-  //   school_id + type + level + assessmentNumber
-  //
-  // Same name + different school = fine (each school gets its own).
-  // Same name + same school + different level = fine.
-  // All fields matching = duplicate → blocked.
   const checkForDuplicates = async () => {
     const trimmedName = formData.assessmentName.trim().toLowerCase();
 
@@ -292,8 +344,6 @@ export default function AssessmentModal({ organizationId, onClose }) {
       )
     );
 
-    // From the filtered results find any that also match the name and one
-    // of the selected school IDs.
     const duplicateSchools = [];
 
     existingSnapshot.docs.forEach((doc) => {
@@ -308,7 +358,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
       }
     });
 
-    return duplicateSchools; // empty array = no duplicates
+    return duplicateSchools;
   };
 
   // ── Submit handler ────────────────────────────────────────────
@@ -340,11 +390,20 @@ export default function AssessmentModal({ organizationId, onClose }) {
         setError("Please wait while students are loading...");
         return;
       }
+      if (formData.type === "Literacy") {
+        if ((currentAssessment.letters?.length ?? 0) > 5 && selectedLetters.length === 0) {
+          setError("Please select at least 1 letter (up to 5).");
+          return;
+        }
+        if ((currentAssessment.words?.length ?? 0) > 5 && selectedWords.length === 0) {
+          setError("Please select at least 1 word (up to 5).");
+          return;
+        }
+      }
       setError("Please fill in all required fields.");
       return;
     }
 
-    // ── Double-submit guard ───────────────────────────────────────
     if (isSubmitting) return;
 
     setIsSubmitting(true);
@@ -390,7 +449,8 @@ export default function AssessmentModal({ organizationId, onClose }) {
         }
       }
 
-      // ── Create assessments ──────────────────────────────────────
+      // ── Build the content document once (shared across schools) ─
+      const assessmentContent = buildAssessmentContent();
       const currentDate = new Date().toISOString().split("T")[0];
       const createdAssessments = [];
       const emptySchools = [];
@@ -455,7 +515,22 @@ export default function AssessmentModal({ organizationId, onClose }) {
           doc(db, "assessments", assessmentId),
           assessmentData
         )
-          .then(() => {
+          .then(async () => {
+            // ── Save content to subcollection ───────────────────
+            const contentId = uuidv4();
+            await setDoc(
+              doc(db, "assessments", assessmentId, "assessment_content", contentId),
+              {
+                id: contentId,
+                assessment_id: assessmentId,
+                created_at: new Date().toISOString(),
+                type: formData.type,
+                assessmentNumber: formData.assessmentNumber,
+                ...assessmentContent,
+              }
+            );
+
+            // ── Save student results ─────────────────────────────
             if (schoolStuds.length > 0) {
               const resultsPromises = schoolStuds.map((student) => {
                 const resultId = `${assessmentId}_${student.id}`;
@@ -584,6 +659,11 @@ export default function AssessmentModal({ organizationId, onClose }) {
                 handleLevelChange={handleLevelChange}
                 nextAssessment={nextAssessment}
                 prevAssessment={prevAssessment}
+                // ── new props ──
+                selectedLetters={selectedLetters}
+                selectedWords={selectedWords}
+                toggleLetter={toggleLetter}
+                toggleWord={toggleWord}
               />
             )}
           </form>
