@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { db } from "@/firebase/config";
 import { collection, getDocs, setDoc, doc, serverTimestamp } from "firebase/firestore";
 
-// ── Language-aware labels ─────────────────────────────────────────────────────
+// ── Language-aware labels (same as before) ──
 const LABELS = {
   english: {
     letters:    { title: "Letters to Identify",          description: "Letters the student should be able to identify", addBtn: "Add letter"    },
@@ -22,7 +22,7 @@ const LABELS = {
   },
 };
 
-// Icons
+// Icons (same as before)
 const Icons = {
   close: (
     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,7 +106,6 @@ const Icons = {
   ),
 };
 
-// ── Helper: blank question ─────────────────────────────────────────────────────
 function blankQuestion() {
   return {
     question: "",
@@ -115,7 +114,14 @@ function blankQuestion() {
   };
 }
 
-export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
+export default function CreateAssessmentModal({
+  isOpen,
+  onClose,
+  onSuccess,      // for create
+  onUpdate,       // for edit (receives updated data object)
+  initialData = null,
+  isEdit = false,
+}) {
   const [step, setStep] = useState(1);
   const [type, setType] = useState("literacy");
   const [saving, setSaving] = useState(false);
@@ -142,10 +148,10 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
   const [divisions, setDivisions] = useState([]);
   const [wordProblems, setWordProblems] = useState([]);
 
-  // Convenience: current language labels
   const lbl = LABELS[language] ?? LABELS.english;
   const isSwahili = language === "swahili";
 
+  // Reset form to initial state (create mode)
   const resetForm = useCallback(() => {
     setStep(1);
     setType("literacy");
@@ -167,7 +173,41 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
     setError(null);
   }, []);
 
-  const handleClose = () => { resetForm(); onClose(); };
+  // Populate form with initialData when editing
+  const populateFromAssessment = useCallback((data) => {
+    if (!data) return;
+    setType(data.letters ? "literacy" : "numeracy");
+    setName(data.name || "");
+    setGrade(data.grade || "");
+    setLanguage(data.language || "english");
+    setLevel(data.level || "");
+    setLetters(data.letters || []);
+    setWords(data.words || []);
+    setParagraphs(data.paragraphs || []);
+    setStories(data.stories || []);
+    setCountAndMatchNumbersList(data.countAndMatchNumbersList || []);
+    setNumberRecognitionList(data.numberRecognitionList || []);
+    setAdditions(data.additions || []);
+    setSubtractions(data.subtractions || []);
+    setMultiplications(data.multiplications || []);
+    setDivisions(data.divisions || []);
+    setWordProblems(data.wordProblems || []);
+  }, []);
+
+  // When modal opens and isEdit mode, fill the form
+  useEffect(() => {
+    if (isEdit && initialData) {
+      populateFromAssessment(initialData);
+      setStep(2); // skip type selection for edit
+    } else {
+      resetForm();
+    }
+  }, [isEdit, initialData, isOpen, populateFromAssessment, resetForm]);
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
 
   const validateStep = () => {
     if (step === 2) {
@@ -186,23 +226,11 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
     setSaving(true);
     setError(null);
     try {
-      const collectionName = type === "literacy" ? "literacy" : "numeracy";
-
-      const snapshot = await getDocs(collection(db, collectionName));
-      let maxId = -1;
-      snapshot.forEach(d => {
-        const parsed = parseInt(d.id, 10);
-        if (!isNaN(parsed) && parsed > maxId) maxId = parsed;
-      });
-      const nextId = String(maxId + 1);
-
       const baseData = {
         name: name.trim(),
         grade,
         language,
         level,
-        org_ids: [],
-        createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
 
@@ -244,11 +272,30 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
         };
       }
 
-      await setDoc(doc(db, collectionName, nextId), { ...baseData, ...contentData });
-      onSuccess?.();
+      if (isEdit) {
+        // Update existing assessment
+        await onUpdate({ ...baseData, ...contentData });
+      } else {
+        // Create new assessment with auto-incremented ID
+        const collectionName = type === "literacy" ? "literacy" : "numeracy";
+        const snapshot = await getDocs(collection(db, collectionName));
+        let maxId = -1;
+        snapshot.forEach(d => {
+          const parsed = parseInt(d.id, 10);
+          if (!isNaN(parsed) && parsed > maxId) maxId = parsed;
+        });
+        const nextId = String(maxId + 1);
+        await setDoc(doc(db, collectionName, nextId), {
+          ...baseData,
+          ...contentData,
+          org_ids: [],
+          createdAt: serverTimestamp(),
+        });
+        onSuccess?.();
+      }
       handleClose();
     } catch (err) {
-      console.error("Failed to create assessment:", err);
+      console.error("Failed to save assessment:", err);
       setError("Failed to save assessment. Please try again.");
     } finally {
       setSaving(false);
@@ -268,7 +315,6 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
     { value: "Endline",  label: "Endline",  description: "End of term"   },
   ];
 
-  // ── Story question helpers ──────────────────────────────────────────────────
   const updateQuestion = (sIdx, qIdx, field, value) => {
     setStories(prev => prev.map((s, i) => i !== sIdx ? s : {
       ...s,
@@ -309,18 +355,19 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
 
       <div className="relative bg-background rounded-2xl border border-gray-700 shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
-
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-700">
           <div>
             <h2 className="text-xl font-bold text-foreground">
-              {language === "swahili" ? "Unda Tathmini" : "Create Assessment"}
+              {isEdit
+                ? (language === "swahili" ? "Hariri Tathmini" : "Edit Assessment")
+                : (language === "swahili" ? "Unda Tathmini" : "Create Assessment")}
             </h2>
             <p className="text-sm text-gray-400 mt-1">
               {language === "swahili" ? "Hatua" : "Step"} {step} {language === "swahili" ? "kati ya" : "of"} 3:{" "}
               {step === 1 ? (language === "swahili" ? "Chagua aina" : "Choose type") :
-              step === 2 ? (language === "swahili" ? "Maelezo ya msingi" : "Basic details") :
-              type === "literacy"
+               step === 2 ? (language === "swahili" ? "Maelezo ya msingi" : "Basic details") :
+               type === "literacy"
                 ? (language === "swahili" ? "Maudhui ya Kusoma" : "Literacy content")
                 : (language === "swahili" ? "Maudhui ya Hesabu" : "Numeracy content")}
             </p>
@@ -329,14 +376,16 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
             {Icons.close}
           </button>
         </div>
-        {/* Progress Bar */}
-        <div className="flex gap-1 px-6 pt-4">
-          {[1, 2, 3].map(s => (
-            <div key={s} className={`h-1 flex-1 rounded-full transition-all duration-300 ${s <= step ? "bg-primary-2" : "bg-gray-700"}`} />
-          ))}
-        </div>
 
-        {/* Content */}
+        {/* Progress bar (hide if edit mode? optional but keep for consistency) */}
+        {!isEdit && (
+          <div className="flex gap-1 px-6 pt-4">
+            {[1, 2, 3].map(s => (
+              <div key={s} className={`h-1 flex-1 rounded-full transition-all duration-300 ${s <= step ? "bg-primary-2" : "bg-gray-700"}`} />
+            ))}
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
           {error && (
             <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-xl p-3 flex items-center gap-2 text-red-400 text-sm">
@@ -347,8 +396,8 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
             </div>
           )}
 
-          {/* ── Step 1: Type ── */}
-          {step === 1 && (
+          {/* Step 1: Type (skipped in edit mode) */}
+          {step === 1 && !isEdit && (
             <div className="space-y-4">
               <p className="text-gray-300 mb-6">Select the type of assessment you want to create.</p>
               {[
@@ -377,7 +426,7 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
             </div>
           )}
 
-          {/* ── Step 2: Details ── */}
+          {/* Step 2: Details */}
           {step === 2 && (
             <div className="space-y-6">
               <div>
@@ -431,10 +480,9 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
             </div>
           )}
 
-          {/* ── Step 3: Literacy ── */}
+          {/* Step 3: Literacy Content */}
           {step === 3 && type === "literacy" && (
             <div className="space-y-6">
-
               {/* Letters / Silabi */}
               <ContentSection title={lbl.letters.title} icon={Icons.letter} description={lbl.letters.description}>
                 <div className="flex flex-wrap gap-2">
@@ -443,7 +491,6 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
                       <input
                         type="text"
                         value={letter}
-                        // English: single uppercase character; Swahili: free-form syllable (e.g. "ji", "ba")
                         maxLength={isSwahili ? 10 : 1}
                         onChange={e => {
                           const n = [...letters];
@@ -465,7 +512,7 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
                 </button>
               </ContentSection>
 
-              {/* Words / Maneno */}
+              {/* Words */}
               <ContentSection title={lbl.words.title} icon={Icons.word} description={lbl.words.description}>
                 <div className="space-y-2">
                   {words.map((word, idx) => (
@@ -488,7 +535,7 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
                 </button>
               </ContentSection>
 
-              {/* Paragraphs / Aya */}
+              {/* Paragraphs */}
               <ContentSection title={lbl.paragraphs.title} icon={Icons.paragraph} description={lbl.paragraphs.description}>
                 <div className="space-y-2">
                   {paragraphs.map((para, idx) => (
@@ -511,7 +558,7 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
                 </button>
               </ContentSection>
 
-              {/* Stories / Hadithi & Ufahamu */}
+              {/* Stories */}
               <ContentSection title={lbl.stories.title} icon={Icons.story} description={lbl.stories.description}>
                 <div className="space-y-4">
                   {stories.map((story, sIdx) => (
@@ -540,13 +587,12 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
                         className="w-full bg-background-lighter border border-gray-600 rounded-lg px-3 py-2 text-sm focus:border-primary-2 focus:outline-none resize-none"
                       />
 
-                      {/* Comprehension Questions / Maswali ya Ufahamu */}
+                      {/* Questions */}
                       <div className="pl-4 border-l-2 border-primary-2/30 space-y-4">
                         <p className="text-xs font-semibold text-gray-400">{lbl.questions.label}</p>
 
                         {(story.questions || []).map((q, qIdx) => (
                           <div key={qIdx} className="bg-background-lighter rounded-lg border border-gray-700 p-3 space-y-2">
-                            {/* Question text */}
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-gray-500 w-5 flex-shrink-0">{qIdx + 1}.</span>
                               <input
@@ -568,7 +614,6 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
                               </button>
                             </div>
 
-                            {/* Correct answer */}
                             <div className="flex items-center gap-2 pl-7">
                               <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
                               <input
@@ -583,7 +628,6 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
                               </span>
                             </div>
 
-                            {/* Wrong answers */}
                             <div className="pl-7 space-y-1.5">
                               <p className="text-xs text-gray-500">
                                 {isSwahili ? "Majibu yasiyosahihi:" : "Wrong choices:"}
@@ -636,7 +680,7 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
             </div>
           )}
 
-          {/* ── Step 3: Numeracy ── (unchanged) */}
+          {/* Step 3: Numeracy Content */}
           {step === 3 && type === "numeracy" && (
             <div className="space-y-6">
               <ContentSection title="Count & Match Numbers" icon={Icons.number} description="Numbers for counting and matching exercises">
@@ -721,10 +765,10 @@ export default function CreateAssessmentModal({ isOpen, onClose, onSuccess }) {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Saving...
+                  {isEdit ? "Updating..." : "Saving..."}
                 </>
               ) : (
-                <>{Icons.check} Create Assessment</>
+                <>{Icons.check} {isEdit ? "Update Assessment" : "Create Assessment"}</>
               )}
             </button>
           )}
