@@ -36,7 +36,7 @@ export default function FullAssessmentContent({ currentAssessment, type }) {
           </div>
         )}
         
-        {currentAssessment.letters && (
+        {currentAssessment.letters?.length > 0 && (
           <div>
             <h5 className="text-sm font-semibold text-foreground mb-3 flex items-center">
               <svg className="w-4 h-4 mr-2 text-primary-2" fill="currentColor" viewBox="0 0 20 20">
@@ -54,7 +54,7 @@ export default function FullAssessmentContent({ currentAssessment, type }) {
           </div>
         )}
         
-        {currentAssessment.words && (
+        {currentAssessment.words?.length > 0 && (
           <div>
             <h5 className="text-sm font-semibold text-foreground mb-3 flex items-center">
               <svg className="w-4 h-4 mr-2 text-secondary-2" fill="currentColor" viewBox="0 0 20 20">
@@ -73,7 +73,7 @@ export default function FullAssessmentContent({ currentAssessment, type }) {
         )}
         
         {/* Reading Paragraphs Section with Collapse */}
-        {currentAssessment.paragraphs && currentAssessment.paragraphs.length > 0 && (
+        {currentAssessment.paragraphs?.length > 0 && (
           <div className="border border-gray-600 rounded-xl overflow-hidden">
             <button
               onClick={() => toggleSection('paragraphs')}
@@ -110,7 +110,7 @@ export default function FullAssessmentContent({ currentAssessment, type }) {
         )}
         
         {/* Stories Section with Collapse */}
-        {currentAssessment.stories && currentAssessment.stories.length > 0 && (
+        {currentAssessment.stories?.length > 0 && (
           <div className="border border-gray-600 rounded-xl overflow-hidden">
             <button
               onClick={() => toggleSection('stories')}
@@ -161,7 +161,7 @@ export default function FullAssessmentContent({ currentAssessment, type }) {
       </div>
     );
   } else {
-    // NUMERACY PREVIEW - Keep as is (no long content typically)
+    // NUMERACY PREVIEW (updated with answers and greaterThanProblems)
     return (
       <div className="space-y-6">
         {currentAssessment.grade && (
@@ -170,7 +170,7 @@ export default function FullAssessmentContent({ currentAssessment, type }) {
           </div>
         )}
         
-        {currentAssessment.countAndMatchNumbersList && (
+        {currentAssessment.countAndMatchNumbersList?.length > 0 && (
           <div>
             <h5 className="text-sm font-semibold text-foreground mb-3 flex items-center">
               <svg className="w-4 h-4 mr-2 text-primary-2" fill="currentColor" viewBox="0 0 20 20">
@@ -188,7 +188,7 @@ export default function FullAssessmentContent({ currentAssessment, type }) {
           </div>
         )}
         
-        {currentAssessment.numberRecognitionList && (
+        {currentAssessment.numberRecognitionList?.length > 0 && (
           <div>
             <h5 className="text-sm font-semibold text-foreground mb-3 flex items-center">
               <svg className="w-4 h-4 mr-2 text-secondary-2" fill="currentColor" viewBox="0 0 20 20">
@@ -206,7 +206,8 @@ export default function FullAssessmentContent({ currentAssessment, type }) {
           </div>
         )}
         
-        {currentAssessment.additions && currentAssessment.additions.length > 0 && (
+        {/* Addition Problems with Answer */}
+        {currentAssessment.additions?.length > 0 && (
           <div className="bg-primary-3/20 border border-primary-3/30 rounded-xl p-4">
             <h5 className="text-sm font-semibold text-primary-3 mb-3 flex items-center">
               <svg className="w-4 h-4 mr-2 text-primary-3" fill="currentColor" viewBox="0 0 20 20">
@@ -217,16 +218,18 @@ export default function FullAssessmentContent({ currentAssessment, type }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {currentAssessment.additions.map((add, idx) => (
                 <div key={idx} className="bg-background-light p-3 rounded-xl border border-gray-600 text-center">
-                  <span className="text-lg font-bold text-foreground">
+                  <div className="text-lg font-bold text-foreground">
                     {add.firstNumber} + {add.secondNumber} = ?
-                  </span>
+                  </div>
+                  <div className="text-xs text-green-400 mt-1">Answer: {add.answer}</div>
                 </div>
               ))}
             </div>
           </div>
         )}
         
-        {currentAssessment.subtractions && currentAssessment.subtractions.length > 0 && (
+        {/* Subtraction Problems with Answer */}
+        {currentAssessment.subtractions?.length > 0 && (
           <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4">
             <h5 className="text-sm font-semibold text-red-400 mb-3 flex items-center">
               <svg className="w-4 h-4 mr-2 text-red-400" fill="currentColor" viewBox="0 0 20 20">
@@ -237,16 +240,18 @@ export default function FullAssessmentContent({ currentAssessment, type }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {currentAssessment.subtractions.map((sub, idx) => (
                 <div key={idx} className="bg-background-light p-3 rounded-xl border border-gray-600 text-center">
-                  <span className="text-lg font-bold text-foreground">
+                  <div className="text-lg font-bold text-foreground">
                     {sub.firstNumber} - {sub.secondNumber} = ?
-                  </span>
+                  </div>
+                  <div className="text-xs text-green-400 mt-1">Answer: {sub.answer}</div>
                 </div>
               ))}
             </div>
           </div>
         )}
         
-        {currentAssessment.multiplications && currentAssessment.multiplications.length > 0 && (
+        {/* Multiplication Problems with Answer */}
+        {currentAssessment.multiplications?.length > 0 && (
           <div className="bg-purple-500/20 border border-purple-500/30 rounded-xl p-4">
             <h5 className="text-sm font-semibold text-purple-400 mb-3 flex items-center">
               <svg className="w-4 h-4 mr-2 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
@@ -257,16 +262,18 @@ export default function FullAssessmentContent({ currentAssessment, type }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {currentAssessment.multiplications.map((mult, idx) => (
                 <div key={idx} className="bg-background-light p-3 rounded-xl border border-gray-600 text-center">
-                  <span className="text-lg font-bold text-foreground">
+                  <div className="text-lg font-bold text-foreground">
                     {mult.firstNumber} × {mult.secondNumber} = ?
-                  </span>
+                  </div>
+                  <div className="text-xs text-green-400 mt-1">Answer: {mult.answer}</div>
                 </div>
               ))}
             </div>
           </div>
         )}
         
-        {currentAssessment.divisions && currentAssessment.divisions.length > 0 && (
+        {/* Division Problems with Answer */}
+        {currentAssessment.divisions?.length > 0 && (
           <div className="bg-indigo-500/20 border border-indigo-500/30 rounded-xl p-4">
             <h5 className="text-sm font-semibold text-indigo-400 mb-3 flex items-center">
               <svg className="w-4 h-4 mr-2 text-indigo-400" fill="currentColor" viewBox="0 0 20 20">
@@ -277,16 +284,40 @@ export default function FullAssessmentContent({ currentAssessment, type }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {currentAssessment.divisions.map((div, idx) => (
                 <div key={idx} className="bg-background-light p-3 rounded-xl border border-gray-600 text-center">
-                  <span className="text-lg font-bold text-foreground">
+                  <div className="text-lg font-bold text-foreground">
                     {div.firstNumber} ÷ {div.secondNumber} = ?
-                  </span>
+                  </div>
+                  <div className="text-xs text-green-400 mt-1">Answer: {div.answer}</div>
                 </div>
               ))}
             </div>
           </div>
         )}
         
-        {currentAssessment.wordProblems && currentAssessment.wordProblems.length > 0 && (
+        {/* "Which one is greater?" Problems */}
+        {currentAssessment.greaterThanProblems?.length > 0 && (
+          <div className="bg-orange-500/20 border border-orange-500/30 rounded-xl p-4">
+            <h5 className="text-sm font-semibold text-orange-400 mb-3 flex items-center">
+              <svg className="w-4 h-4 mr-2 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+              </svg>
+              Which one is greater?
+            </h5>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {currentAssessment.greaterThanProblems.map((item, idx) => (
+                <div key={idx} className="bg-background-light p-3 rounded-xl border border-gray-600 text-center">
+                  <span className="text-lg font-bold text-foreground">
+                    {item.firstNumber} ❓ {item.secondNumber}
+                  </span>
+                  <p className="text-xs text-orange-400 mt-1">(Which is greater?)</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {/* Word Problems */}
+        {currentAssessment.wordProblems?.length > 0 && (
           <div className="bg-teal-500/20 border border-teal-500/30 rounded-xl p-4">
             <h5 className="text-sm font-semibold text-teal-400 mb-3 flex items-center">
               <svg className="w-4 h-4 mr-2 text-teal-400" fill="currentColor" viewBox="0 0 20 20">

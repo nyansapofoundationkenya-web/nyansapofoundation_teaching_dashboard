@@ -48,12 +48,10 @@ function MetaBadges({ assessment }) {
   );
 }
 
-// Renders the multiple-choice options for a single question
 function MultipleChoiceOptions({ question }) {
   const correct = question.multiple_choices?.correct_choices?.[0] ?? question.answer ?? null;
   const wrong   = question.multiple_choices?.wrong_choices ?? [];
 
-  // Merge + shuffle so correct answer isn't always first
   const allChoices = correct
     ? shuffle([correct, ...wrong.filter(Boolean)])
     : wrong.filter(Boolean);
@@ -86,7 +84,6 @@ function MultipleChoiceOptions({ question }) {
   );
 }
 
-// Deterministic-ish shuffle so preview is stable per render
 function shuffle(arr) {
   return [...arr].sort((a, b) => (stringHash(a) % 7) - (stringHash(b) % 7));
 }
@@ -117,18 +114,14 @@ export default function AssessmentPreview({ currentAssessment, loadingAssessment
   }
 
   if (type === "Literacy") {
-    // Falls back to English for older content that has no language field
     const lbl = PREVIEW_LABELS[currentAssessment.language] ?? PREVIEW_LABELS.english;
-
     return (
       <div className="space-y-6">
-        {/* Grade / meta */}
         <div className="bg-primary-2/20 border border-primary-2/30 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
           {currentAssessment.grade && <h4 className="font-semibold text-primary-2 text-lg">Grade {currentAssessment.grade}</h4>}
           <MetaBadges assessment={currentAssessment} />
         </div>
 
-        {/* Letters / Silabi */}
         {currentAssessment.letters?.length > 0 && (
           <div>
             <h5 className="text-sm font-semibold text-foreground mb-3 flex items-center">
@@ -145,7 +138,6 @@ export default function AssessmentPreview({ currentAssessment, loadingAssessment
           </div>
         )}
 
-        {/* Words / Maneno */}
         {currentAssessment.words?.length > 0 && (
           <div>
             <h5 className="text-sm font-semibold text-foreground mb-3 flex items-center">
@@ -162,7 +154,6 @@ export default function AssessmentPreview({ currentAssessment, loadingAssessment
           </div>
         )}
 
-        {/* Paragraphs / Aya */}
         {currentAssessment.paragraphs?.length > 0 && (
           <div>
             <h5 className="text-sm font-semibold text-foreground mb-3 flex items-center">
@@ -179,7 +170,6 @@ export default function AssessmentPreview({ currentAssessment, loadingAssessment
           </div>
         )}
 
-        {/* Stories / Hadithi */}
         {currentAssessment.stories?.map((story, idx) => (
           <div key={idx} className="bg-secondary-1/20 border border-secondary-1/30 rounded-xl p-4">
             <h5 className="text-sm font-semibold text-secondary-1 mb-3 flex items-center">
@@ -189,15 +179,11 @@ export default function AssessmentPreview({ currentAssessment, loadingAssessment
               {lbl.story}
               {story.title && <span className="ml-2 font-normal text-gray-400">— {story.title}</span>}
             </h5>
-
-            {/* Story text */}
             <div className="bg-background-light p-3 rounded-xl border border-gray-600 mb-4">
               <p className="text-foreground text-sm leading-relaxed">
                 {story.story?.substring(0, 200)}{story.story?.length > 200 ? "…" : ""}
               </p>
             </div>
-
-            {/* Questions / Maswali */}
             {story.questions?.length > 0 && (
               <>
                 <h6 className="text-xs font-semibold text-secondary-1 mb-3">{lbl.questions}</h6>
@@ -222,7 +208,7 @@ export default function AssessmentPreview({ currentAssessment, loadingAssessment
     );
   }
 
-  // ── NUMERACY PREVIEW ── (unchanged)
+  // ── NUMERACY PREVIEW ──
   return (
     <div className="space-y-6">
       <div className="bg-primary-2/20 border border-primary-2/30 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
@@ -273,7 +259,10 @@ export default function AssessmentPreview({ currentAssessment, loadingAssessment
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {currentAssessment.additions.map((add, idx) => (
               <div key={idx} className="bg-background-light p-3 rounded-xl border border-gray-600 text-center">
-                <span className="text-lg font-bold text-foreground">{add.firstNumber} + {add.secondNumber} = ?</span>
+                <div className="text-lg font-bold text-foreground">
+                  {add.firstNumber} + {add.secondNumber} = ?
+                </div>
+                <div className="text-xs text-green-400 mt-1">Answer: {add.answer}</div>
               </div>
             ))}
           </div>
@@ -291,7 +280,10 @@ export default function AssessmentPreview({ currentAssessment, loadingAssessment
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {currentAssessment.subtractions.map((sub, idx) => (
               <div key={idx} className="bg-background-light p-3 rounded-xl border border-gray-600 text-center">
-                <span className="text-lg font-bold text-foreground">{sub.firstNumber} - {sub.secondNumber} = ?</span>
+                <div className="text-lg font-bold text-foreground">
+                  {sub.firstNumber} - {sub.secondNumber} = ?
+                </div>
+                <div className="text-xs text-green-400 mt-1">Answer: {sub.answer}</div>
               </div>
             ))}
           </div>
@@ -309,7 +301,10 @@ export default function AssessmentPreview({ currentAssessment, loadingAssessment
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {currentAssessment.multiplications.map((mult, idx) => (
               <div key={idx} className="bg-background-light p-3 rounded-xl border border-gray-600 text-center">
-                <span className="text-lg font-bold text-foreground">{mult.firstNumber} × {mult.secondNumber} = ?</span>
+                <div className="text-lg font-bold text-foreground">
+                  {mult.firstNumber} × {mult.secondNumber} = ?
+                </div>
+                <div className="text-xs text-green-400 mt-1">Answer: {mult.answer}</div>
               </div>
             ))}
           </div>
@@ -327,7 +322,31 @@ export default function AssessmentPreview({ currentAssessment, loadingAssessment
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {currentAssessment.divisions.map((div, idx) => (
               <div key={idx} className="bg-background-light p-3 rounded-xl border border-gray-600 text-center">
-                <span className="text-lg font-bold text-foreground">{div.firstNumber} ÷ {div.secondNumber} = ?</span>
+                <div className="text-lg font-bold text-foreground">
+                  {div.firstNumber} ÷ {div.secondNumber} = ?
+                </div>
+                <div className="text-xs text-green-400 mt-1">Answer: {div.answer}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {currentAssessment.greaterThanProblems?.length > 0 && (
+        <div className="bg-orange-500/20 border border-orange-500/30 rounded-xl p-4">
+          <h5 className="text-sm font-semibold text-orange-400 mb-3 flex items-center">
+            <svg className="w-4 h-4 mr-2 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+            </svg>
+            Which one is greater?
+          </h5>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {currentAssessment.greaterThanProblems.map((item, idx) => (
+              <div key={idx} className="bg-background-light p-3 rounded-xl border border-gray-600 text-center">
+                <span className="text-lg font-bold text-foreground">
+                  {item.firstNumber} ❓ {item.secondNumber}
+                </span>
+                <p className="text-xs text-orange-400 mt-1">(Which is greater?)</p>
               </div>
             ))}
           </div>

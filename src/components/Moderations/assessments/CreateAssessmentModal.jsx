@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { db } from "@/firebase/config";
 import { collection, getDocs, setDoc, doc, serverTimestamp } from "firebase/firestore";
 
-// ── Language-aware labels (same as before) ──
+// ── Language-aware labels ──
 const LABELS = {
   english: {
     letters:    { title: "Letters to Identify",          description: "Letters the student should be able to identify", addBtn: "Add letter"    },
@@ -22,7 +22,7 @@ const LABELS = {
   },
 };
 
-// Icons (same as before)
+// Icons (same as original)
 const Icons = {
   close: (
     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,19 +106,37 @@ const Icons = {
   ),
 };
 
+// ── Auto-calculate answer based on operation type ──
+function computeAnswer(firstNumber, secondNumber, operationType) {
+  const a = parseFloat(firstNumber);
+  const b = parseFloat(secondNumber);
+  if (isNaN(a) || isNaN(b)) return "";
+  switch (operationType) {
+    case "ADDITION":       return String(a + b);
+    case "SUBTRACTION":    return String(a - b);
+    case "MULTIPLICATION": return String(a * b);
+    case "DIVISION":
+      if (b === 0) return "";
+      // Return integer if exact, otherwise 2 decimal places
+      const result = a / b;
+      return Number.isInteger(result) ? String(result) : String(parseFloat(result.toFixed(2)));
+    default: return "";
+  }
+}
+
 function blankQuestion() {
   return {
     question: "",
     correct_choice: "",
-    wrong_choices: ["", "", "", ""], // always an array
+    wrong_choices: ["", "", "", ""],
   };
 }
 
 export default function CreateAssessmentModal({
   isOpen,
   onClose,
-  onSuccess,      // for create
-  onUpdate,       // for edit (receives updated data object)
+  onSuccess,
+  onUpdate,
   initialData = null,
   isEdit = false,
 }) {
@@ -147,11 +165,18 @@ export default function CreateAssessmentModal({
   const [multiplications, setMultiplications] = useState([]);
   const [divisions, setDivisions] = useState([]);
   const [wordProblems, setWordProblems] = useState([]);
+  const [greaterThanProblems, setGreaterThanProblems] = useState([]);
 
   const lbl = LABELS[language] ?? LABELS.english;
   const isSwahili = language === "swahili";
 
-  // Reset form to initial state (create mode)
+  // Helper: convert string to integer or null
+  const toNumberOrNull = (val) => {
+    if (val === "" || val === undefined) return null;
+    const num = parseInt(val, 10);
+    return isNaN(num) ? null : num;
+  };
+
   const resetForm = useCallback(() => {
     setStep(1);
     setType("literacy");
@@ -170,51 +195,70 @@ export default function CreateAssessmentModal({
     setMultiplications([]);
     setDivisions([]);
     setWordProblems([]);
+    setGreaterThanProblems([]);
     setError(null);
   }, []);
 
-  // Populate form with initialData when editing
-const populateFromAssessment = useCallback((data) => {
-  if (!data) return;
-  setType(data.letters ? "literacy" : "numeracy");
-  setName(data.name || "");
-  setGrade(data.grade || "");
-  setLanguage(data.language || "english");
-  setLevel(data.level || "");
-  setLetters(data.letters || []);
-  setWords(data.words || []);
-  setParagraphs(data.paragraphs || []);
+  const populateFromAssessment = useCallback((data) => {
+    if (!data) return;
+    setType(data.letters ? "literacy" : "numeracy");
+    setName(data.name || "");
+    setGrade(data.grade || "");
+    setLanguage(data.language || "english");
+    setLevel(data.level || "");
+    setLetters(data.letters || []);
+    setWords(data.words || []);
+    setParagraphs(data.paragraphs || []);
 
-  // Transform stories: convert multiple_choices to correct_choice + wrong_choices array
-  const transformedStories = (data.stories || []).map(story => ({
-    title: story.title || "",
-    story: story.story || "",
-    questions: (story.questions || []).map(q => {
-      const mc = q.multiple_choices || { correct_choices: [], wrong_choices: [] };
-      return {
-        question: q.question || "",
-        correct_choice: (mc.correct_choices && mc.correct_choices[0]) || "",
-        wrong_choices: Array.isArray(mc.wrong_choices) ? [...mc.wrong_choices] : [],
-      };
-    }),
-  }));
-  setStories(transformedStories);
+    // Transform stories
+    const transformedStories = (data.stories || []).map(story => ({
+      title: story.title || "",
+      story: story.story || "",
+      questions: (story.questions || []).map(q => {
+        const mc = q.multiple_choices || { correct_choices: [], wrong_choices: [] };
+        return {
+          question: q.question || "",
+          correct_choice: (mc.correct_choices && mc.correct_choices[0]) || "",
+          wrong_choices: Array.isArray(mc.wrong_choices) ? [...mc.wrong_choices] : [],
+        };
+      }),
+    }));
+    setStories(transformedStories);
 
-  // Numeracy fields (same as before)
-  setCountAndMatchNumbersList(data.countAndMatchNumbersList || []);
-  setNumberRecognitionList(data.numberRecognitionList || []);
-  setAdditions(data.additions || []);
-  setSubtractions(data.subtractions || []);
-  setMultiplications(data.multiplications || []);
-  setDivisions(data.divisions || []);
-  setWordProblems(data.wordProblems || []);
-}, []);
+    // Numeracy: convert numbers back to strings for input fields
+    setCountAndMatchNumbersList((data.countAndMatchNumbersList || []).map(n => n?.toString() ?? ""));
+    setNumberRecognitionList((data.numberRecognitionList || []).map(n => n?.toString() ?? ""));
+    setAdditions((data.additions || []).map(a => ({
+      firstNumber: a.firstNumber?.toString() ?? "",
+      secondNumber: a.secondNumber?.toString() ?? "",
+      answer: a.answer?.toString() ?? "",
+    })));
+    setSubtractions((data.subtractions || []).map(s => ({
+      firstNumber: s.firstNumber?.toString() ?? "",
+      secondNumber: s.secondNumber?.toString() ?? "",
+      answer: s.answer?.toString() ?? "",
+    })));
+    setMultiplications((data.multiplications || []).map(m => ({
+      firstNumber: m.firstNumber?.toString() ?? "",
+      secondNumber: m.secondNumber?.toString() ?? "",
+      answer: m.answer?.toString() ?? "",
+    })));
+    setDivisions((data.divisions || []).map(d => ({
+      firstNumber: d.firstNumber?.toString() ?? "",
+      secondNumber: d.secondNumber?.toString() ?? "",
+      answer: d.answer?.toString() ?? "",
+    })));
+    setWordProblems(data.wordProblems || []);
+    setGreaterThanProblems((data.greaterThanProblems || []).map(g => ({
+      firstNumber: g.firstNumber?.toString() ?? "",
+      secondNumber: g.secondNumber?.toString() ?? "",
+    })));
+  }, []);
 
-  // When modal opens and isEdit mode, fill the form
   useEffect(() => {
     if (isEdit && initialData) {
       populateFromAssessment(initialData);
-      setStep(2); // skip type selection for edit
+      setStep(2);
     } else {
       resetForm();
     }
@@ -275,12 +319,50 @@ const populateFromAssessment = useCallback((data) => {
         };
       } else {
         contentData = {
-          countAndMatchNumbersList: countAndMatchNumbersList.filter(n => n !== ""),
-          numberRecognitionList: numberRecognitionList.filter(n => n !== ""),
-          additions: additions.filter(a => a.firstNumber !== "" && a.secondNumber !== ""),
-          subtractions: subtractions.filter(s => s.firstNumber !== "" && s.secondNumber !== ""),
-          multiplications: multiplications.filter(m => m.firstNumber !== "" && m.secondNumber !== ""),
-          divisions: divisions.filter(d => d.firstNumber !== "" && d.secondNumber !== ""),
+          countAndMatchNumbersList: countAndMatchNumbersList
+            .filter(n => n !== "")
+            .map(n => toNumberOrNull(n)),
+          numberRecognitionList: numberRecognitionList
+            .filter(n => n !== "")
+            .map(n => toNumberOrNull(n)),
+          additions: additions
+            .filter(a => a.firstNumber !== "" && a.secondNumber !== "" && a.answer !== "")
+            .map(a => ({
+              firstNumber: toNumberOrNull(a.firstNumber),
+              secondNumber: toNumberOrNull(a.secondNumber),
+              answer: toNumberOrNull(a.answer),
+              operationType: "ADDITION",
+            })),
+          subtractions: subtractions
+            .filter(s => s.firstNumber !== "" && s.secondNumber !== "" && s.answer !== "")
+            .map(s => ({
+              firstNumber: toNumberOrNull(s.firstNumber),
+              secondNumber: toNumberOrNull(s.secondNumber),
+              answer: toNumberOrNull(s.answer),
+              operationType: "SUBTRACTION",
+            })),
+          multiplications: multiplications
+            .filter(m => m.firstNumber !== "" && m.secondNumber !== "" && m.answer !== "")
+            .map(m => ({
+              firstNumber: toNumberOrNull(m.firstNumber),
+              secondNumber: toNumberOrNull(m.secondNumber),
+              answer: toNumberOrNull(m.answer),
+              operationType: "MULTIPLICATION",
+            })),
+          divisions: divisions
+            .filter(d => d.firstNumber !== "" && d.secondNumber !== "" && d.answer !== "")
+            .map(d => ({
+              firstNumber: toNumberOrNull(d.firstNumber),
+              secondNumber: toNumberOrNull(d.secondNumber),
+              answer: toNumberOrNull(d.answer),
+              operationType: "DIVISION",
+            })),
+          greaterThanProblems: greaterThanProblems
+            .filter(g => g.firstNumber !== "" && g.secondNumber !== "")
+            .map(g => ({
+              firstNumber: toNumberOrNull(g.firstNumber),
+              secondNumber: toNumberOrNull(g.secondNumber),
+            })),
           wordProblems: wordProblems.filter(wp => wp.problem?.trim()).map(wp => ({
             problem: wp.problem,
             answer: wp.answer || "",
@@ -289,10 +371,8 @@ const populateFromAssessment = useCallback((data) => {
       }
 
       if (isEdit) {
-        // Update existing assessment
         await onUpdate({ ...baseData, ...contentData });
       } else {
-        // Create new assessment with auto-incremented ID
         const collectionName = type === "literacy" ? "literacy" : "numeracy";
         const snapshot = await getDocs(collection(db, collectionName));
         let maxId = -1;
@@ -348,25 +428,26 @@ const populateFromAssessment = useCallback((data) => {
     }));
   };
 
-const addWrongChoice = (sIdx, qIdx) => {
-  setStories(prev => prev.map((s, i) => i !== sIdx ? s : {
-    ...s,
-    questions: s.questions.map((q, j) => j !== qIdx ? q : {
-      ...q,
-      wrong_choices: [...(q.wrong_choices || []), ""],
-    }),
-  }));
-};
+  const addWrongChoice = (sIdx, qIdx) => {
+    setStories(prev => prev.map((s, i) => i !== sIdx ? s : {
+      ...s,
+      questions: s.questions.map((q, j) => j !== qIdx ? q : {
+        ...q,
+        wrong_choices: [...(q.wrong_choices || []), ""],
+      }),
+    }));
+  };
 
-const removeWrongChoice = (sIdx, qIdx, wIdx) => {
-  setStories(prev => prev.map((s, i) => i !== sIdx ? s : {
-    ...s,
-    questions: s.questions.map((q, j) => j !== qIdx ? q : {
-      ...q,
-      wrong_choices: (q.wrong_choices || []).filter((_, k) => k !== wIdx),
-    }),
-  }));
-};
+  const removeWrongChoice = (sIdx, qIdx, wIdx) => {
+    setStories(prev => prev.map((s, i) => i !== sIdx ? s : {
+      ...s,
+      questions: s.questions.map((q, j) => j !== qIdx ? q : {
+        ...q,
+        wrong_choices: (q.wrong_choices || []).filter((_, k) => k !== wIdx),
+      }),
+    }));
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
@@ -394,7 +475,7 @@ const removeWrongChoice = (sIdx, qIdx, wIdx) => {
           </button>
         </div>
 
-        {/* Progress bar (hide if edit mode? optional but keep for consistency) */}
+        {/* Progress bar */}
         {!isEdit && (
           <div className="flex gap-1 px-6 pt-4">
             {[1, 2, 3].map(s => (
@@ -413,7 +494,7 @@ const removeWrongChoice = (sIdx, qIdx, wIdx) => {
             </div>
           )}
 
-          {/* Step 1: Type (skipped in edit mode) */}
+          {/* Step 1: Type (skipped in edit) */}
           {step === 1 && !isEdit && (
             <div className="space-y-4">
               <p className="text-gray-300 mb-6">Select the type of assessment you want to create.</p>
@@ -730,10 +811,17 @@ const removeWrongChoice = (sIdx, qIdx, wIdx) => {
                 <button onClick={() => setNumberRecognitionList([...numberRecognitionList, ""])} className="mt-2 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">{Icons.plus} Add number</button>
               </ContentSection>
 
-              <MathSection title="Addition Problems"       icon={Icons.math} items={additions}       setItems={setAdditions}       operator="+" />
-              <MathSection title="Subtraction Problems"    icon={Icons.math} items={subtractions}    setItems={setSubtractions}    operator="-" />
-              <MathSection title="Multiplication Problems" icon={Icons.math} items={multiplications} setItems={setMultiplications} operator="×" />
-              <MathSection title="Division Problems"       icon={Icons.math} items={divisions}       setItems={setDivisions}       operator="÷" />
+              <MathSection title="Addition Problems"       icon={Icons.math} items={additions}       setItems={setAdditions}       operator="+" operationType="ADDITION" />
+              <MathSection title="Subtraction Problems"    icon={Icons.math} items={subtractions}    setItems={setSubtractions}    operator="-" operationType="SUBTRACTION" />
+              <MathSection title="Multiplication Problems" icon={Icons.math} items={multiplications} setItems={setMultiplications} operator="×" operationType="MULTIPLICATION" />
+              <MathSection title="Division Problems"       icon={Icons.math} items={divisions}       setItems={setDivisions}       operator="÷" operationType="DIVISION" />
+
+              <GreaterThanSection
+                title="Which one is greater?"
+                icon={Icons.number}
+                items={greaterThanProblems}
+                setItems={setGreaterThanProblems}
+              />
 
               <ContentSection title="Word Problems" icon={Icons.question} description="Math problems presented as stories">
                 <div className="space-y-3">
@@ -795,6 +883,7 @@ const removeWrongChoice = (sIdx, qIdx, wIdx) => {
   );
 }
 
+// Helper components
 function ContentSection({ title, icon, description, children }) {
   return (
     <div className="bg-background-light rounded-xl border border-gray-700/50 p-4">
@@ -808,31 +897,131 @@ function ContentSection({ title, icon, description, children }) {
   );
 }
 
-function MathSection({ title, icon, items, setItems, operator }) {
+// ── MathSection with auto-calculated answer ──
+function MathSection({ title, icon, items, setItems, operator, operationType }) {
+  const getOperatorSymbol = () => {
+    switch (operator) {
+      case "+": return "+";
+      case "-": return "-";
+      case "×": return "×";
+      case "÷": return "÷";
+      default: return "?";
+    }
+  };
+
+  // Update a field and, if it's firstNumber or secondNumber, recalculate the answer
+  const handleFieldChange = (idx, field, value) => {
+    setItems(prev => {
+      const updated = [...prev];
+      const item = { ...updated[idx], [field]: value };
+
+      if (field === "firstNumber" || field === "secondNumber") {
+        const first  = field === "firstNumber"  ? value : item.firstNumber;
+        const second = field === "secondNumber" ? value : item.secondNumber;
+        const auto   = computeAnswer(first, second, operationType);
+        item.answer  = auto;
+      }
+
+      updated[idx] = item;
+      return updated;
+    });
+  };
+
   return (
-    <ContentSection title={title} icon={icon} description={`Enter two numbers for each ${title.toLowerCase()}`}>
+    <ContentSection title={title} icon={icon} description="Enter two numbers — the answer is calculated automatically">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {items.map((item, idx) => (
-          <div key={idx} className="flex items-center gap-2 bg-background rounded-xl border border-gray-700 p-3">
-            <input type="number" value={item.firstNumber || ""} placeholder="0"
-              onChange={e => { const n = [...items]; n[idx].firstNumber = e.target.value; setItems(n); }}
+          <div key={idx} className="flex flex-wrap items-center gap-2 bg-background rounded-xl border border-gray-700 p-3">
+            <input
+              type="number"
+              value={item.firstNumber || ""}
+              placeholder="First"
+              onChange={e => handleFieldChange(idx, "firstNumber", e.target.value)}
               className="w-16 bg-background-lighter border border-gray-600 rounded-lg px-2 py-1.5 text-center text-sm font-bold focus:border-primary-2 focus:outline-none"
             />
-            <span className="text-primary-3 font-bold text-lg">{operator}</span>
-            <input type="number" value={item.secondNumber || ""} placeholder="0"
-              onChange={e => { const n = [...items]; n[idx].secondNumber = e.target.value; setItems(n); }}
+            <span className="text-primary-3 font-bold text-lg">{getOperatorSymbol()}</span>
+            <input
+              type="number"
+              value={item.secondNumber || ""}
+              placeholder="Second"
+              onChange={e => handleFieldChange(idx, "secondNumber", e.target.value)}
               className="w-16 bg-background-lighter border border-gray-600 rounded-lg px-2 py-1.5 text-center text-sm font-bold focus:border-primary-2 focus:outline-none"
             />
             <span className="text-gray-500 font-bold text-lg">=</span>
-            <span className="text-gray-600 font-bold text-lg">?</span>
+            {/* Answer: read-only with auto-calculated value, styled to show it's computed */}
+            <div className="relative">
+              <input
+                type="number"
+                value={item.answer || ""}
+                readOnly
+                tabIndex={-1}
+                placeholder="Auto"
+                className="w-16 bg-primary-2/10 border border-primary-2/40 rounded-lg px-2 py-1.5 text-center text-sm font-bold text-primary-2 cursor-default focus:outline-none select-none"
+              />
+              {item.answer !== "" && (
+                <span className="absolute -top-2 -right-1 text-[9px] font-semibold text-primary-2/70 bg-background px-0.5 rounded leading-none pointer-events-none">
+                  auto
+                </span>
+              )}
+            </div>
             <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="ml-auto p-1.5 text-gray-500 hover:text-red-400 transition">
               {Icons.trash}
             </button>
           </div>
         ))}
       </div>
-      <button onClick={() => setItems([...items, { firstNumber: "", secondNumber: "" }])} className="mt-3 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">
+      <button onClick={() => setItems([...items, { firstNumber: "", secondNumber: "", answer: "" }])} className="mt-3 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition">
         {Icons.plus} Add problem
+      </button>
+    </ContentSection>
+  );
+}
+
+function GreaterThanSection({ title, icon, items, setItems }) {
+  return (
+    <ContentSection title={title} icon={icon} description="Compare two numbers – choose the greater one">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {items.map((item, idx) => (
+          <div key={idx} className="flex items-center gap-2 bg-background rounded-xl border border-gray-700 p-3">
+            <input
+              type="number"
+              value={item.firstNumber || ""}
+              placeholder="First number"
+              onChange={e => {
+                const n = [...items];
+                n[idx] = { ...n[idx], firstNumber: e.target.value };
+                setItems(n);
+              }}
+              className="w-20 bg-background-lighter border border-gray-600 rounded-lg px-2 py-1.5 text-center text-sm font-bold focus:border-primary-2 focus:outline-none"
+            />
+            <span className="text-primary-3 font-bold text-lg">❓</span>
+            <span className="text-gray-400 text-sm">greater than</span>
+            <span className="text-primary-3 font-bold text-lg">❓</span>
+            <input
+              type="number"
+              value={item.secondNumber || ""}
+              placeholder="Second number"
+              onChange={e => {
+                const n = [...items];
+                n[idx] = { ...n[idx], secondNumber: e.target.value };
+                setItems(n);
+              }}
+              className="w-20 bg-background-lighter border border-gray-600 rounded-lg px-2 py-1.5 text-center text-sm font-bold focus:border-primary-2 focus:outline-none"
+            />
+            <button
+              onClick={() => setItems(items.filter((_, i) => i !== idx))}
+              className="ml-auto p-1.5 text-gray-500 hover:text-red-400 transition"
+            >
+              {Icons.trash}
+            </button>
+          </div>
+        ))}
+      </div>
+      <button
+        onClick={() => setItems([...items, { firstNumber: "", secondNumber: "" }])}
+        className="mt-3 text-sm text-primary-2 hover:text-primary-3 flex items-center gap-1 transition"
+      >
+        {Icons.plus} Add comparison
       </button>
     </ContentSection>
   );
