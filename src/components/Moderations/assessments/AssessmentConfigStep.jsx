@@ -125,11 +125,12 @@ export default function AssessmentConfigStep({
   handleLevelChange,
   nextAssessment,
   prevAssessment,
-  // ── new props ──
   selectedLetters,
   selectedWords,
   toggleLetter,
   toggleWord,
+  createWithoutStudents,        // NEW
+  setCreateWithoutStudents,      // NEW
 }) {
   const [showFullViewer, setShowFullViewer] = useState(false);
 
@@ -313,6 +314,27 @@ export default function AssessmentConfigStep({
                 <span className="text-sm font-medium text-foreground group-hover:text-primary-2 transition-colors">
                   Select All
                 </span>
+              </label>
+            </div>
+
+            {/* NEW: Toggle for creating empty assessments */}
+            <div className="flex items-center justify-between p-4 bg-primary-2/10 rounded-xl border border-primary-2/30">
+              <div className="flex items-center space-x-3">
+                <svg className="w-5 h-5 text-primary-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <span className="text-sm text-foreground">Create empty assessments (no students)</span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={createWithoutStudents}
+                  onChange={(e) => setCreateWithoutStudents(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:bg-primary-2 peer-focus:ring-2 peer-focus:ring-primary-2 transition-all">
+                  <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${createWithoutStudents ? 'translate-x-5' : ''}`} />
+                </div>
               </label>
             </div>
 
@@ -504,7 +526,6 @@ export default function AssessmentConfigStep({
             <span className="text-secondary-2 font-semibold">5 words</span> to include in this assessment.
             These will be saved as the assessment content for the selected schools.
           </p>
-
 
           {/* Letters */}
           {(currentAssessment.letters?.length ?? 0) > 5 && (

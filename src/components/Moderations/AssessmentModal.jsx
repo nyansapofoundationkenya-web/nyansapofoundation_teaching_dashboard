@@ -42,6 +42,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
   const [maxAssessmentNumber, setMaxAssessmentNumber] = useState(0);
   const [step, setStep] = useState(1);
   const [noContentAvailable, setNoContentAvailable] = useState(false);
+  const [createWithoutStudents, setCreateWithoutStudents] = useState(false); // NEW
 
   // ── Letter / word selection state (max 5 each) ────────────────
   const [selectedLetters, setSelectedLetters] = useState([]);
@@ -307,10 +308,6 @@ export default function AssessmentModal({ organizationId, onClose }) {
   };
 
   // ── Build the assessment_content document ─────────────────────
-  // For Literacy:
-  //   - letters/words with > 5 items → save only the user's selection
-  //   - letters/words with ≤ 5 items → save all of them as-is
-  // For Numeracy: full content as-is
   const buildAssessmentContent = () => {
     if (!currentAssessment) return {};
 
@@ -325,7 +322,6 @@ export default function AssessmentModal({ organizationId, onClose }) {
       };
     }
 
-    // Numeracy — save everything unchanged
     return { ...currentAssessment };
   };
 
@@ -421,12 +417,12 @@ export default function AssessmentModal({ organizationId, onClose }) {
         return;
       }
 
-      // ── Schools without students confirmation ───────────────────
+      // ── Schools without students confirmation (skip if createWithoutStudents) ──
       const schoolsWithoutStudents = formData.schoolIds.filter(
         (schoolId) => !students[schoolId] || students[schoolId].length === 0
       );
 
-      if (schoolsWithoutStudents.length > 0) {
+      if (!createWithoutStudents && schoolsWithoutStudents.length > 0) {
         const schoolNamesWithoutStudents = schoolsWithoutStudents
           .map((id) => schools.find((s) => s.id === id)?.name || id)
           .join(", ");
@@ -464,24 +460,31 @@ export default function AssessmentModal({ organizationId, onClose }) {
         }
 
         const schoolStuds = students[schoolId] || [];
-        const assignedStudents = schoolStuds.map((student) => ({
-          assessment_status: "not_started",
-          baseline: "",
-          completed_assessment: false,
-          first_name: student.first_name || "",
-          grade: Number(student.grade) || 0,
-          group: student.group || "",
-          has_done: false,
-          id: student.id,
-          last_name: student.last_name || "",
-          name: `${student.first_name || ""} ${student.last_name || ""}`.trim(),
-          sex: student.sex || "",
-        }));
+        let assignedStudents = [];
+
+        if (createWithoutStudents) {
+          // Explicitly create empty assessment – no students
+          assignedStudents = [];
+          emptySchools.push(school.name);
+        } else {
+          assignedStudents = schoolStuds.map((student) => ({
+            assessment_status: "not_started",
+            baseline: "",
+            completed_assessment: false,
+            first_name: student.first_name || "",
+            grade: Number(student.grade) || 0,
+            group: student.group || "",
+            has_done: false,
+            id: student.id,
+            last_name: student.last_name || "",
+            name: `${student.first_name || ""} ${student.last_name || ""}`.trim(),
+            sex: student.sex || "",
+          }));
+          if (schoolStuds.length === 0) emptySchools.push(school.name);
+        }
 
         const assessmentId = uuidv4();
         const assessmentName = generateAssessmentName(school.name);
-
-        if (schoolStuds.length === 0) emptySchools.push(school.name);
 
         const assessmentData = {
           created_at: new Date().toISOString(),
@@ -503,7 +506,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
           calculation_type: currentAssessment?.name
             ? currentAssessment.name.toLowerCase()
             : "",
-          has_students: schoolStuds.length > 0,
+          has_students: assignedStudents.length > 0,
           ...(currentAssessment?.language
             ? { language: currentAssessment.language }
             : {}),
@@ -530,9 +533,9 @@ export default function AssessmentModal({ organizationId, onClose }) {
               }
             );
 
-            // ── Save student results ─────────────────────────────
-            if (schoolStuds.length > 0) {
-              const resultsPromises = schoolStuds.map((student) => {
+            // ── Save student results (only if there are students) ─
+            if (assignedStudents.length > 0) {
+              const resultsPromises = assignedStudents.map((student) => {
                 const resultId = `${assessmentId}_${student.id}`;
                 return setDoc(
                   doc(db, "assessments", assessmentId, "assessments-results", resultId),
@@ -578,6 +581,9 @@ export default function AssessmentModal({ organizationId, onClose }) {
       let successMessage = `✅ Assessments created successfully!\n\nCreated ${createdAssessments.length} assessments:\n${createdAssessments.join(", ")}`;
       if (emptySchools.length > 0) {
         successMessage += `\n\n⚠️ ${emptySchools.length} schools had no students:\n${emptySchools.join(", ")}\nYou can add students later.`;
+      }
+      if (createWithoutStudents) {
+        successMessage += `\n\n🔘 Created empty assessments (no students) as requested.`;
       }
 
       alert(successMessage);
@@ -659,11 +665,13 @@ export default function AssessmentModal({ organizationId, onClose }) {
                 handleLevelChange={handleLevelChange}
                 nextAssessment={nextAssessment}
                 prevAssessment={prevAssessment}
-                // ── new props ──
                 selectedLetters={selectedLetters}
                 selectedWords={selectedWords}
                 toggleLetter={toggleLetter}
                 toggleWord={toggleWord}
+                // NEW props for empty assessment toggle
+                createWithoutStudents={createWithoutStudents}
+                setCreateWithoutStudents={setCreateWithoutStudents}
               />
             )}
           </form>
