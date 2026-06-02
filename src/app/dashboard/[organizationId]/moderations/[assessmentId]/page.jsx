@@ -14,6 +14,9 @@ import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
 import { ArrowLeft, RotateCw, Clock, FileText } from "lucide-react";
 
+const REPROCESS_API_URL = process.env.NEXT_PUBLIC_REPROCESS_API_URL;
+const REPROCESS_SECRET  = process.env.NEXT_PUBLIC_PROCESS_SECRET;
+
 export default function AssessmentDetailsPage() {
   const { organizationId, assessmentId } = useParams();
   const router = useRouter();
@@ -84,27 +87,40 @@ export default function AssessmentDetailsPage() {
       !confirm(
         "Are you sure you want to reprocess this assessment? This will recalculate all student results."
       )
-    ) return;
+    )
+      return;
+
+    // Guard: env vars must be configured
+    if (!REPROCESS_API_URL || !REPROCESS_SECRET) {
+      setReprocessMessage({
+        type: "error",
+        text: "Reprocessing is not configured. Missing API URL or secret.",
+      });
+      return;
+    }
 
     setIsReprocessing(true);
     setReprocessMessage(null);
 
     try {
-      const response = await fetch(
-        "https://us-east1-nyansapoai-v2.cloudfunctions.net/reprocess_assessment",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ assessmentId }),
-        }
-      );
+      const response = await fetch(REPROCESS_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assessmentId,
+          secret: REPROCESS_SECRET,
+        }),
+      });
 
       if (!response.ok) {
         const errorData = await response.text();
         throw new Error(errorData || "Failed to reprocess assessment");
       }
 
-      setReprocessMessage({ type: "success", text: "Assessment reprocessed successfully!" });
+      setReprocessMessage({
+        type: "success",
+        text: "Assessment reprocessed successfully!",
+      });
       setTimeout(() => window.location.reload(), 2000);
     } catch (err) {
       console.error("Reprocess error:", err);
@@ -179,7 +195,7 @@ export default function AssessmentDetailsPage() {
         {/* Header */}
         <div className="bg-background-light border-b border-gray-600 px-6 py-4 rounded-2xl shadow-lg">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            {/* Left — back + title */}
+            {/* Left -- back + title */}
             <div className="flex flex-col">
               <div
                 onClick={() => router.push(backUrl)}
@@ -192,7 +208,7 @@ export default function AssessmentDetailsPage() {
               <p className="text-sm text-gray-400 mt-1">{displayAssessmentType} Assessment</p>
             </div>
 
-            {/* Right — action buttons */}
+            {/* Right -- action buttons */}
             <div className="flex flex-wrap items-center gap-3">
               {/* View Assessment Content */}
               <button
@@ -212,7 +228,7 @@ export default function AssessmentDetailsPage() {
                 View Duration Stats
               </button>
 
-              {/* Reprocess — super_admin only */}
+              {/* Reprocess -- super_admin only */}
               {userRole === "super_admin" && (
                 <button
                   onClick={handleReprocessAssessment}
