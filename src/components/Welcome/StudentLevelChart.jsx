@@ -229,7 +229,8 @@ export default function StudentLevelsChart({
             </BarChart>
           </ResponsiveContainer>
 
-          {(error || !chartData || chartData.length === 0) && (
+          {/* FIX: Show overlay only when error exists AND there is no data */}
+          {(error && (!chartData || chartData.length === 0)) && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="bg-background-lighter/90 rounded-lg p-4 text-center max-w-md">
                 {error ? (
