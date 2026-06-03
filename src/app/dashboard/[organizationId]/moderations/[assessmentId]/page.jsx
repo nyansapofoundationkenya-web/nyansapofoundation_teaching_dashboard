@@ -56,6 +56,14 @@ export default function AssessmentDetailsPage() {
     fetchAssessment();
   }, [assessmentId]);
 
+  // Handler to update students after duplicates are deleted
+  const handleStudentsUpdate = (updatedStudents) => {
+    setAssessment((prev) => ({
+      ...prev,
+      assigned_students: updatedStudents,
+    }));
+  };
+
   const handleSearchChange = (q) => setSearchQuery(q);
   const handleGradeFilterChange = (g) => setGradeFilter(g);
 
@@ -288,6 +296,7 @@ export default function AssessmentDetailsPage() {
               students={filteredStudents}
               organizationId={organizationId}
               assessmentId={assessmentId}
+              onStudentsUpdate={handleStudentsUpdate}
             />
           ) : (
             <div className="text-center py-8 text-gray-400">
