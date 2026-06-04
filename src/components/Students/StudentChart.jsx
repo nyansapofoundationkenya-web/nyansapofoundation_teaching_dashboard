@@ -9,7 +9,7 @@ import {
   Tooltip,
   Legend
 } from "chart.js"
-import { Lock, ShieldCheck } from "lucide-react"
+import { ShieldCheck, Info } from "lucide-react"
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -131,6 +131,8 @@ export default function StudentChart({
       borderWidth: 1,
       borderRadius: 8,
       barPercentage: 0.35,
+      // Optional: add opacity if not verified
+      ...(!isVerified && { backgroundColor: "#5aa2ce80" }), // 50% opacity
     }],
   }
 
@@ -183,29 +185,28 @@ export default function StudentChart({
     },
   }
 
-  // If not verified, show placeholder
-  if (!isVerified) {
-    return (
-      <div className="w-full h-[300px] flex flex-col items-center justify-center bg-gray-800/30 rounded-lg border border-dashed border-gray-600">
-        <div className="bg-gray-700/50 rounded-full p-4 mb-4">
-          <Lock size={48} className="text-gray-400" />
-        </div>
-        <p className="text-gray-400 font-medium mb-2">Baseline Progress Locked</p>
-        <p className="text-gray-500 text-sm text-center max-w-[200px]">
-          Confirm assessment results to view baseline progress chart
-        </p>
-        <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
-          <ShieldCheck size={14} />
-          <span>Results pending verification</span>
-        </div>
-      </div>
-    )
-  }
-
-  // Show actual chart when verified
+  // Show chart always, but with verification status indicator
   return (
-    <div className="w-full h-[300px]">
-      <Bar data={data} options={options} />
+    <div className="relative w-full h-[300px]">
+      <div className="w-full h-full">
+        <Bar data={data} options={options} />
+      </div>
+      
+      {/* Status indicator overlay - non-intrusive */}
+      {/* {!isVerified && (
+        <div className="absolute top-2 right-2 flex items-center gap-2 bg-gray-900/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-yellow-500/30">
+          <Info size={14} className="text-yellow-400" />
+          <span className="text-xs text-yellow-400">Baseline shown - results pending verification</span>
+        </div>
+      )} */}
+      
+      {/* Optional: Add a subtle note below the chart */}
+      {/* {!isVerified && (
+        <div className="mt-3 flex items-center justify-center gap-2 text-xs text-gray-400">
+          <ShieldCheck size={12} />
+          <span>Awaiting result confirmation - baseline level displayed</span>
+        </div>
+      )} */}
     </div>
   )
 }

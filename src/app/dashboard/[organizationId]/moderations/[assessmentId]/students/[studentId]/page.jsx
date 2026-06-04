@@ -9,7 +9,7 @@ import InsightsModal from "@/components/Moderations/InsightsModal";
 import DashboardLayout from "@/app/dashboard/[organizationId]/DashboardLayout";
 import { db } from "@/firebase/config";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { ArrowLeft, User, CheckCircle, Lightbulb, AlertTriangle, Loader2, Clock, ShieldCheck, MessageSquare } from "lucide-react";
+import { ArrowLeft, User, CheckCircle, Lightbulb, AlertTriangle, Loader2, Clock, ShieldCheck, MessageSquare, X } from "lucide-react";
 
 export default function StudentDetailsPage() {
   const { organizationId, assessmentId, studentId } = useParams();
@@ -30,6 +30,9 @@ export default function StudentDetailsPage() {
   const [flaggedCount, setFlaggedCount]             = useState(0);
   const [hasResults, setHasResults]                 = useState(false);
   const [hasAnswers, setHasAnswers]                 = useState(false);
+  
+  // New state for confirmation modal
+  const [showConfirmModal, setShowConfirmModal]     = useState(false);
 
   const router = useRouter();
 
@@ -126,7 +129,7 @@ export default function StudentDetailsPage() {
     if (organizationId && assessmentId && studentId) fetchData();
   }, [organizationId, assessmentId, studentId]);
 
-  // Confirm results
+  // Modified confirm results function - now just handles the actual confirmation
   const handleConfirmResults = async () => {
     try {
       setVerifying(true);
@@ -142,11 +145,27 @@ export default function StudentDetailsPage() {
 
       setIsVerified(true);
       setError(null);
+      setShowConfirmModal(false); // Close modal on success
     } catch (err) {
       console.error("Error confirming results:", err);
       setError("Failed to confirm results. Please try again.");
     } finally {
       setVerifying(false);
+    }
+  };
+
+  // New function to open the confirmation modal
+  const handleConfirmClick = () => {
+    setShowConfirmModal(true);
+  };
+
+  // Function to go to moderation
+  const handleGoToModeration = () => {
+    setShowConfirmModal(false);
+    // Scroll to or highlight the flagged items section
+    const flaggedSection = document.getElementById('flagged-items-section');
+    if (flaggedSection) {
+      flaggedSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
@@ -320,9 +339,9 @@ export default function StudentDetailsPage() {
   const backUrl         = `/dashboard/${organizationId}/moderations/${assessmentId}`;
   const hasPendingFlags = flaggedCount > 0;
 
+  // Updated: Only disable for missing results/answers, not for flags
   const isConfirmDisabled = verifying || 
                            !isFlaggingComplete || 
-                           hasPendingFlags || 
                            !hasResults || 
                            !hasAnswers;
 
@@ -341,7 +360,10 @@ export default function StudentDetailsPage() {
 
   const getStatusMessage = () => {
     if (hasPendingFlags) {
-      return `${flaggedCount} flagged item${flaggedCount > 1 ? "s" : ""} need${flaggedCount === 1 ? "s" : ""} moderation`;
+      return `${flaggedCount} flagged item${flaggedCount > 1 ? "s" : ""} need${flaggedCount === 1 ? "s" : ""} review`;
+    }
+    if (!hasAnswers) {
+      return "Student has not answered any questions yet";
     }
     return "Student has not done the assessment/data has not uploaded yet";
   };
@@ -439,7 +461,7 @@ export default function StudentDetailsPage() {
               <div className="flex flex-col items-end gap-3">
                 {showConfirmButton && (
                   <>
-                    {/* Orange Warning Box - Shows for flags OR no answers */}
+                    {/* Warning Box - Shows for flags OR no answers */}
                     {(hasPendingFlags || !hasAnswers) && isFlaggingComplete && (
                       <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm max-w-[280px]"
                            style={{ 
@@ -454,9 +476,9 @@ export default function StudentDetailsPage() {
                       </div>
                     )}
 
-                    {/* Confirm Button */}
+                    {/* Confirm Button - now enabled even with flags */}
                     <button
-                      onClick={handleConfirmResults}
+                      onClick={handleConfirmClick}
                       disabled={isConfirmDisabled}
                       className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-colors ${
                         isConfirmDisabled
@@ -513,7 +535,7 @@ export default function StudentDetailsPage() {
               </div>
 
               {/* Pass the new callback to detect real answers */}
-              <div className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
+              <div id="flagged-items-section" className="bg-background-light rounded-2xl shadow-lg p-6 border border-gray-600">
                 <StudentAssessmentResults
                   assessmentId={assessmentId}
                   studentId={studentId}
@@ -538,6 +560,78 @@ export default function StudentDetailsPage() {
           )}
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-background-light rounded-xl shadow-2xl max-w-md w-full mx-4 border border-gray-600">
+            <div className="flex justify-between items-center p-6 border-b border-gray-600">
+              <h3 className="text-xl font-semibold text-foreground flex items-center gap-2">
+                <AlertTriangle size={24} className="text-yellow-500" />
+                Confirm Results
+              </h3>
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="text-gray-400 hover:text-white transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              {hasPendingFlags ? (
+                <>
+                  <p className="text-foreground">
+                    There {flaggedCount === 1 ? "is" : "are"} <span className="font-bold text-yellow-500">{flaggedCount}</span> flagged item{flaggedCount > 1 ? "s" : ""} that {flaggedCount === 1 ? "requires" : "require"} review.
+                  </p>
+                  <p className="text-gray-300">
+                    Confirming results now will mark this assessment as verified despite the flagged items.
+                  </p>
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                    <p className="text-sm text-yellow-400">
+                      <strong>Recommendation:</strong> Review and address flagged items before confirming for best assessment accuracy.
+                    </p>
+                  </div>
+                </>
+              ) : !hasAnswers ? (
+                <>
+                  <p className="text-foreground">
+                    This student hasn't answered any questions yet.
+                  </p>
+                  <p className="text-gray-300">
+                    Confirming results now will mark this assessment as verified with no answers recorded.
+                  </p>
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                    <p className="text-sm text-yellow-400">
+                      <strong>Note:</strong> No answers have been submitted for this assessment.
+                    </p>
+                  </div>
+                </>
+              ) : null}
+              
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={handleGoToModeration}
+                  className="flex-1 px-4 py-2 rounded-lg font-medium transition-colors bg-yellow-600 hover:bg-yellow-700 text-white"
+                >
+                  Go to Moderation
+                </button>
+                <button
+                  onClick={handleConfirmResults}
+                  disabled={verifying}
+                  className="flex-1 px-4 py-2 rounded-lg font-medium transition-colors bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {verifying ? (
+                    <><Loader2 size={18} className="animate-spin inline mr-2" /> Confirming...</>
+                  ) : (
+                    "Confirm Anyway"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <InsightsModal
         isOpen={showInsightsModal}
