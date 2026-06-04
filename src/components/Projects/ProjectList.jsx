@@ -1,20 +1,11 @@
 "use client"
 
-import { useEffect } from "react"
-import { useProjects } from "@/hooks/UseProjects"
 import { useSelector } from "react-redux"
 import ProjectCard from "./ProjectCard"
 
-export default function ProjectList({ organizationId }) {
-  const { projects, fetchAllProjects, loading, error } = useProjects(organizationId)
+export default function ProjectList({ organizationId, projects = [], loading }) {
   const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth)
   const userRole = currentUser?.role
-
-  useEffect(() => {
-    if (organizationId) {
-      fetchAllProjects()
-    }
-  }, [organizationId])
 
   if (loading || userLoading) {
     return (
@@ -23,15 +14,6 @@ export default function ProjectList({ organizationId }) {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-3 mx-auto mb-2"></div>
           <p className="text-gray-300 text-sm">Loading projects...</p>
         </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 text-center">
-        <p className="text-red-400 font-medium text-sm">Error loading projects</p>
-        <p className="text-red-400/80 text-xs mt-1">{error}</p>
       </div>
     )
   }
@@ -60,9 +42,9 @@ export default function ProjectList({ organizationId }) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {projects.map((project) => (
-            <ProjectCard 
-              key={project.id} 
-              project={project} 
+            <ProjectCard
+              key={project.id}
+              project={project}
               organizationId={organizationId}
               userRole={userRole}
             />

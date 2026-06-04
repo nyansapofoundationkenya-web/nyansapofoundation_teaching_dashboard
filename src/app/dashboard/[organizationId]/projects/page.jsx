@@ -13,26 +13,28 @@ import { PlusIcon } from "@heroicons/react/24/outline";
 export default function OrganizationDashboardPage() {
   const { organizationId } = useParams();
   const { handleFetchOrganizationById } = useOrganizations();
-  const { projects, fetchAllProjects, addProjectManager, createProject } =
+
+  // ✅ Single hook instance — owns all project state
+  const { projects, loading, error, fetchAllProjects, addProjectManager, createProject } =
     useProjects(organizationId);
 
   const [organization, setOrganization] = useState(null);
   const [isManagerModalOpen, setIsManagerModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [createError, setCreateError] = useState(null); // ← new: surfaces hook errors
+  const [createError, setCreateError] = useState(null);
 
-  const { user: currentUser } = useSelector((state) => state.auth);
+  const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
   const isAdminOrSuperAdmin =
     currentUser?.role === "admin" || currentUser?.role === "super_admin";
 
+  // ✅ Wait for auth to rehydrate before fetching — fixes the refresh blank state
   useEffect(() => {
-    if (organizationId) {
-      handleFetchOrganizationById(organizationId).then(setOrganization);
-      fetchAllProjects();
-    }
-  }, [organizationId]);
+    if (!organizationId || userLoading || !currentUser) return;
 
-  // ── Create Project ────────────────────────────────────────────
+    handleFetchOrganizationById(organizationId).then(setOrganization);
+    fetchAllProjects();
+  }, [organizationId, currentUser, userLoading]);
+
   const projectFields = [
     {
       name: "name",
@@ -51,34 +53,27 @@ export default function OrganizationDashboardPage() {
   ];
 
   const handleCreateProject = async (data) => {
-    setCreateError(null); // clear any previous error
+    setCreateError(null);
     try {
+      // ✅ createProject does optimistic update inside the hook — list updates instantly
       await createProject(data);
       setIsCreateModalOpen(false);
+      // Background sync with Firestore
       fetchAllProjects();
     } catch (err) {
-      // Show the error message (duplicate name, validation, etc.) inside the modal
       setCreateError(err.message);
     }
   };
 
-  // Clear the error when the modal is closed
   const handleCloseCreateModal = () => {
     setIsCreateModalOpen(false);
     setCreateError(null);
   };
 
-  // ── Add Project Manager ───────────────────────────────────────
-  const handleAddProjectManager = async ({
-    name,
-    email,
-    phone,
-    selectedProjects,
-  }) => {
+  const handleAddProjectManager = async ({ name, email, phone, selectedProjects }) => {
     const selectedProjectIds = Array.isArray(selectedProjects)
       ? selectedProjects
       : [selectedProjects];
-
     await addProjectManager({ name, email, phone, selectedProjectIds });
     setIsManagerModalOpen(false);
   };
@@ -103,7 +98,6 @@ export default function OrganizationDashboardPage() {
     >
       <div className="min-h-screen text-foreground flex flex-col gap-4 p-4">
 
-        {/* Top bar */}
         <div className="flex justify-end items-center pb-2">
           {isAdminOrSuperAdmin && (
             <button
@@ -116,9 +110,13 @@ export default function OrganizationDashboardPage() {
           )}
         </div>
 
-        <ProjectList organizationId={organizationId} />
+        {/* ✅ Pass projects and loading from the single hook instance */}
+        <ProjectList
+          organizationId={organizationId}
+          projects={projects}
+          loading={loading || userLoading}
+        />
 
-        {/* Create Project Modal */}
         {isAdminOrSuperAdmin && (
           <Modal
             isOpen={isCreateModalOpen}
@@ -126,11 +124,10 @@ export default function OrganizationDashboardPage() {
             title="Create New Project"
             fields={projectFields}
             onSubmit={handleCreateProject}
-            submitError={createError} // ← passed down to show inside the modal
+            submitError={createError}
           />
         )}
 
-        {/* Add Project Manager Modal */}
         <Modal
           isOpen={isManagerModalOpen}
           onClose={() => setIsManagerModalOpen(false)}

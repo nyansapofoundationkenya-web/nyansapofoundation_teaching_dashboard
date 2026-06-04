@@ -1,113 +1,34 @@
 "use client"
-import { useState, useEffect } from "react"
+
 import { useSelector } from "react-redux"
-import { collection, getDocs, query, where, doc, deleteDoc } from "firebase/firestore"
+import { collection, getDocs, doc, deleteDoc } from "firebase/firestore"
 import { db, storage } from "@/firebase/config"
 import { ref, deleteObject } from "firebase/storage"
 import { Users, UserCheck, AlertCircle, Eye } from "lucide-react"
 import { useRouter } from "next/navigation"
 
-export default function AssessmentList({ organizationId, filters, searchQuery }) {
-  const [assessments, setAssessments] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+export default function AssessmentList({ 
+  organizationId, 
+  filters, 
+  searchQuery, 
+  assessments = [],   // ✅ received from parent
+  loading,            // ✅ received from parent
+  error,              // ✅ received from parent
+  onRefresh,          // ✅ called after delete to re-sync
+}) {
   const router = useRouter()
-  // Get user role from Redux
   const { user: currentUser } = useSelector((state) => state.auth)
   const userRole = currentUser?.role
 
-  useEffect(() => {
-    fetchAssessments()
-  }, [organizationId, filters.projectId, filters.schoolId, filters.type, filters.level])
-
-  const fetchAssessments = async () => {
-  try {
-    setLoading(true)
-    setError(null)
-
-    // super_admin & admin → fetch all assessments for the org
-    if (userRole === "super_admin" || userRole === "admin") {
-      let q = query(
-        collection(db, "assessments"),
-        where("organization_id", "==", organizationId)
-      )
-
-      if (filters.projectId) q = query(q, where("project_id", "==", filters.projectId))
-      if (filters.schoolId) q = query(q, where("school_id", "==", filters.schoolId))
-
-      const snapshot = await getDocs(q)
-      let assessmentsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-      assessmentsData.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-      setAssessments(assessmentsData)
-      return
-    }
-
-    // project_manager → only assessments in their assigned projects
-    if (userRole === "project_manager") {
-      const userOrg = (currentUser?.organizations || []).find((o) => o.id === organizationId)
-      const assignedProjectIds = (userOrg?.projects || []).map((p) => p.id ?? p)
-
-      if (!assignedProjectIds.length) { setAssessments([]); return }
-
-      let q = query(
-        collection(db, "assessments"),
-        where("organization_id", "==", organizationId)
-      )
-
-      if (filters.schoolId) q = query(q, where("school_id", "==", filters.schoolId))
-
-      const snapshot = await getDocs(q)
-      let assessmentsData = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(a => assignedProjectIds.includes(a.project_id)) // scope to assigned projects
-      
-      assessmentsData.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-      setAssessments(assessmentsData)
-      return
-    }
-
-    // school_head & teacher → only assessments for their assigned schools
-    const userOrg = (currentUser?.organizations || []).find((o) => o.id === organizationId)
-    const assignedProjectIds = (userOrg?.projects || []).map((p) => p.id ?? p)
-    const assignedSchoolIds = (userOrg?.projects || []).flatMap((p) =>
-      (p.schools || []).map((s) => s.id ?? s)
-    )
-
-    if (!assignedSchoolIds.length) { setAssessments([]); return }
-
-    let q = query(
-      collection(db, "assessments"),
-      where("organization_id", "==", organizationId)
-    )
-
-    const snapshot = await getDocs(q)
-    let assessmentsData = snapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() }))
-      .filter(a => assignedSchoolIds.includes(a.school_id)) // scope to assigned schools
-
-    assessmentsData.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-    setAssessments(assessmentsData)
-
-  } catch (err) {
-    console.error(err)
-    setError("Failed to load assessments")
-  } finally {
-    setLoading(false)
-  }
-}
-//  console.log(filters.projectId)
-  // Count students who have a valid baseline (no has_done check)
   const countDone = (students) => {
     if (!Array.isArray(students)) return 0
-    
     const validBaselines = [
       "beginner", "letter", "word", "paragraph", "story", "above",
       "non-reader", "reading-comprehension",
       "number_recognition","division","subtraction","addition","multiplication"
     ]
-
-    return students.filter(s => 
-      s.baseline && 
+    return students.filter(s =>
+      s.baseline &&
       validBaselines.includes(String(s.baseline).toLowerCase().trim())
     ).length
   }
@@ -136,6 +57,54 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
 
   const goTo = (id) => router.push(`/dashboard/${organizationId}/moderations/${id}`)
 
+  function extractFilePathFromUrl(url) {
+    try {
+      const urlObj = new URL(url)
+      const path = decodeURIComponent(urlObj.pathname)
+      const match = path.match(/\/v0\/b\/[^/]+\/o\/(.+)/)
+      return match?.[1] ?? null
+    } catch { return null }
+  }
+
+  const handleDelete = async (e, assessmentId) => {
+    e.stopPropagation()
+    if (!window.confirm("Are you sure you want to delete this assessment and all its data?")) return
+    try {
+      const resultsCol = collection(db, `assessments/${assessmentId}/assessments-results`)
+      const resultsSnap = await getDocs(resultsCol)
+      const deletePromises = []
+
+      for (const docSnap of resultsSnap.docs) {
+        const resultData = docSnap.data()
+        const literacyResults = resultData.literacy_results?.reading_results || []
+        for (const res of literacyResults) {
+          const audioPath = extractFilePathFromUrl(res?.metadata?.audio_url)
+          const screenshotPath = extractFilePathFromUrl(res?.metadata?.screenshot_url)
+          if (audioPath) deletePromises.push(deleteObject(ref(storage, audioPath)))
+          if (screenshotPath) deletePromises.push(deleteObject(ref(storage, screenshotPath)))
+        }
+        const numeracyResults = resultData.numeracy_results || {}
+        Object.values(numeracyResults).forEach(sectionArr => {
+          ;(sectionArr || []).forEach(res => {
+            const audioPath = extractFilePathFromUrl(res?.metadata?.audio_url)
+            const screenshotPath = extractFilePathFromUrl(res?.metadata?.screenshot_url)
+            if (audioPath) deletePromises.push(deleteObject(ref(storage, audioPath)))
+            if (screenshotPath) deletePromises.push(deleteObject(ref(storage, screenshotPath)))
+          })
+        })
+        deletePromises.push(deleteDoc(docSnap.ref))
+      }
+
+      deletePromises.push(deleteDoc(doc(db, "assessments", assessmentId)))
+      await Promise.allSettled(deletePromises)
+
+      // ✅ Tell parent to refetch instead of mutating local state
+      onRefresh?.()
+    } catch (err) {
+      alert("Failed to delete assessment: " + err.message)
+    }
+  }
+
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -162,12 +131,10 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
           {error ? "Failed to load assessments" : "No assessments found"}
         </div>
         <div className="text-sm text-gray-500 max-w-md mx-auto">
-          {error
-            ? "Please try again."
-            : "No assessments match the current filters."}
+          {error ? "Please try again." : "No assessments match the current filters."}
         </div>
         {error && (
-          <button onClick={fetchAssessments} className="mt-4 text-primary-2 hover:underline text-sm">
+          <button onClick={onRefresh} className="mt-4 text-primary-2 hover:underline text-sm">
             Try again
           </button>
         )}
@@ -175,88 +142,19 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
     )
   }
 
-  // Delete assessment and related data
-  const handleDelete = async (e, assessmentId) => {
-    e.stopPropagation();
-    if (!window.confirm("Are you sure you want to delete this assessment and all its data?")) return;
-    try {
-      // 1. Delete all assessment-results subcollection
-      const resultsCol = collection(db, `assessments/${assessmentId}/assessments-results`);
-      const resultsSnap = await getDocs(resultsCol);
-      const deletePromises = [];
-      for (const docSnap of resultsSnap.docs) {
-        const resultData = docSnap.data();
-        // Delete audio and screenshot files if present (both literacy and numeracy)
-        const literacyResults = resultData.literacy_results?.reading_results || [];
-        for (const res of literacyResults) {
-          const audioUrl = res?.metadata?.audio_url;
-          const screenshotUrl = res?.metadata?.screenshot_url;
-          if (audioUrl && audioUrl.includes('firebasestorage.googleapis.com')) {
-            const filePath = extractFilePathFromUrl(audioUrl);
-            if (filePath) deletePromises.push(deleteObject(ref(storage, filePath)));
-          }
-          if (screenshotUrl && screenshotUrl.includes('firebasestorage.googleapis.com')) {
-            const filePath = extractFilePathFromUrl(screenshotUrl);
-            if (filePath) deletePromises.push(deleteObject(ref(storage, filePath)));
-          }
-        }
-        const numeracyResults = resultData.numeracy_results || {};
-        Object.values(numeracyResults).forEach(sectionArr => {
-          (sectionArr || []).forEach(res => {
-            const audioUrl = res?.metadata?.audio_url;
-            const screenshotUrl = res?.metadata?.screenshot_url;
-            if (audioUrl && audioUrl.includes('firebasestorage.googleapis.com')) {
-              const filePath = extractFilePathFromUrl(audioUrl);
-              if (filePath) deletePromises.push(deleteObject(ref(storage, filePath)));
-            }
-            if (screenshotUrl && screenshotUrl.includes('firebasestorage.googleapis.com')) {
-              const filePath = extractFilePathFromUrl(screenshotUrl);
-              if (filePath) deletePromises.push(deleteObject(ref(storage, filePath)));
-            }
-          });
-        });
-        // Delete the result document
-        deletePromises.push(deleteDoc(docSnap.ref));
-      }
-      // 2. Delete the assessment document itself
-      deletePromises.push(deleteDoc(doc(db, "assessments", assessmentId)));
-      // 3. Wait for all deletions
-      await Promise.allSettled(deletePromises);
-      // 4. Refresh list
-      setAssessments(prev => prev.filter(a => a.id !== assessmentId));
-    } catch (err) {
-      alert("Failed to delete assessment: " + err.message);
-    }
-  };
-
-  // Helper to extract Firebase Storage file path from URL
-  function extractFilePathFromUrl(url) {
-    try {
-      const urlObj = new URL(url);
-      const path = decodeURIComponent(urlObj.pathname);
-      const match = path.match(/\/v0\/b\/[^/]+\/o\/(.+)/);
-      if (match && match[1]) {
-        return match[1];
-      }
-      return null;
-    } catch (error) {
-      return null;
-    }
-  }
-
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {filtered.map((assessment) => {
-        const total = assessment.assigned_students?.length || 0;
-        const done = countDone(assessment.assigned_students);
-        const remaining = total - done;
-        const status = assessment.status || "not_started";
+        const total = assessment.assigned_students?.length || 0
+        const done = countDone(assessment.assigned_students)
+        const remaining = total - done
+        const status = assessment.status || "not_started"
         const statusConfig = {
           not_started: { color: "bg-gray-500/20 text-gray-300 border-gray-500/30", label: "Not Started" },
           ongoing: { color: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30", label: "Ongoing" },
-          completed: { color: "bg-green-500/20 text-green-300 border-green-500/30", label: "Completed" }
-        };
-        const currentStatus = statusConfig[status] || statusConfig.not_started;
+          completed: { color: "bg-green-500/20 text-green-300 border-green-500/30", label: "Completed" },
+        }
+        const currentStatus = statusConfig[status] || statusConfig.not_started
 
         return (
           <div
@@ -269,12 +167,10 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
                 <h3 className="text-xl font-semibold line-clamp-2 flex-1">
                   {safe(assessment.name) || "Untitled Assessment"}
                 </h3>
-                {/* Status Badge */}
                 <span className={`px-2.5 py-1 rounded-lg text-xs font-medium border whitespace-nowrap ml-2 ${currentStatus.color}`}>
                   {currentStatus.label}
                 </span>
-                {/* Delete Button - only for super_admin */}
-                {userRole === 'super_admin' && (
+                {userRole === "super_admin" && (
                   <button
                     onClick={(e) => handleDelete(e, assessment.id)}
                     className="ml-2 px-2 py-1 rounded bg-red-600 hover:bg-red-700 text-xs text-white font-bold shadow"
@@ -284,26 +180,21 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
                   </button>
                 )}
               </div>
-              {/* ...existing code... */}
+
               <div className="flex flex-wrap gap-2 mb-5">
                 {assessment.type && (
-                  <span className="px-3 py-1 bg-white/20 rounded-lg text-sm border border-white/30">
-                    {assessment.type}
-                  </span>
+                  <span className="px-3 py-1 bg-white/20 rounded-lg text-sm border border-white/30">{assessment.type}</span>
                 )}
                 {assessment.level && (
-                  <span className="px-3 py-1 bg-white/20 rounded-lg text-sm border border-white/30">
-                    {assessment.level}
-                  </span>
+                  <span className="px-3 py-1 bg-white/20 rounded-lg text-sm border border-white/30">{assessment.level}</span>
                 )}
               </div>
-              {/* ...existing code... */}
+
               <div className="space-y-3 text-sm mb-6">
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4" />
                   <span>{total} Assigned</span>
                 </div>
-                {/* ...existing code... */}
                 {done > 0 && (
                   <div className="flex items-center gap-2 text-green-300 font-medium">
                     <UserCheck className="w-4 h-4" />
@@ -334,12 +225,9 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
                   </div>
                 )}
               </div>
-              {/* ...existing code... */}
+
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  goTo(assessment.id);
-                }}
+                onClick={(e) => { e.stopPropagation(); goTo(assessment.id) }}
                 className="w-full bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
               >
                 <Eye className="w-4 h-4" />
@@ -347,8 +235,8 @@ export default function AssessmentList({ organizationId, filters, searchQuery })
               </button>
             </div>
           </div>
-        );
+        )
       })}
     </div>
-  );
+  )
 }
