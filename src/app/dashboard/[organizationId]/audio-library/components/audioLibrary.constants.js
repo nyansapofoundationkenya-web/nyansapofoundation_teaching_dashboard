@@ -6,7 +6,7 @@ export const BUCKET_FOLDERS = {
   literacy: "Nyansapo_Teaching_Literacy_Assessment_test_Audio",
 };
 
-export const PAGE_SIZE = 20;
+export const PAGE_SIZE = 100;
 
 export const RETRIGGER_URL =
   process.env.NEXT_PUBLIC_RETRIGGER_FUNCTION_URL || "";
