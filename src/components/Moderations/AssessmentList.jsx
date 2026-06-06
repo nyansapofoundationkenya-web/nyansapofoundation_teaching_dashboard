@@ -20,17 +20,10 @@ export default function AssessmentList({
   const { user: currentUser } = useSelector((state) => state.auth)
   const userRole = currentUser?.role
 
+  // ✅ UPDATED: count students who have "has_done === true"
   const countDone = (students) => {
     if (!Array.isArray(students)) return 0
-    const validBaselines = [
-      "beginner", "letter", "word", "paragraph", "story", "above",
-      "non-reader", "reading-comprehension",
-      "number_recognition","division","subtraction","addition","multiplication"
-    ]
-    return students.filter(s =>
-      s.baseline &&
-      validBaselines.includes(String(s.baseline).toLowerCase().trim())
-    ).length
+    return students.filter(s => s.has_done === true).length
   }
 
   const safe = (val) => val ? String(val) : ""
