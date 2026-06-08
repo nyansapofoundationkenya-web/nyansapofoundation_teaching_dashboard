@@ -6,6 +6,7 @@ import ActionMenu from "./ActionMenu";
 import RoleUpdateDropdown from "./RoleUpdateDropdown";
 import AssignmentDropdown from "./AssignmentDropdown";
 import { useRef } from "react";
+import { useRouter } from "next/navigation";
 
 export default function InstructorTableRow({ 
   instructor, 
@@ -32,9 +33,20 @@ export default function InstructorTableRow({
   canViewPins
 }) {
   const triggerButtonRef = useRef(null);
+  const router = useRouter();
+
+  const handleRowClick = () => {
+    // Only navigate if no action menu is open for this row
+    if (actionMenuOpen === instructor.uid || roleUpdateOpen === instructor.uid) return;
+    router.push(`/dashboard/${currentOrganizationId}/instructors/${instructor.uid}`);
+  };
 
   return (
-    <tr className="border-b border-gray-600 hover:bg-background-lighter/50">
+    <tr
+      className="border-b border-gray-600 hover:bg-background-lighter/50 cursor-pointer transition-colors"
+      onClick={handleRowClick}
+      title="View instructor details"
+    >
       <td className="px-4 py-3 text-sm font-medium text-foreground whitespace-nowrap">
         {instructor.name || 'N/A'}
       </td>
@@ -49,7 +61,7 @@ export default function InstructorTableRow({
       <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">
         {instructor.phone || <span className="text-gray-500 italic">N/A</span>}
       </td>
-      <td className="px-4 py-3 text-sm whitespace-nowrap">
+      <td className="px-4 py-3 text-sm whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2">
           {!canViewPins ? (
             <span className="text-xs text-gray-400">Restricted</span>
@@ -78,10 +90,10 @@ export default function InstructorTableRow({
           )}
         </div>
       </td>
-      <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">
+      <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
         <AssignmentDropdown instructor={instructor} />
       </td>
-      <td className="px-4 py-3 text-sm whitespace-nowrap">
+      <td className="px-4 py-3 text-sm whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-center">
           <button
             ref={triggerButtonRef}

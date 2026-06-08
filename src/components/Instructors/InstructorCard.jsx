@@ -1,6 +1,7 @@
 // components/Instructors/InstructorCard.jsx
 import { MoreVertical, Eye, EyeOff } from "lucide-react";
 import { useRef } from "react";
+import { useRouter } from "next/navigation";
 import ActionMenu from "./ActionMenu";
 import RoleUpdateDropdown from "./RoleUpdateDropdown";
 import AssignmentDropdown from "./AssignmentDropdown";
@@ -29,9 +30,19 @@ export default function InstructorCard({
   canViewPins
 }) {
   const triggerButtonRef = useRef(null);
+  const router = useRouter();
+
+  const handleCardClick = () => {
+    // Don't navigate if an action menu or role dropdown is open
+    if (actionMenuOpen === instructor.uid || roleUpdateOpen === instructor.uid) return;
+    router.push(`/dashboard/${currentOrganizationId}/instructors/${instructor.uid}`);
+  };
 
   return (
-    <div className="bg-background-light rounded-xl p-3 border border-gray-600">
+    <div
+      className="bg-background-light rounded-xl p-3 border border-gray-600 cursor-pointer hover:border-primary-2/50 hover:bg-background-lighter/40 transition-colors"
+      onClick={handleCardClick}
+    >
       <div className="flex justify-between items-start mb-2">
         <div className="flex-1 min-w-0">
           <p className="font-medium text-foreground text-sm truncate pr-2">
@@ -41,7 +52,7 @@ export default function InstructorCard({
             {instructor.role || 'teacher'}
           </span>
         </div>
-        <div className="flex-shrink-0 ml-2">
+        <div className="flex-shrink-0 ml-2" onClick={(e) => e.stopPropagation()}>
           <button
             ref={triggerButtonRef}
             onClick={(e) => {
@@ -114,7 +125,7 @@ export default function InstructorCard({
 
       {/* PIN Section */}
       {canViewPins && (
-        <div className="mb-3">
+        <div className="mb-3" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-300">PIN:</span>
             <div className="flex items-center gap-2">
@@ -147,7 +158,7 @@ export default function InstructorCard({
       )}
 
       {/* Assignment Dropdown */}
-      <div className="mt-2">
+      <div className="mt-2" onClick={(e) => e.stopPropagation()}>
         <AssignmentDropdown instructor={instructor} />
       </div>
     </div>
