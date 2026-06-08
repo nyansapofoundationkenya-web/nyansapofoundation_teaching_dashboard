@@ -22,12 +22,10 @@ export default function StudentMetrics({
 
   if (students) {
     students.forEach((student) => {
-      const hasBaseline =
-        student.baseline != null &&
-        student.baseline !== "" &&
-        String(student.baseline).trim() !== "";
+      // ✅ Use has_done field instead of baseline
+      const hasDone = student.has_done === true;
 
-      if (hasBaseline) {
+      if (hasDone) {
         doneCount++;
       } else {
         notStartedCount++;
