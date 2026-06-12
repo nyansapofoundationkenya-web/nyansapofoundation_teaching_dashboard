@@ -4,7 +4,9 @@
 import { ref, list, getMetadata, getDownloadURL } from "firebase/storage";
 import { doc, getDoc } from "firebase/firestore";
 import { storage, db } from "@/firebase/config";
-import { parseFileName, PAGE_SIZE, RETRIGGER_URL } from "./audioLibrary.constants";
+import { parseFileName, PAGE_SIZE, RETRIGGER_URL, dayKey } from "./audioLibrary.constants";
+
+const BATCH_CHECK_URL = process.env.NEXT_PUBLIC_BATCH_CHECK_URL || "";
 
 // ── Resolve Storage items → enriched file objects ────────────
 export async function resolveItems(itemRefs) {
@@ -49,23 +51,7 @@ export async function fetchStoragePage(folderPath, pageToken) {
   };
 }
 
-// ── Check Firestore for result existence ──────────────────────
-//
-// Matching logic mirrors transcribe_audio.py exactly:
-//
-//   Python writes:
-//     { content: urllib.parse.unquote(raw_content.strip()),
-//       metadata: { type: "Letter"|"Word"|"Paragraph"|"Story",  ← Capitalised
-//                   done_time: timestamp_str_or_empty_string } }
-//
-//   We match on: content + type (case-insensitive) + done_time
-//
-//   Content strategy — we try multiple forms because filenames in the
-//   wild may be percent-encoded, plain text, or use underscores as spaces:
-//     1. file.content   = decodeURIComponent(rawSegment)   ← primary, mirrors Python
-//     2. file.rawContent = raw segment, no decoding        ← fallback A
-//     3. rawContent with _ replaced by space               ← fallback B (legacy)
-//
+// ── Check Firestore for result existence (kept for fallback) ─
 export async function checkResultExists(file) {
   try {
     const docRef = doc(
@@ -75,67 +61,31 @@ export async function checkResultExists(file) {
       "assessments-results",
       `${file.assessmentId}_${file.studentId}`
     );
-
     const snap = await getDoc(docRef);
-
-    // ── Document doesn't exist at all ──
     if (!snap.exists()) {
-      console.log(
-        `[checkResult] No Firestore doc for ${file.assessmentId}_${file.studentId}`
-      );
       return { exists: false, transcriptionFailed: false };
     }
-
     const results = snap.data()?.literacy_results?.reading_results ?? [];
-
-    console.log(
-      `[checkResult] Doc found. ${results.length} results for ${file.assessmentId}_${file.studentId}`,
-      `| looking for type="${file.type}" timestamp="${file.timestamp}" content="${file.content}"`
-    );
-
-    // All content forms we'll accept as a match
     const contentForms = new Set(
-      [
-        file.content,
-        file.rawContent,
-        file.rawContent ? file.rawContent.replace(/_/g, " ") : null,
-      ].filter(Boolean)
+      [file.content, file.rawContent, file.rawContent?.replace(/_/g, " ")].filter(Boolean)
     );
-
     const match = results.find((r) => {
-      const meta             = r.metadata ?? {};
-      const firestoreContent = r.content ?? "";
-      const firestoreType    = (meta.type ?? "").toLowerCase();   // "letter","word","paragraph","story"
-      const firestoreTime    = meta.done_time ?? "";
-
-      const typeMatch      = firestoreType === file.type;
-      const timestampMatch = firestoreTime === file.timestamp;
-      const contentMatch   = contentForms.has(firestoreContent);
-
-      // Log each candidate so you can see exactly what's in Firestore vs what we parsed
-    //   console.log(
-    //     `[checkResult]   candidate: content="${firestoreContent}" type="${firestoreType}" done_time="${firestoreTime}"`,
-    //     `→ typeMatch=${typeMatch} timestampMatch=${timestampMatch} contentMatch=${contentMatch}`
-    //   );
-
-      return typeMatch && timestampMatch && contentMatch;
+      const meta = r.metadata ?? {};
+      return (
+        (meta.type ?? "").toLowerCase() === file.type &&
+        (meta.done_time ?? "") === file.timestamp &&
+        contentForms.has(r.content ?? "")
+      );
     });
-
-    if (!match) {
-      console.log(`[checkResult] No match found → "missing"`);
-      return { exists: false, transcriptionFailed: false };
-    }
-
-    console.log(`[checkResult] Match found → exists`);
+    if (!match) return { exists: false, transcriptionFailed: false };
     return {
       exists: true,
       transcriptionFailed: match.metadata?.transcription_failed === true,
-      passed:     match.metadata?.passed,
+      passed: match.metadata?.passed,
       transcript: match.metadata?.transcript || "",
-      mistakes:   match.metadata?.mistakes ?? null,
+      mistakes: match.metadata?.mistakes ?? null,
     };
   } catch (err) {
-    // Surface the error clearly — a silent null hides real bugs
     console.error("[checkResult] ERROR:", err);
     return { exists: null, transcriptionFailed: false };
   }
@@ -148,8 +98,8 @@ export async function retriggerFile(file) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      name:       file.fullPath,
-      bucket:     file.bucket,
+      name: file.fullPath,
+      bucket: file.bucket,
       generation: file.generation,
     }),
   });
@@ -158,4 +108,67 @@ export async function retriggerFile(file) {
     throw new Error(`HTTP ${res.status}: ${text}`);
   }
   return res.json().catch(() => ({}));
+}
+
+// ── Batch check results via Cloud Function ───────────────────
+export async function batchCheckResults(files) {
+  if (!BATCH_CHECK_URL) throw new Error("BATCH_CHECK_URL not configured");
+  if (!files.length) return {};
+  const res = await fetch(BATCH_CHECK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      files: files.map((f) => ({
+        id: f.id,
+        assessmentId: f.assessmentId,
+        studentId: f.studentId,
+        type: f.type,
+        timestamp: f.timestamp,
+        content: f.content,
+        rawContent: f.rawContent,
+      })),
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(`HTTP ${res.status}: ${text}`);
+  }
+  const data = await res.json();
+  return data.results || {};
+}
+
+// ── Fetch files for a specific date (chunked) ────────────────
+export async function fetchDayChunk(folderPath, targetDate, pageToken = undefined, maxPages = 10) {
+  let currentPageToken = pageToken;
+  let dayFiles = [];
+  let pagesScanned = 0;
+  let hasMoreGlobal = true;
+  let exhaustedDate = false;
+
+  while (pagesScanned < maxPages && hasMoreGlobal && !exhaustedDate) {
+    const { files, nextPageToken, hasMore } = await fetchStoragePage(folderPath, currentPageToken);
+
+    for (const file of files) {
+      const fileDate = dayKey(file.uploadedAt);
+      if (fileDate === targetDate) {
+        dayFiles.push(file);
+      } else if (fileDate < targetDate) {
+        exhaustedDate = true;
+        break;
+      }
+    }
+
+    hasMoreGlobal = hasMore;
+    currentPageToken = nextPageToken;
+    pagesScanned++;
+    if (exhaustedDate) break;
+  }
+
+  return {
+    files: dayFiles,
+    nextPageToken: exhaustedDate ? null : currentPageToken,
+    hasMore: !exhaustedDate && hasMoreGlobal,
+    pagesScanned,
+    dateExhausted: exhaustedDate,
+  };
 }

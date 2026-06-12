@@ -14,6 +14,8 @@ const AudioDayGroup = ({
   playingId,
   onPlayPause,
   showResults,
+  batchStatuses,
+  checkingResults,
 }) => (
   <div className="space-y-2">
     {/* Day header */}
@@ -45,6 +47,8 @@ const AudioDayGroup = ({
             isPlaying={playingId === file.id}
             onPlayPause={onPlayPause}
             showResults={showResults}
+            batchStatus={batchStatuses?.[file.id]}
+            checkingResults={checkingResults}
           />
         ))}
       </div>
