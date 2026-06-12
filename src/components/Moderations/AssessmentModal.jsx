@@ -358,252 +358,254 @@ export default function AssessmentModal({ organizationId, onClose }) {
   };
 
   // ── Submit handler ────────────────────────────────────────────
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    // Step 1 → Step 2
-    if (step === 1) {
-      if (formData.assessmentName.trim().length === 0) {
-        setError("Please enter an assessment name.");
-        return;
-      }
-      setStep(2);
-      setError("");
+  // Step 1 → Step 2
+  if (step === 1) {
+    if (formData.assessmentName.trim().length === 0) {
+      setError("Please enter an assessment name.");
       return;
     }
-
-    // Step 2: validate
-    if (!canCreateAssessments()) {
-      if (noContentAvailable) {
-        setError("No assessment content available. Please contact your administrator.");
-        return;
-      }
-      if (!currentAssessment) {
-        setError("Please select valid assessment content.");
-        return;
-      }
-      if (studentsLoading) {
-        setError("Please wait while students are loading...");
-        return;
-      }
-      if (formData.type === "Literacy") {
-        if ((currentAssessment.letters?.length ?? 0) > 5 && selectedLetters.length === 0) {
-          setError("Please select at least 1 letter (up to 5).");
-          return;
-        }
-        if ((currentAssessment.words?.length ?? 0) > 5 && selectedWords.length === 0) {
-          setError("Please select at least 1 word (up to 5).");
-          return;
-        }
-      }
-      setError("Please fill in all required fields.");
-      return;
-    }
-
-    if (isSubmitting) return;
-
-    setIsSubmitting(true);
+    setStep(2);
     setError("");
+    return;
+  }
 
-    try {
-      // ── Duplicate check ─────────────────────────────────────────
-      const duplicateSchools = await checkForDuplicates();
+  // Step 2: validate
+  if (!canCreateAssessments()) {
+    if (noContentAvailable) {
+      setError("No assessment content available. Please contact your administrator.");
+      return;
+    }
+    if (!currentAssessment) {
+      setError("Please select valid assessment content.");
+      return;
+    }
+    if (studentsLoading) {
+      setError("Please wait while students are loading...");
+      return;
+    }
+    if (formData.type === "Literacy") {
+      if ((currentAssessment.letters?.length ?? 0) > 5 && selectedLetters.length === 0) {
+        setError("Please select at least 1 letter (up to 5).");
+        return;
+      }
+      if ((currentAssessment.words?.length ?? 0) > 5 && selectedWords.length === 0) {
+        setError("Please select at least 1 word (up to 5).");
+        return;
+      }
+    }
+    setError("Please fill in all required fields.");
+    return;
+  }
 
-      if (duplicateSchools.length > 0) {
-        setError(
-          `An assessment named "${formData.assessmentName.trim()}" with the same type (${formData.type}), level (${formData.level}), and assessment number already exists for: ${duplicateSchools.join(", ")}. Please use a different name, level, or a different assessment content.`
-        );
+  if (isSubmitting) return;
+
+  setIsSubmitting(true);
+  setError("");
+
+  try {
+    // ── Duplicate check ─────────────────────────────────────────
+    const duplicateSchools = await checkForDuplicates();
+
+    if (duplicateSchools.length > 0) {
+      setError(
+        `An assessment named "${formData.assessmentName.trim()}" with the same type (${formData.type}), level (${formData.level}), and assessment number already exists for: ${duplicateSchools.join(", ")}. Please use a different name, level, or a different assessment content.`
+      );
+      setIsSubmitting(false);
+      return;
+    }
+
+    // ── Schools without students confirmation (skip if createWithoutStudents) ──
+    const schoolsWithoutStudents = formData.schoolIds.filter(
+      (schoolId) => !students[schoolId] || students[schoolId].length === 0
+    );
+
+    if (!createWithoutStudents && schoolsWithoutStudents.length > 0) {
+      const schoolNamesWithoutStudents = schoolsWithoutStudents
+        .map((id) => schools.find((s) => s.id === id)?.name || id)
+        .join(", ");
+
+      const schoolsWithStudents = formData.schoolIds.filter(
+        (schoolId) => students[schoolId] && students[schoolId].length > 0
+      );
+
+      let confirmMessage = `You are creating assessments for ${formData.schoolIds.length} schools.\n\n`;
+      if (schoolsWithStudents.length > 0) {
+        confirmMessage += `Schools WITH students (${schoolsWithStudents.length}):\n${schoolsWithStudents.map((id) => schools.find((s) => s.id === id)?.name || id).join(", ")}\n\n`;
+      }
+      confirmMessage += `Schools WITHOUT students (${schoolsWithoutStudents.length}):\n${schoolNamesWithoutStudents}\n\n`;
+      confirmMessage += `⚠️ Assessments for schools without students will be created empty.\nYou can add students later.\nDo you want to continue?`;
+
+      const confirmed = window.confirm(confirmMessage);
+      if (!confirmed) {
         setIsSubmitting(false);
         return;
       }
-
-      // ── Schools without students confirmation (skip if createWithoutStudents) ──
-      const schoolsWithoutStudents = formData.schoolIds.filter(
-        (schoolId) => !students[schoolId] || students[schoolId].length === 0
-      );
-
-      if (!createWithoutStudents && schoolsWithoutStudents.length > 0) {
-        const schoolNamesWithoutStudents = schoolsWithoutStudents
-          .map((id) => schools.find((s) => s.id === id)?.name || id)
-          .join(", ");
-
-        const schoolsWithStudents = formData.schoolIds.filter(
-          (schoolId) => students[schoolId] && students[schoolId].length > 0
-        );
-
-        let confirmMessage = `You are creating assessments for ${formData.schoolIds.length} schools.\n\n`;
-        if (schoolsWithStudents.length > 0) {
-          confirmMessage += `Schools WITH students (${schoolsWithStudents.length}):\n${schoolsWithStudents.map((id) => schools.find((s) => s.id === id)?.name || id).join(", ")}\n\n`;
-        }
-        confirmMessage += `Schools WITHOUT students (${schoolsWithoutStudents.length}):\n${schoolNamesWithoutStudents}\n\n`;
-        confirmMessage += `⚠️ Assessments for schools without students will be created empty.\nYou can add students later.\nDo you want to continue?`;
-
-        const confirmed = window.confirm(confirmMessage);
-        if (!confirmed) {
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
-      // ── Build the content document once (shared across schools) ─
-      const assessmentContent = buildAssessmentContent();
-      const currentDate = new Date().toISOString().split("T")[0];
-      const createdAssessments = [];
-      const emptySchools = [];
-      const creationPromises = [];
-
-      for (const schoolId of formData.schoolIds) {
-        const school = schools.find((s) => s.id === schoolId);
-        if (!school) {
-          console.warn(`School not found: ${schoolId}`);
-          continue;
-        }
-
-        const schoolStuds = students[schoolId] || [];
-        let assignedStudents = [];
-
-        if (createWithoutStudents) {
-          // Explicitly create empty assessment – no students
-          assignedStudents = [];
-          emptySchools.push(school.name);
-        } else {
-          assignedStudents = schoolStuds.map((student) => ({
-            assessment_status: "not_started",
-            baseline: "",
-            completed_assessment: false,
-            first_name: student.first_name || "",
-            grade: Number(student.grade) || 0,
-            group: student.group || "",
-            has_done: false,
-            id: student.id,
-            last_name: student.last_name || "",
-            name: `${student.first_name || ""} ${student.last_name || ""}`.trim(),
-            sex: student.sex || "",
-          }));
-          if (schoolStuds.length === 0) emptySchools.push(school.name);
-        }
-
-        const assessmentId = uuidv4();
-        const assessmentName = generateAssessmentName(school.name);
-
-        const assessmentData = {
-          created_at: new Date().toISOString(),
-          id: assessmentId,
-          name: assessmentName,
-          original_school_name: school.name,
-          organization_id: organizationId,
-          project_id: formData.projectId,
-          school_id: schoolId,
-          type: formData.type,
-          level: formData.level,
-          assessmentNumber: formData.assessmentNumber,
-          to_be_done: formData.to_be_done,
-          created_date: currentDate,
-          assigned_students: assignedStudents,
-          status: "created",
-          student_count: assignedStudents.length,
-          user_assessment_name: formData.assessmentName.trim(),
-          calculation_type: currentAssessment?.name
-            ? currentAssessment.name.toLowerCase()
-            : "",
-          has_students: assignedStudents.length > 0,
-          ...(currentAssessment?.language
-            ? { language: currentAssessment.language }
-            : {}),
-        };
-
-        createdAssessments.push(school.name);
-
-        const assessmentPromise = setDoc(
-          doc(db, "assessments", assessmentId),
-          assessmentData
-        )
-          .then(async () => {
-            // ── Save content to subcollection ───────────────────
-            const contentId = uuidv4();
-            await setDoc(
-              doc(db, "assessments", assessmentId, "assessment_content", contentId),
-              {
-                id: contentId,
-                assessment_id: assessmentId,
-                created_at: new Date().toISOString(),
-                type: formData.type,
-                assessmentNumber: formData.assessmentNumber,
-                ...assessmentContent,
-              }
-            );
-
-            // ── Save student results (only if there are students) ─
-            if (assignedStudents.length > 0) {
-              const resultsPromises = assignedStudents.map((student) => {
-                const resultId = `${assessmentId}_${student.id}`;
-                return setDoc(
-                  doc(db, "assessments", assessmentId, "assessments-results", resultId),
-                  {
-                    assessmentId,
-                    school_id: schoolId,
-                    student_id: student.id,
-                    student_first_name: student.first_name || "",
-                    student_last_name: student.last_name || "",
-                    student_name: `${student.first_name || ""} ${student.last_name || ""}`.trim(),
-                    student_grade: Number(student.grade) || 0,
-                    competence_level: 0,
-                    assessment_level: formData.level,
-                    to_be_done: formData.to_be_done,
-                    created_at: new Date().toISOString(),
-                    status: "pending",
-                    calculation_type: currentAssessment?.name
-                      ? currentAssessment.name.toLowerCase()
-                      : "",
-                    ...(currentAssessment?.language
-                      ? { language: currentAssessment.language }
-                      : {}),
-                  }
-                );
-              });
-              return Promise.all(resultsPromises);
-            }
-          })
-          .catch((error) => {
-            console.error(`Error creating assessment for ${school.name}:`, error);
-            throw error;
-          });
-
-        creationPromises.push(assessmentPromise);
-      }
-
-      if (creationPromises.length === 0) {
-        throw new Error("No schools selected for assessment creation.");
-      }
-
-      await Promise.all(creationPromises);
-
-      let successMessage = `✅ Assessments created successfully!\n\nCreated ${createdAssessments.length} assessments:\n${createdAssessments.join(", ")}`;
-      if (emptySchools.length > 0) {
-        successMessage += `\n\n⚠️ ${emptySchools.length} schools had no students:\n${emptySchools.join(", ")}\nYou can add students later.`;
-      }
-      if (createWithoutStudents) {
-        successMessage += `\n\n🔘 Created empty assessments (no students) as requested.`;
-      }
-
-      alert(successMessage);
-      onClose();
-    } catch (err) {
-      console.error("Error creating assessments:", err);
-
-      let errorMessage = "Failed to create assessments. Please try again.";
-      if (err.message.includes("permission"))
-        errorMessage = "Permission denied. Please check your Firebase rules.";
-      else if (err.message.includes("network"))
-        errorMessage = "Network error. Please check your internet connection.";
-      else if (err.message.includes("No schools selected"))
-        errorMessage = "No schools selected for assessment creation.";
-
-      setError(`${errorMessage} Details: ${err.message}`);
-    } finally {
-      setIsSubmitting(false);
     }
-  };
+
+    // ── Build the content document once (shared across schools) ─
+    const assessmentContent = buildAssessmentContent();
+    const currentDate = new Date().toISOString().split("T")[0];
+    const createdAssessments = [];
+    const emptySchools = [];
+    const creationPromises = [];
+
+    for (const schoolId of formData.schoolIds) {
+      const school = schools.find((s) => s.id === schoolId);
+      if (!school) {
+        console.warn(`School not found: ${schoolId}`);
+        continue;
+      }
+
+      const schoolStuds = students[schoolId] || [];
+      let assignedStudents = [];
+
+      if (createWithoutStudents) {
+        assignedStudents = [];
+        emptySchools.push(school.name);
+      } else {
+        assignedStudents = schoolStuds.map((student) => ({
+          assessment_status: "not_started",
+          baseline: "",
+          completed_assessment: false,
+          first_name: student.first_name || "",
+          grade: Number(student.grade) || 0,
+          group: student.group || "",
+          has_done: false,
+          id: student.id,
+          last_name: student.last_name || "",
+          name: `${student.first_name || ""} ${student.last_name || ""}`.trim(),
+          sex: student.sex || "",
+        }));
+        if (schoolStuds.length === 0) emptySchools.push(school.name);
+      }
+
+      const assessmentId = uuidv4();
+      const assessmentName = generateAssessmentName(school.name);
+
+      const assessmentData = {
+        created_at: new Date().toISOString(),
+        id: assessmentId,
+        name: assessmentName,
+        original_school_name: school.name,
+        organization_id: organizationId,
+        project_id: formData.projectId,
+        school_id: schoolId,
+        type: formData.type,
+        level: formData.level,
+        assessmentNumber: 100,
+        to_be_done: formData.to_be_done,
+        created_date: currentDate,
+        assigned_students: assignedStudents,
+        status: "created",
+        student_count: assignedStudents.length,
+        user_assessment_name: formData.assessmentName.trim(),
+        calculation_type: currentAssessment?.name
+          ? currentAssessment.name.toLowerCase()
+          : "",
+        has_students: assignedStudents.length > 0,
+        ...(currentAssessment?.language
+          ? { language: currentAssessment.language }
+          : {}),
+      };
+
+      createdAssessments.push(school.name);
+
+      const assessmentPromise = setDoc(
+        doc(db, "assessments", assessmentId),
+        assessmentData
+      )
+        .then(async () => {
+          // ✅ FIXED: use a string ID "100"
+          const contentId = "100";
+          const finalContent = {
+            ...assessmentContent,
+            assessmentNumber: 100,
+          };
+          await setDoc(
+            doc(db, "assessments", assessmentId, "assessment_content", contentId),
+            {
+              id: contentId,
+              assessment_id: assessmentId,
+              created_at: new Date().toISOString(),
+              type: formData.type,
+              assessmentNumber: 100,
+              ...finalContent,
+            }
+          );
+
+          if (assignedStudents.length > 0) {
+            const resultsPromises = assignedStudents.map((student) => {
+              const resultId = `${assessmentId}_${student.id}`;
+              return setDoc(
+                doc(db, "assessments", assessmentId, "assessments-results", resultId),
+                {
+                  assessmentId,
+                  school_id: schoolId,
+                  student_id: student.id,
+                  student_first_name: student.first_name || "",
+                  student_last_name: student.last_name || "",
+                  student_name: `${student.first_name || ""} ${student.last_name || ""}`.trim(),
+                  student_grade: Number(student.grade) || 0,
+                  competence_level: 0,
+                  assessment_level: formData.level,
+                  to_be_done: formData.to_be_done,
+                  created_at: new Date().toISOString(),
+                  status: "pending",
+                  calculation_type: currentAssessment?.name
+                    ? currentAssessment.name.toLowerCase()
+                    : "",
+                  ...(currentAssessment?.language
+                    ? { language: currentAssessment.language }
+                    : {}),
+                }
+              );
+            });
+            return Promise.all(resultsPromises);
+          }
+        })
+        .catch((error) => {
+          console.error(`Error creating assessment for ${school.name}:`, error);
+          throw error;
+        });
+
+      creationPromises.push(assessmentPromise);
+    }
+
+    if (creationPromises.length === 0) {
+      throw new Error("No schools selected for assessment creation.");
+    }
+
+    await Promise.all(creationPromises);
+
+    let successMessage = `✅ Assessments created successfully!\n\nCreated ${createdAssessments.length} assessments:\n${createdAssessments.join(", ")}`;
+    if (emptySchools.length > 0) {
+      successMessage += `\n\n⚠️ ${emptySchools.length} schools had no students:\n${emptySchools.join(", ")}\nYou can add students later.`;
+    }
+    if (createWithoutStudents) {
+      successMessage += `\n\n🔘 Created empty assessments (no students) as requested.`;
+    }
+
+    alert(successMessage);
+    onClose();
+  } catch (err) {
+    console.error("Error creating assessments:", err);
+
+    let errorMessage = "Failed to create assessments. Please try again.";
+    if (err.message.includes("permission"))
+      errorMessage = "Permission denied. Please check your Firebase rules.";
+    else if (err.message.includes("network"))
+      errorMessage = "Network error. Please check your internet connection.";
+    else if (err.message.includes("No schools selected"))
+      errorMessage = "No schools selected for assessment creation.";
+
+    setError(`${errorMessage} Details: ${err.message}`);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black bg-opacity-50">
