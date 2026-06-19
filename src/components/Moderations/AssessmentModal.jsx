@@ -484,6 +484,7 @@ const handleSubmit = async (e) => {
 
       const assessmentId = uuidv4();
       const assessmentName = generateAssessmentName(school.name);
+      const assessmentLanguage = currentAssessment?.language || "english";
 
       const assessmentData = {
         created_at: new Date().toISOString(),
@@ -505,10 +506,8 @@ const handleSubmit = async (e) => {
         calculation_type: currentAssessment?.name
           ? currentAssessment.name.toLowerCase()
           : "",
+        language: assessmentLanguage,
         has_students: assignedStudents.length > 0,
-        ...(currentAssessment?.language
-          ? { language: currentAssessment.language }
-          : {}),
       };
 
       createdAssessments.push(school.name);
@@ -538,6 +537,7 @@ const handleSubmit = async (e) => {
 
           if (assignedStudents.length > 0) {
             const resultsPromises = assignedStudents.map((student) => {
+              const assessmentLanguage = currentAssessment?.language || "english";
               const resultId = `${assessmentId}_${student.id}`;
               return setDoc(
                 doc(db, "assessments", assessmentId, "assessments-results", resultId),
@@ -557,9 +557,7 @@ const handleSubmit = async (e) => {
                   calculation_type: currentAssessment?.name
                     ? currentAssessment.name.toLowerCase()
                     : "",
-                  ...(currentAssessment?.language
-                    ? { language: currentAssessment.language }
-                    : {}),
+                  language: assessmentLanguage,
                 }
               );
             });
