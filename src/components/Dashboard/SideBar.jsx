@@ -128,15 +128,6 @@ const Sidebar = ({
     createMenuItem("Students", <FiUsers size={20} />, `/dashboard/${organizationId}/admin/students`, "students", MENU_WEIGHTS.STUDENTS),
   ];
 
-  // ── Audio Library item (admin + super_admin only) ──────────
-  const audioLibraryMenuItem = createMenuItem(
-    "Audio Library",
-    <FileAudio size={20} />,
-    `/dashboard/${organizationId}/audio-library`,
-    "audio-library",
-    MENU_WEIGHTS.AUDIO_LIBRARY
-  );
-
   // ── Survey item (survey permission flag) ──────────────────
   const surveyMenuItem = createMenuItem(
     "Survey",
@@ -150,6 +141,13 @@ const Sidebar = ({
   const superAdminMenuItems = [
     createMenuItem("Ai Assistant", <FiMessageSquare size={20} />, `/dashboard/${organizationId}/ai-assistant`, "ai-assistant", MENU_WEIGHTS.AI_ASSISTANT),
     createMenuItem("Map Assessments", <FiBook size={20} />, `/dashboard/${organizationId}/map_assessments`, "map-assessments", MENU_WEIGHTS.LITERACY),
+    createMenuItem(
+    "Audio Library",
+    <FileAudio size={20} />,
+    `/dashboard/${organizationId}/audio-library`,
+    "audio-library",
+    MENU_WEIGHTS.AUDIO_LIBRARY
+    ),
   ];
 
   const adminMenuItems = [

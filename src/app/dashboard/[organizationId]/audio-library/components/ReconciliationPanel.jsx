@@ -5,92 +5,35 @@ import {
   FiZap, FiChevronDown, FiChevronUp,
   FiDatabase, FiFile, FiInfo, FiTrash2,
 } from "react-icons/fi";
-import { ref, list, getMetadata } from "firebase/storage";
+import { ref, list, getMetadata, getDownloadURL } from "firebase/storage";
 import { storage } from "@/firebase/config";
+import {
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  getDocs,
+  query,
+  serverTimestamp,
+  onSnapshot,
+} from "firebase/firestore";
+import { db } from "@/firebase/config";
 import { batchCheckResults } from "./audioLibrary.service";
 import { BUCKET_FOLDERS, dayKey, parseFileName } from "./audioLibrary.constants";
 
-// ── Orphan cache ──────────────────────────────────────────────
-const CACHE_VERSION = "v1";
+// ── Constants ─────────────────────────────────────────────────
+const ORPHANS_COLLECTION = "orphans";
+const BATCH_SIZE         = 500; // files per Cloud Function call — safe under 540s timeout
+const SCAN_PAGE_SIZE     = 1000;
 
-function cacheKey(start, end) {
-  return `recon_orphans_${CACHE_VERSION}_${start}_${end}`;
-}
-function loadOrphanCache(start, end) {
-  try {
-    const raw = localStorage.getItem(cacheKey(start, end));
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch { return null; }
-}
-function saveOrphanCache(start, end, orphans, scanProgress) {
-  try {
-    localStorage.setItem(
-      cacheKey(start, end),
-      JSON.stringify({ orphans, scanProgress, savedAt: Date.now() })
-    );
-  } catch { /* storage full */ }
-}
-function clearOrphanCache(start, end) {
-  try { localStorage.removeItem(cacheKey(start, end)); } catch { /* ignore */ }
-}
+const RETRIGGER_URL = (process.env.NEXT_PUBLIC_RETRIGGER_FUNCTION_URL || "").trim();
 
-// ── Bulk retrigger — single backend call ──────────────────────
-const RETRIGGER_URL = process.env.NEXT_PUBLIC_RETRIGGER_URL || "";
-
-async function bulkRetrigger(orphans) {
-  if (!RETRIGGER_URL) throw new Error("RETRIGGER_URL not configured");
-  const res = await fetch(RETRIGGER_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      files: orphans.map((f) => ({
-        name:       f.fullPath,
-        bucket:     f.bucket,
-        generation: f.generation,
-      })),
-    }),
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new Error(`HTTP ${res.status}: ${text}`);
-  }
-  return res.json(); // { queued, failed, errors }
-}
-
-// ── Storage scan ──────────────────────────────────────────────
-const SCAN_PAGE_SIZE = 1000;
+// ── Helpers ───────────────────────────────────────────────────
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function scanPage(folderPath, pageToken) {
-  const folderRef = ref(storage, folderPath);
-  const result = await list(folderRef, {
-    maxResults: SCAN_PAGE_SIZE,
-    ...(pageToken ? { pageToken } : {}),
-  });
-  const settled = await Promise.allSettled(
-    result.items.map(async (itemRef) => {
-      const meta   = await getMetadata(itemRef);
-      const parsed = parseFileName(itemRef.name);
-      if (!parsed) return null;
-      return {
-        id: itemRef.name,
-        ...parsed,
-        uploadedAt: meta.timeCreated,
-        size:       meta.size,
-        fullPath:   itemRef.fullPath,
-        generation: meta.generation,
-        bucket:     meta.bucket,
-        downloadURL: null,
-      };
-    })
-  );
-  return {
-    files:         settled.map((r) => r.status === "fulfilled" ? r.value : null).filter(Boolean),
-    nextPageToken: result.nextPageToken ?? null,
-    hasMore:       !!result.nextPageToken,
-    totalItems:    result.items.length,
-  };
+/** Strip leading slashes so FOLDER_PREFIX check on the server never fails silently */
+function sanitizePath(p) {
+  return (p || "").replace(/^\/+/, "").trim();
 }
 
 function dateRange(start, end) {
@@ -104,7 +47,110 @@ function dateRange(start, end) {
   return days;
 }
 
+// ── API calls ─────────────────────────────────────────────────
+
+/**
+ * Send one batch (≤ BATCH_SIZE files) to the Cloud Function bulk endpoint.
+ * Returns { queued, failed, errors: [{file, error}] }
+ */
+async function retriggerBatch(files) {
+  if (!RETRIGGER_URL) throw new Error("RETRIGGER_URL not configured");
+
+  const payload = files.map((f) => ({
+    name:       sanitizePath(f.fullPath),
+    bucket:     f.bucket,
+    generation: f.generation ?? "",
+  }));
+
+  const res = await fetch(RETRIGGER_URL, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ files: payload }),
+  });
+
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(data?.error || data?.message || `HTTP ${res.status}: ${res.statusText}`);
+  }
+  return data;
+}
+
+// ── Firestore helpers ─────────────────────────────────────────
+
+async function saveOrphanToFirestore(file) {
+  const orphanRef = doc(db, ORPHANS_COLLECTION, file.id);
+  await setDoc(orphanRef, {
+    id:           file.id,
+    fullPath:     sanitizePath(file.fullPath), // sanitized at save time
+    bucket:       file.bucket,
+    generation:   file.generation,
+    downloadURL:  file.downloadURL || null,
+    assessmentId: file.assessmentId,
+    studentId:    file.studentId,
+    type:         file.type,
+    content:      file.content,
+    uploadedAt:   file.uploadedAt,
+    createdAt:    serverTimestamp(),
+  });
+}
+
+async function removeOrphanFromFirestore(fileId) {
+  await deleteDoc(doc(db, ORPHANS_COLLECTION, fileId));
+}
+
+async function updateOrphanStatus(fileId, status, taskName = null, error = null) {
+  await setDoc(
+    doc(db, ORPHANS_COLLECTION, fileId),
+    {
+      requeueStatus:    status,
+      requeueTask:      taskName || null,
+      requeueError:     error || null,
+      requeueUpdatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+// ── Storage scan ──────────────────────────────────────────────
+
+async function scanPage(folderPath, pageToken) {
+  const folderRef = ref(storage, folderPath);
+  const result    = await list(folderRef, {
+    maxResults: SCAN_PAGE_SIZE,
+    ...(pageToken ? { pageToken } : {}),
+  });
+
+  const settled = await Promise.allSettled(
+    result.items.map(async (itemRef) => {
+      const [meta, downloadURL] = await Promise.all([
+        getMetadata(itemRef),
+        getDownloadURL(itemRef),
+      ]);
+      const parsed = parseFileName(itemRef.name);
+      if (!parsed) return null;
+      return {
+        id:         itemRef.name,
+        ...parsed,
+        downloadURL,
+        uploadedAt: meta.timeCreated,
+        size:       meta.size,
+        fullPath:   sanitizePath(itemRef.fullPath), // sanitized at scan time
+        generation: meta.generation,
+        bucket:     meta.bucket,
+      };
+    })
+  );
+
+  return {
+    files:         settled.map((r) => (r.status === "fulfilled" ? r.value : null)).filter(Boolean),
+    nextPageToken: result.nextPageToken ?? null,
+    hasMore:       !!result.nextPageToken,
+    totalItems:    result.items.length,
+  };
+}
+
 // ── Sub-components ────────────────────────────────────────────
+
 const StatBox = ({ label, value, color = "white" }) => (
   <div className="flex flex-col gap-1 bg-white/4 rounded-xl p-3 border border-white/5 min-w-[80px]">
     <span className={`text-xl font-bold tabular-nums ${
@@ -126,31 +172,64 @@ const ProgressBar = ({ value, max, color = "#f7cc1c" }) => (
   </div>
 );
 
-const OrphanRow = ({ file, triggerState }) => {
+const OrphanRow = ({ file, triggerState, onRemove }) => {
   const icon = {
-    idle:    <span className="w-2 h-2 rounded-full bg-white/15 flex-shrink-0" />,
-    running: <span className="w-3 h-3 rounded-full border-2 border-[#f7cc1c]/30 border-t-[#f7cc1c] animate-spin flex-shrink-0" />,
-    done:    <FiCheckCircle size={12} className="text-[#4caf50] flex-shrink-0" />,
-    error:   <FiAlertTriangle size={12} className="text-red-400 flex-shrink-0" />,
+    idle:     <span className="w-2 h-2 rounded-full bg-white/15 flex-shrink-0" />,
+    running:  <span className="w-3 h-3 rounded-full border-2 border-[#f7cc1c]/30 border-t-[#f7cc1c] animate-spin flex-shrink-0" />,
+    enqueued: <FiCheckCircle size={12} className="text-[#4caf50] flex-shrink-0" />,
+    done:     <FiCheckCircle size={12} className="text-[#4caf50] flex-shrink-0" />,
+    error:    <FiAlertTriangle size={12} className="text-red-400 flex-shrink-0" />,
   };
+
+  const statusLabel = {
+    idle:     "idle",
+    running:  "sending",
+    enqueued: "enqueued",
+    done:     "done",
+    error:    "error",
+  }[triggerState] || "idle";
+
   return (
-    <div className={`flex items-center gap-3 py-2 px-3 rounded-xl border transition-all text-xs ${
-      triggerState === "done"    ? "bg-[#4caf50]/6 border-[#4caf50]/15"  :
-      triggerState === "error"   ? "bg-red-500/6 border-red-500/15"      :
-      triggerState === "running" ? "bg-[#f7cc1c]/6 border-[#f7cc1c]/15" :
+    <div className={`flex flex-col gap-2 rounded-xl border p-3 transition-all text-xs ${
+      triggerState === "done"     ? "bg-[#4caf50]/6 border-[#4caf50]/15"  :
+      triggerState === "error"    ? "bg-red-500/6 border-red-500/15"      :
+      triggerState === "running"  ? "bg-[#f7cc1c]/6 border-[#f7cc1c]/15" :
+      triggerState === "enqueued" ? "bg-[#4caf50]/10 border-[#4caf50]/20" :
       "bg-white/3 border-white/5"
     }`}>
-      <FiFile size={11} className="text-white/20 flex-shrink-0" />
-      <span className="text-white/60 font-mono truncate flex-1 text-[11px]" title={file.id}>
-        {file.studentId} · {file.type} · {file.content?.slice(0, 28)}{(file.content?.length ?? 0) > 28 ? "…" : ""}
-      </span>
-      <span className="text-white/25 flex-shrink-0 text-[10px]">{dayKey(file.uploadedAt)}</span>
-      {icon[triggerState] ?? icon.idle}
+      <div className="flex items-center gap-3">
+        <FiFile size={11} className="text-white/20 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="text-white/60 font-mono truncate" title={file.id}>
+            {file.studentId} · {file.type} · {file.content?.slice(0, 28)}{(file.content?.length ?? 0) > 28 ? "…" : ""}
+          </div>
+          <div className="text-white/30 text-[10px] truncate">
+            {file.assessmentId} · {dayKey(file.uploadedAt)}
+          </div>
+          {triggerState === "error" && file.requeueError && (
+            <div className="text-red-400/70 text-[10px] truncate mt-0.5" title={file.requeueError}>
+              {file.requeueError}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-white/40 uppercase tracking-[0.08em]">{statusLabel}</span>
+          <button
+            onClick={() => onRemove(file.id)}
+            className="p-1 text-white/20 hover:text-red-400 transition-colors"
+            title="Remove from orphans"
+          >
+            <FiTrash2 size={11} />
+          </button>
+          {icon[triggerState] ?? icon.idle}
+        </div>
+      </div>
     </div>
   );
 };
 
-// ─────────────────────────────────────────────────────────────
+// ── Main panel ────────────────────────────────────────────────
+
 const ReconciliationPanel = ({ onClose }) => {
   const today = new Date().toISOString().slice(0, 10);
 
@@ -158,49 +237,53 @@ const ReconciliationPanel = ({ onClose }) => {
   const [endDate,   setEndDate]   = useState(today);
   const [phase,     setPhase]     = useState("idle");
 
-  const [scanProgress,     setScanProgress]     = useState({ pages: 0, totalSeen: 0, matched: 0 });
-  const [checkProgress,    setCheckProgress]    = useState({ done: 0, total: 0 });
-  const [triggerProgress,  setTriggerProgress]  = useState({ queued: 0, failed: 0, total: 0 });
+  const [scanProgress,    setScanProgress]    = useState({ pages: 0, totalSeen: 0, matched: 0 });
+  const [checkProgress,   setCheckProgress]   = useState({ done: 0, total: 0 });
+  const [triggerProgress, setTriggerProgress] = useState({ queued: 0, failed: 0, total: 0, batch: 0, batches: 0 });
 
   const [orphans,       setOrphans]       = useState([]);
   const [triggerStates, setTriggerStates] = useState({});
-  const [cacheInfo,     setCacheInfo]     = useState(null);
   const [error,         setError]         = useState(null);
   const [showOrphans,   setShowOrphans]   = useState(true);
+  const [loadingStored, setLoadingStored] = useState(true);
 
   const abortRef = useRef(false);
 
-  const isRunning     = ["scanning", "checking", "retriggering"].includes(phase);
-  const queuedCount   = triggerProgress.queued;
-  const failedCount   = triggerProgress.failed;
+  const isRunning   = ["scanning", "checking", "retriggering"].includes(phase);
+  const queuedCount = triggerProgress.queued;
+  const failedCount = triggerProgress.failed;
 
-  // ── Load cache info on mount / date change ─────────────────
+  // ── Load stored orphans from Firestore on mount ────────────
   useEffect(() => {
-    const cached = loadOrphanCache(startDate, endDate);
-    setCacheInfo(cached ? {
-      savedAt: new Date(cached.savedAt).toLocaleString(),
-      count:   cached.orphans.length,
-    } : null);
-  }, [startDate, endDate]);
+    let unsub;
+    setLoadingStored(true);
 
-  const loadFromCache = useCallback(() => {
-    const cached = loadOrphanCache(startDate, endDate);
-    if (!cached) return;
-    setOrphans(cached.orphans);
-    setScanProgress(cached.scanProgress);
-    setTriggerStates(Object.fromEntries(cached.orphans.map((f) => [f.id, "idle"])));
-    setTriggerProgress({ queued: 0, failed: 0, total: cached.orphans.length });
-    setPhase("done");
-  }, [startDate, endDate]);
+    try {
+      const q = query(collection(db, ORPHANS_COLLECTION));
+      unsub = onSnapshot(q, (snapshot) => {
+        const stored = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setOrphans(stored);
+        setTriggerStates(Object.fromEntries(stored.map((f) => [f.id, "idle"])));
+        setTriggerProgress({ queued: 0, failed: 0, total: stored.length, batch: 0, batches: 0 });
+        setLoadingStored(false);
+      }, (err) => {
+        console.error("[Reconciliation] Firestore listener error:", err);
+        setError("Failed to load stored orphans");
+        setLoadingStored(false);
+      });
+    } catch (err) {
+      console.error("[Reconciliation] load error:", err);
+      setLoadingStored(false);
+    }
 
-  // ── STEP 1: Scan ───────────────────────────────────────────
+    return () => { if (unsub) unsub(); };
+  }, []);
+
+  // ── STEP 1: Scan storage ───────────────────────────────────
   const runScan = useCallback(async () => {
     abortRef.current = false;
     setPhase("scanning");
     setError(null);
-    setOrphans([]);
-    setTriggerStates({});
-    setTriggerProgress({ queued: 0, failed: 0, total: 0 });
     setScanProgress({ pages: 0, totalSeen: 0, matched: 0 });
 
     const days      = new Set(dateRange(startDate, endDate));
@@ -228,7 +311,7 @@ const ReconciliationPanel = ({ onClose }) => {
       if (abortRef.current) { setPhase("idle"); return; }
       if (!collected.length) { setPhase("done"); return; }
 
-      await runCheck(collected, { pages, totalSeen, matched: collected.length });
+      await runCheck(collected);
     } catch (err) {
       console.error("[Reconciliation] scan error", err);
       setError(`Scan failed: ${err.message}`);
@@ -236,12 +319,12 @@ const ReconciliationPanel = ({ onClose }) => {
     }
   }, [startDate, endDate]);
 
-  // ── STEP 2: Check ──────────────────────────────────────────
-  const runCheck = async (files, finalScanProgress) => {
+  // ── STEP 2: Check Firestore & save orphans ─────────────────
+  const runCheck = async (files) => {
     setPhase("checking");
     setCheckProgress({ done: 0, total: files.length });
 
-    const CHUNK      = 50;
+    const CHUNK       = 50;
     const allStatuses = {};
 
     for (let i = 0; i < files.length; i += CHUNK) {
@@ -263,55 +346,121 @@ const ReconciliationPanel = ({ onClose }) => {
       return s === "missing" || s === "failed" || s === "unknown";
     });
 
-    saveOrphanCache(startDate, endDate, found, finalScanProgress);
-    setCacheInfo({ savedAt: new Date().toLocaleString(), count: found.length });
+    for (const orphan of found) {
+      try {
+        await saveOrphanToFirestore(orphan);
+      } catch (err) {
+        console.error("[Reconciliation] Failed to save orphan:", orphan.id, err);
+      }
+    }
 
-    setOrphans(found);
-    setTriggerStates(Object.fromEntries(found.map((f) => [f.id, "idle"])));
-    setTriggerProgress({ queued: 0, failed: 0, total: found.length });
     setPhase("done");
   };
 
-  // ── STEP 3: Bulk retrigger — ONE backend call ──────────────
+  // ── STEP 3: Batched bulk retrigger ─────────────────────────
+  // Splits orphans into chunks of BATCH_SIZE (500) and sends each
+  // chunk as one HTTP call to the Cloud Function. This keeps every
+  // request well under the 540s timeout even at 5000 files.
   const runRetrigger = useCallback(async () => {
     if (!orphans.length) return;
     abortRef.current = false;
     setPhase("retriggering");
+    setError(null);
 
-    // Mark all running
+    // Split into batches
+    const batches = [];
+    for (let i = 0; i < orphans.length; i += BATCH_SIZE) {
+      batches.push(orphans.slice(i, i + BATCH_SIZE));
+    }
+
+    // Mark all files as "running" upfront
     setTriggerStates(Object.fromEntries(orphans.map((f) => [f.id, "running"])));
-    setTriggerProgress({ queued: 0, failed: 0, total: orphans.length });
+    setTriggerProgress({ queued: 0, failed: 0, total: orphans.length, batch: 0, batches: batches.length });
 
-    try {
-      const { queued, failed, errors } = await bulkRetrigger(orphans);
+    let totalQueued = 0;
+    let totalFailed = 0;
+    const allErrors = []; // [{ file: sanitizedPath, error: string }]
 
-      // Build error set from returned file paths
-      const errorFiles = new Set(
-        (errors || []).map((e) => e.file?.split("/").pop()?.replace(".wav", "") ?? "")
-      );
+    for (let b = 0; b < batches.length; b++) {
+      if (abortRef.current) break;
 
-      setTriggerStates(
-        Object.fromEntries(
-          orphans.map((f) => [f.id, errorFiles.has(f.id) ? "error" : "done"])
-        )
-      );
-      setTriggerProgress({ queued, failed, total: orphans.length });
-
-      if (failed === 0) {
-        clearOrphanCache(startDate, endDate);
-        setCacheInfo(null);
+      try {
+        const result = await retriggerBatch(batches[b]);
+        totalQueued += result.queued  ?? 0;
+        totalFailed += result.failed  ?? 0;
+        allErrors.push(...(result.errors ?? []));
+      } catch (err) {
+        // Entire batch HTTP call failed — mark all files in it as failed
+        totalFailed += batches[b].length;
+        batches[b].forEach((f) =>
+          allErrors.push({ file: sanitizePath(f.fullPath), error: err.message })
+        );
       }
-    } catch (err) {
-      console.error("[Reconciliation] bulk retrigger failed:", err);
-      setError(`Bulk retrigger failed: ${err.message}`);
-      setTriggerStates(Object.fromEntries(orphans.map((f) => [f.id, "error"])));
-      setTriggerProgress((p) => ({ ...p, failed: orphans.length, queued: 0 }));
+
+      setTriggerProgress({
+        queued:  totalQueued,
+        failed:  totalFailed,
+        total:   orphans.length,
+        batch:   b + 1,
+        batches: batches.length,
+      });
+    }
+
+    // Build error lookup keyed by sanitized path
+    const errorMap = Object.fromEntries(
+      allErrors.map((e) => [sanitizePath(e.file), e.error])
+    );
+
+    // Resolve per-file UI state
+    const newStates = {};
+    for (const orphan of orphans) {
+      const path = sanitizePath(orphan.fullPath);
+      newStates[orphan.id] = errorMap[path] ? "error" : "enqueued";
+    }
+    setTriggerStates(newStates);
+
+    // Persist final status back to Firestore
+    await Promise.allSettled(
+      orphans.map((orphan) => {
+        const errMsg = errorMap[sanitizePath(orphan.fullPath)] ?? null;
+        return updateOrphanStatus(orphan.id, errMsg ? "error" : "enqueued", null, errMsg);
+      })
+    );
+
+    if (totalFailed > 0) {
+      setError(`${totalFailed} file${totalFailed !== 1 ? "s" : ""} failed — see list for details.`);
     }
 
     setPhase("done");
-  }, [orphans, startDate, endDate]);
+  }, [orphans]);
 
-  // ─────────────────────────────────────────────────────────
+  // ── Remove single orphan ───────────────────────────────────
+  const handleRemoveOrphan = useCallback(async (fileId) => {
+    try {
+      await removeOrphanFromFirestore(fileId);
+      setTriggerStates((prev) => {
+        const next = { ...prev };
+        delete next[fileId];
+        return next;
+      });
+    } catch (err) {
+      console.error("[Reconciliation] Failed to remove orphan:", fileId, err);
+      setError(`Failed to remove orphan: ${err.message}`);
+    }
+  }, []);
+
+  // ── Clear all orphans ──────────────────────────────────────
+  const handleClearAll = useCallback(async () => {
+    try {
+      const snapshot = await getDocs(collection(db, ORPHANS_COLLECTION));
+      await Promise.all(snapshot.docs.map((d) => deleteDoc(doc(db, ORPHANS_COLLECTION, d.id))));
+    } catch (err) {
+      console.error("[Reconciliation] Failed to clear orphans:", err);
+      setError(`Failed to clear orphans: ${err.message}`);
+    }
+  }, []);
+
+  // ── Render ─────────────────────────────────────────────────
   return (
     <div className="bg-[#142848] rounded-2xl border border-[#f7cc1c]/20 shadow-2xl shadow-black/40 overflow-hidden">
 
@@ -335,13 +484,14 @@ const ReconciliationPanel = ({ onClose }) => {
 
       <div className="p-5 space-y-5">
 
-        {/* Info */}
+        {/* Info banner */}
         <div className="flex items-start gap-2.5 rounded-xl p-3 bg-[#5aa2ce]/8 border border-[#5aa2ce]/20 text-[11px] text-[#5aa2ce]/80 leading-relaxed">
           <FiInfo size={13} className="flex-shrink-0 mt-0.5" />
           <span>
             Storage orders by <strong className="text-[#5aa2ce]">filename</strong>, not date —
-            full scan required. Orphan results are cached locally.
-            Retrigger sends all files in <strong className="text-[#5aa2ce]">one backend call</strong>.
+            full scan required. Orphans are saved to Firestore <strong className="text-[#5aa2ce]">orphans</strong> collection.
+            Retrigger sends files in <strong className="text-[#5aa2ce]">batches of {BATCH_SIZE}</strong> — safe for large sets.
+            Close the tab only after all batches are sent.
           </span>
         </div>
 
@@ -365,27 +515,27 @@ const ReconciliationPanel = ({ onClose }) => {
           )}
         </div>
 
-        {/* Cache banner */}
-        {cacheInfo && phase === "idle" && (
-          <div className="flex items-center justify-between rounded-xl p-3 bg-[#4caf50]/8 border border-[#4caf50]/20 text-[11px]">
+        {/* Stored orphans banner (idle only) */}
+        {orphans.length > 0 && phase === "idle" && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl p-3 bg-[#4caf50]/8 border border-[#4caf50]/20 text-[11px]">
             <div className="flex items-center gap-2 text-[#4caf50]/80">
               <FiDatabase size={12} className="flex-shrink-0" />
               <span>
-                Cached <strong className="text-[#4caf50]">{cacheInfo.savedAt}</strong> —{" "}
-                <strong className="text-[#4caf50]">{cacheInfo.count}</strong> orphan{cacheInfo.count !== 1 ? "s" : ""}
+                <strong className="text-[#4caf50]">{orphans.length}</strong> orphan{orphans.length !== 1 ? "s" : ""} stored
+                · {Math.ceil(orphans.length / BATCH_SIZE)} batch{Math.ceil(orphans.length / BATCH_SIZE) !== 1 ? "es" : ""}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={loadFromCache}
-                className="px-3 py-1 rounded-lg bg-[#4caf50]/20 text-[#4caf50] hover:bg-[#4caf50]/30 transition-all font-semibold text-[11px]"
+                onClick={runRetrigger}
+                className="px-3 py-2 rounded-xl bg-[#f7cc1c] text-[#142848] text-xs font-semibold hover:bg-[#f7cc1c]/90 transition-all"
               >
-                Load cached
+                Retrigger stored orphans
               </button>
               <button
-                onClick={() => { clearOrphanCache(startDate, endDate); setCacheInfo(null); }}
+                onClick={handleClearAll}
                 className="p-1 text-white/25 hover:text-red-400 transition-colors"
-                title="Clear cache"
+                title="Clear all stored orphans"
               >
                 <FiTrash2 size={12} />
               </button>
@@ -434,36 +584,39 @@ const ReconciliationPanel = ({ onClose }) => {
           </div>
         )}
 
-        {/* Retrigger progress */}
+        {/* Retrigger progress — batched */}
         {phase === "retriggering" && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-white/50 flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full border-2 border-[#f7cc1c]/30 border-t-[#f7cc1c] animate-spin" />
-                Sending to queue…
+                Batch {triggerProgress.batch} of {triggerProgress.batches}…
               </span>
-              <span className="text-white/30 font-mono">{triggerProgress.total} files</span>
+              <span className="text-white/30 font-mono text-[11px]">
+                {triggerProgress.queued} queued · {triggerProgress.failed} failed
+              </span>
             </div>
-            <div className="h-1.5 bg-white/8 rounded-full overflow-hidden">
-              <div className="h-full bg-[#f7cc1c] rounded-full w-full animate-pulse" />
+            <ProgressBar value={triggerProgress.batch} max={triggerProgress.batches} color="#f7cc1c" />
+            <div className="text-[10px] text-white/20 text-right">
+              {triggerProgress.total} files · {BATCH_SIZE} per batch · keep tab open until done
             </div>
           </div>
         )}
 
-        {/* Stats */}
+        {/* Stats (after done) */}
         {phase === "done" && (
           <div className="flex gap-2 flex-wrap">
-            <StatBox label="Pages scanned" value={scanProgress.pages}     color="blue" />
-            <StatBox label="Total seen"    value={scanProgress.totalSeen} />
-            <StatBox label="In range"      value={scanProgress.matched} />
+            <StatBox label="Pages scanned" value={scanProgress.pages}     color="blue"  />
+            <StatBox label="Total seen"    value={scanProgress.totalSeen}               />
+            <StatBox label="In range"      value={scanProgress.matched}                 />
             <StatBox label="Orphans"       value={orphans.length}         color={orphans.length > 0 ? "red" : "green"} />
-            {queuedCount > 0 && <StatBox label="Enqueued" value={queuedCount} color="green" />}
+            {queuedCount > 0 && <StatBox label="Enqueued" value={queuedCount} color="green"  />}
             {failedCount > 0 && <StatBox label="Failed"   value={failedCount} color="orange" />}
           </div>
         )}
 
         {/* Orphan list */}
-        {phase === "done" && orphans.length > 0 && (
+        {orphans.length > 0 && (
           <div className="space-y-2">
             <button
               onClick={() => setShowOrphans((p) => !p)}
@@ -481,7 +634,12 @@ const ReconciliationPanel = ({ onClose }) => {
             {showOrphans && (
               <div className="space-y-1 max-h-64 overflow-y-auto rounded-xl border border-white/5 p-2 bg-white/2">
                 {orphans.map((f) => (
-                  <OrphanRow key={f.id} file={f} triggerState={triggerStates[f.id] ?? "idle"} />
+                  <OrphanRow
+                    key={f.id}
+                    file={f}
+                    triggerState={triggerStates[f.id] ?? "idle"}
+                    onRemove={handleRemoveOrphan}
+                  />
                 ))}
               </div>
             )}
@@ -496,8 +654,17 @@ const ReconciliationPanel = ({ onClose }) => {
           </div>
         )}
 
+        {/* No stored orphans */}
+        {phase === "idle" && orphans.length === 0 && !loadingStored && (
+          <div className="rounded-xl p-4 bg-white/4 border border-white/8 flex items-center gap-3 text-white/40 text-sm">
+            <FiDatabase size={16} className="flex-shrink-0" />
+            No stored orphans. Run a scan to find missing files.
+          </div>
+        )}
+
         {/* Action buttons */}
         <div className="flex items-center gap-2 flex-wrap pt-1">
+
           {(phase === "idle" || phase === "done") && (
             <button
               onClick={runScan}
@@ -509,17 +676,20 @@ const ReconciliationPanel = ({ onClose }) => {
             </button>
           )}
 
-          {phase === "done" && orphans.length > 0 && queuedCount === 0 && (
+          {(phase === "done" || phase === "idle") && orphans.length > 0 && queuedCount === 0 && (
             <button
               onClick={runRetrigger}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#f7cc1c] text-[#142848] hover:bg-[#f7cc1c]/90 active:scale-95 transition-all text-xs font-bold shadow-md shadow-[#f7cc1c]/20"
             >
               <FiZap size={13} />
-              Enqueue all {orphans.length} orphans
+              {phase === "idle"
+                ? `Retrigger ${orphans.length} orphans`
+                : `Enqueue all ${orphans.length} orphans`}
             </button>
           )}
 
-          {isRunning && (
+          {/* Abort only available during scan/check — not during retrigger batches */}
+          {isRunning && phase !== "retriggering" && (
             <button
               onClick={() => { abortRef.current = true; }}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/6 text-white/50 border border-white/10 hover:bg-red-500/15 hover:text-red-400 hover:border-red-500/30 active:scale-95 transition-all text-xs font-semibold"
@@ -547,11 +717,13 @@ const ReconciliationPanel = ({ onClose }) => {
           )}
         </div>
 
-        {phase === "idle" && !cacheInfo && (
+        {phase === "idle" && (
           <p className="text-[11px] text-white/20 leading-relaxed">
-            Scans every Storage page, filters by date, checks Firestore.
-            Orphans cached locally — use <strong className="text-white/30">Load cached</strong> to skip rescanning.
-            All orphans enqueued in one call — no browser timeout risk.
+            Scans every Storage page, filters by date, checks Firestore, saves orphans to the{" "}
+            <strong className="text-white/30">orphans</strong> collection. Retrigger splits files
+            into batches of <strong className="text-white/30">{BATCH_SIZE}</strong> — each batch is
+            one server call, keeping well under the 540s Cloud Function timeout even at 5 000+ files.
+            Keep the tab open until all batches finish sending.
           </p>
         )}
 

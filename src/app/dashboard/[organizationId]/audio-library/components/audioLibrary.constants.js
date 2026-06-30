@@ -9,7 +9,7 @@ export const BUCKET_FOLDERS = {
 export const PAGE_SIZE = 100;
 
 export const RETRIGGER_URL =
-  process.env.NEXT_PUBLIC_RETRIGGER_FUNCTION_URL || "";
+  (process.env.NEXT_PUBLIC_RETRIGGER_FUNCTION_URL || "").trim();
 
 
 // Matches: audio_{assessmentId}_{studentId}_{round}_{type}_{content...}_{timestamp}.wav

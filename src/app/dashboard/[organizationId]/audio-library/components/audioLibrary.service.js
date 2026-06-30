@@ -6,7 +6,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { storage, db } from "@/firebase/config";
 import { parseFileName, PAGE_SIZE, RETRIGGER_URL, dayKey } from "./audioLibrary.constants";
 
-const BATCH_CHECK_URL = process.env.NEXT_PUBLIC_BATCH_CHECK_URL || "";
+const BATCH_CHECK_URL = (process.env.NEXT_PUBLIC_BATCH_CHECK_URL || "").trim();
 
 // ── Resolve Storage items → enriched file objects ────────────
 export async function resolveItems(itemRefs) {
