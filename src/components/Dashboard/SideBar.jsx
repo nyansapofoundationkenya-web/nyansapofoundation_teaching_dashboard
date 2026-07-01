@@ -137,17 +137,19 @@ const Sidebar = ({
     MENU_WEIGHTS.SURVEY
   );
 
-  // ── Role-specific additions ────────────────────────────────
-  const superAdminMenuItems = [
-    createMenuItem("Ai Assistant", <FiMessageSquare size={20} />, `/dashboard/${organizationId}/ai-assistant`, "ai-assistant", MENU_WEIGHTS.AI_ASSISTANT),
-    createMenuItem("Map Assessments", <FiBook size={20} />, `/dashboard/${organizationId}/map_assessments`, "map-assessments", MENU_WEIGHTS.LITERACY),
-    createMenuItem(
+  const audioLibraryMenuItem = createMenuItem(
     "Audio Library",
     <FileAudio size={20} />,
     `/dashboard/${organizationId}/audio-library`,
     "audio-library",
     MENU_WEIGHTS.AUDIO_LIBRARY
-    ),
+  );
+
+  // ── Role-specific additions ────────────────────────────────
+  const superAdminMenuItems = [
+    createMenuItem("Ai Assistant", <FiMessageSquare size={20} />, `/dashboard/${organizationId}/ai-assistant`, "ai-assistant", MENU_WEIGHTS.AI_ASSISTANT),
+    createMenuItem("Map Assessments", <FiBook size={20} />, `/dashboard/${organizationId}/map_assessments`, "map-assessments", MENU_WEIGHTS.LITERACY),
+    audioLibraryMenuItem,
   ];
 
   const adminMenuItems = [
@@ -189,11 +191,6 @@ const Sidebar = ({
         break;
       default:
         break;
-    }
-
-    // Audio Library: only admin and super_admin
-    if (isAdminOrAbove) {
-      items.push(audioLibraryMenuItem);
     }
 
     // Survey: users with the survey permission flag
