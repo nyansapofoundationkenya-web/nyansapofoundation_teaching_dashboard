@@ -11,6 +11,7 @@ import { useAttendanceOverview } from "@/hooks/stats/useAttendanceOverview"
 import { useAssessmentHealth } from "@/hooks/stats/useAssessmentHealth"
 import { useStudentLevels } from "@/hooks/stats/useStudentLevels"
 import { useNumeracyLevels } from "@/hooks/stats/useNumeracyLevels"
+import { useDemographicsLevels } from "@/hooks/stats/Usedemographicslevels"
 import {
   Info,
   X,
@@ -30,101 +31,8 @@ import AssessmentHealth from "@/components/Welcome/AssessmentHealth"
 import AttendanceOverview from "@/components/Welcome/AttendanceOverview"
 import StatsCard from "@/components/ProjectDetails/StatsCard"
 import DurationStats from "@/components/Welcome/DurationStats"
+import { ChartDataTransformer } from "@/lib/studentLevelChartData"
 
-// Chart data utilities (unchanged)
-const ChartDataFormatter = {
-  formatLevelName: (level) => {
-    if (!level) return "Unknown"
-    const special = {
-      "non-reader": "Non-Reader",
-      "reading-comprehension": "Reading Comprehension",
-      "beginner": "Beginner",
-      "letter": "Letter",
-      "word": "Word",
-      "paragraph": "Paragraph",
-      "story": "Story",
-      "above": "Above",
-      "number_recognition": "Number Recognition",
-      "addition": "Addition",
-      "subtraction": "Subtraction",
-      "multiplication": "Multiplication",
-      "division": "Division",
-    }
-    if (special[level]) return special[level]
-    return level.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
-  }
-}
-
-const ChartDataParser = {
-  safeNumber: (v) => {
-    if (v == null || v === '' || v === undefined) return 0
-    const n = Number(v)
-    return isNaN(n) || !isFinite(n) || n < 0 ? 0 : n
-  }
-}
-
-const ChartDataTransformer = {
-  transformData: (data, levelType) => {
-    if (!data || typeof data !== 'object') return []
-
-    // Define keys for all three assessment periods
-    const baseKey = levelType === "literacy" ? "baseline" : "baseline_numeracy"
-    const midKey = levelType === "literacy" ? "midline" : "midline_numeracy"
-    const endKey = levelType === "literacy" ? "endline" : "endline_numeracy"
-
-    const baseline = data[baseKey] || {}
-    const midline = data[midKey] || {}
-    const endline = data[endKey] || {}
-
-    // Get all unique levels from all three periods
-    const allLevels = new Set([
-      ...Object.keys(baseline),
-      ...Object.keys(midline),
-      ...Object.keys(endline)
-    ])
-
-    let levels = Array.from(allLevels)
-    
-    // If no data at all, use default levels
-    if (levels.length === 0) {
-      levels = levelType === "literacy"
-        ? ["beginner", "letter", "word", "paragraph", "story", "above"]
-        : ["beginner", "number_recognition", "addition", "subtraction", "multiplication", "division"]
-    }
-
-    const levelOrder = {
-      literacy: { 
-        "non-reader": 0, 
-        "beginner": 0, 
-        "letter": 1, 
-        "word": 2, 
-        "paragraph": 3, 
-        "story": 4, 
-        "reading-comprehension": 4, 
-        "above": 5 
-      },
-      numeracy: { 
-        "beginner": 0, 
-        "number_recognition": 1, 
-        "addition": 2, 
-        "subtraction": 3, 
-        "multiplication": 4, 
-        "division": 5 
-      }
-    }
-
-    const orderMap = levelOrder[levelType] || {}
-    const sorted = [...levels].sort((a, b) => (orderMap[a] ?? 99) - (orderMap[b] ?? 99))
-
-    return sorted.map(level => ({
-      level: ChartDataFormatter.formatLevelName(level),
-      baseline: ChartDataParser.safeNumber(baseline[level]),
-      midline: ChartDataParser.safeNumber(midline[level]),
-      endline: ChartDataParser.safeNumber(endline[level]),
-      rawLevel: level
-    })).reverse()
-  }
-}
 export default function WelcomePage() {
   const { organizationId } = useParams()
   const { handleFetchOrganizationById } = useOrganizations()
@@ -152,6 +60,17 @@ export default function WelcomePage() {
     error: numeracyError,
     fetchData: fetchNumeracyLevels
   } = useNumeracyLevels({
+    organizationId
+  })
+
+  // NEW: grade / age / gender cross-tab (Organization scope for now — project
+  // and school scoping will be wired the same way once this lands there)
+  const {
+    data: demographicsData,
+    loading: demographicsLoading,
+    error: demographicsError,
+    fetchData: fetchDemographicsLevels
+  } = useDemographicsLevels({
     organizationId
   })
 
@@ -242,7 +161,8 @@ export default function WelcomePage() {
     fetchOrg()
   }, [organizationId, handleFetchOrganizationById])
 
-  // Prepare chart data based on level type
+  // Prepare chart data based on level type (Overall tab only — Grade/Age/Gender
+  // tabs compute their own slice from demographicsData inside the chart component)
   const chartData = ChartDataTransformer.transformData(
     levelType === "literacy" ? studentLevelsData : numeracyLevelsData,
     levelType
@@ -256,6 +176,7 @@ export default function WelcomePage() {
       } else {
         await fetchNumeracyLevels()
       }
+      await fetchDemographicsLevels()
     } catch (err) {
       console.error("Refresh failed:", err)
     }
@@ -372,23 +293,28 @@ export default function WelcomePage() {
             />
           </div>
 
-          {/* Student Levels Chart + Key Barriers */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-            <div className="lg:col-span-2">
-              <StudentLevelsChart
-                levelType={levelType}
-                setLevelType={setLevelType}
-                chartData={chartData}
-                loading={levelsLoading || numeracyLoading}
-                error={levelsError || numeracyError}
-                onRefresh={handleRefresh}
-                onDownload={handleDownload}
-                downloadLoading={downloadLoading}
-                isSuperAdmin={isSuperAdmin}
-                organizationId={organizationId}
-              />
-            </div>
-            <div className="lg:col-span-1">
+          {/* Student Levels Chart — full width, it's grown too rich for a 2/3 column */}
+          <div className="mb-10">
+            <StudentLevelsChart
+              levelType={levelType}
+              setLevelType={setLevelType}
+              chartData={chartData}
+              loading={levelsLoading || numeracyLoading}
+              error={levelsError || numeracyError}
+              onRefresh={handleRefresh}
+              onDownload={handleDownload}
+              downloadLoading={downloadLoading}
+              isSuperAdmin={isSuperAdmin}
+              organizationId={organizationId}
+              demographicsData={demographicsData}
+              demographicsLoading={demographicsLoading}
+              demographicsError={demographicsError}
+            />
+          </div>
+
+          {/* Key Barriers + Program Impact */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+            <div>
               <KeyBarriers
                 organizationId={organizationId}
                 loading={barrierLoading}
@@ -399,14 +325,7 @@ export default function WelcomePage() {
                 onFetchData={refetchBarriers}
               />
             </div>
-          </div>
-
-          {/* Weekly Engagement + Program Impact */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-            <div className="lg:col-span-2">
-              <WeeklyEngagementChart organizationId={organizationId} />
-            </div>
-            <div className="lg:col-span-1">
+            <div>
               <ProgramImpact
                 organizationId={organizationId}
                 loading={impactLoading}
@@ -415,6 +334,11 @@ export default function WelcomePage() {
                 onFetchData={refetchImpact}
               />
             </div>
+          </div>
+
+          {/* Weekly Engagement — full width, same treatment as Student Levels */}
+          <div className="mb-10">
+            <WeeklyEngagementChart organizationId={organizationId} />
           </div>
 
           {/* Assessment Health */}
