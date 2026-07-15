@@ -233,8 +233,8 @@ const OrphanRow = ({ file, triggerState, onRemove }) => {
 const ReconciliationPanel = ({ onClose }) => {
   const today = new Date().toISOString().slice(0, 10);
 
-  const [startDate, setStartDate] = useState("2026-05-26");
-  const [endDate,   setEndDate]   = useState(today);
+  const [startDate, setStartDate] = useState("2026-04-08");
+  const [endDate,   setEndDate]   = useState("2026-05-26");
   const [phase,     setPhase]     = useState("idle");
 
   const [scanProgress,    setScanProgress]    = useState({ pages: 0, totalSeen: 0, matched: 0 });
