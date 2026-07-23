@@ -13,7 +13,7 @@ import {
   arrayRemove,
   deleteDoc,
 } from "firebase/firestore";
-import DashboardLayout from "../DashboardLayout";
+// import DashboardLayout from "../../[organizationId]/DashboardLayout";
 import AssessmentPreview from "@/components/Moderations/assessments/AssessmentPreview";
 import CreateAssessmentModal from "@/components/Moderations/assessments/CreateAssessmentModal";
 
@@ -226,25 +226,16 @@ export default function MapAssessmentsPage() {
 
   if ((loading || orgsLoading) && assessments.length === 0) {
     return (
-      <DashboardLayout
-        title="Map Assessments"
-        organizationId={organizationId}
-        currentSection="map-assessments"
-      >
         <div className="min-h-[60vh] flex flex-col items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-3 mb-4"></div>
           <p className="text-gray-400">Loading assessments & organizations...</p>
         </div>
-      </DashboardLayout>
+      
     );
   }
 
   return (
-    <DashboardLayout
-      title="Map Assessments"
-      organizationId={organizationId}
-      currentSection="map-assessments"
-    >
+   
       <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 overflow-x-hidden">
         {/* Toast */}
         {toast && (
@@ -521,7 +512,6 @@ export default function MapAssessmentsPage() {
           />
         )}
       </div>
-    </DashboardLayout>
   );
 }
 

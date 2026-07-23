@@ -38,7 +38,7 @@ export default function InstructorTableRow({
   const handleRowClick = () => {
     // Only navigate if no action menu is open for this row
     if (actionMenuOpen === instructor.uid || roleUpdateOpen === instructor.uid) return;
-    router.push(`/dashboard/${currentOrganizationId}/instructors/${instructor.uid}`);
+    // router.push(`/dashboard/${currentOrganizationId}/instructors/${instructor.uid}`);
   };
 
   return (

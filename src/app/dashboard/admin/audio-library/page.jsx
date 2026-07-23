@@ -7,7 +7,7 @@ import { useSelector } from "react-redux";
 import { useRouter, useParams } from "next/navigation";
 import { FiHeadphones } from "react-icons/fi";
 
-import DashboardLayout from "../DashboardLayout";
+// import DashboardLayout from "../../[organizationId]/DashboardLayout";
 import ReconciliationPanel from "./components/ReconciliationPanel";
 
 // ── Page-level skeleton ───────────────────────────────────────
@@ -47,11 +47,11 @@ const AudioLibraryPage = () => {
 
   // ─────────────────────────────────────────────────────────
   return (
-    <DashboardLayout
-      title="Audio Library"
-      organizationId={organizationId}
-      currentSection="audio-library"
-    >
+    // <DashboardLayout
+    //   title="Audio Library"
+    //   organizationId={organizationId}
+    //   currentSection="audio-library"
+    // >
       <div className="min-h-screen bg-[#142848] text-white">
         <div className="max-w-5xl mx-auto p-6 space-y-5">
 
@@ -75,7 +75,7 @@ const AudioLibraryPage = () => {
 
         </div>
       </div>
-    </DashboardLayout>
+    // </DashboardLayout>
   );
 };
 
