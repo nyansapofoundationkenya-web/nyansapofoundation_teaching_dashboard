@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
+import Link from "next/link"; // ✅ added
 import {
   Search,
   PlayCircle,
@@ -58,6 +59,7 @@ const resourceLinks = [
     icon: HelpCircle,
     label: "FAQs",
     description: "Quick answers to common platform questions.",
+    // no href → stays a button
   },
   {
     category: "dashboard",
@@ -76,12 +78,13 @@ const resourceLinks = [
     icon: Headset,
     label: "Contact Support",
     description: "Get direct assistance from our expert team.",
+    href: "/contact-us", // ✅ added
   },
 ];
 
 export default function SupportPage({ onNavigate }) {
   // -------------------- Toggle state --------------------
-  const [activeCategory, setActiveCategory] = useState("all"); // "all" | "app" | "dashboard"
+  const [activeCategory, setActiveCategory] = useState("all");
 
   // -------------------- Filtered data --------------------
   const filteredVideos = useMemo(() => {
@@ -121,13 +124,11 @@ export default function SupportPage({ onNavigate }) {
     if (!input.trim() || loading) return;
 
     const userText = input.trim();
-    // Add user message to UI
     setMessages((prev) => [...prev, { role: "user", text: userText }]);
     setInput("");
     setLoading(true);
 
     try {
-      // Format history for the API (exclude the current user message)
       const history = messages.map((m) => ({
         role: m.role === "model" ? "model" : "user",
         parts: [{ text: m.text }],
@@ -188,8 +189,8 @@ export default function SupportPage({ onNavigate }) {
       {/* ---------- Navbar ---------- */}
       <nav className="flex justify-between items-center w-full px-6 h-16 fixed top-0 z-50 border-b border-background-lighter bg-background/80 backdrop-blur-md">
         <div className="text-2xl font-bold text-primary-2">Nao Assessments</div>
-        <div className="hidden md:flex items-center gap-6">
-          {/* <button
+        {/* <div className="hidden md:flex items-center gap-6">
+          <button
             onClick={() => onNavigate?.("dashboard")}
             className="text-foreground/70 hover:text-primary-2 transition-colors duration-200"
           >
@@ -200,11 +201,11 @@ export default function SupportPage({ onNavigate }) {
             className="text-foreground/70 hover:text-primary-2 transition-colors duration-200"
           >
             Assessments
-          </button> */}
-          {/* <button className="text-primary-3 font-bold border-b-2 border-primary-3 pb-1">
+          </button>
+          <button className="text-primary-3 font-bold border-b-2 border-primary-3 pb-1">
             Support
-          </button> */}
-        </div>
+          </button>
+        </div> */}
         <div className="flex items-center gap-4">
           <button className="bg-primary-2/20 text-on-primary px-4 py-2 rounded-lg text-xs font-bold uppercase">
             Logout
@@ -212,8 +213,8 @@ export default function SupportPage({ onNavigate }) {
         </div>
       </nav>
 
-      {/* ---------- Main content ---------- */}
-      <main className="pt-24 pb-12 px-4 md:px-6 max-w-7xl mx-auto w-full flex-grow space-y-10">
+      {/* ---------- Main content – updated padding ---------- */}
+      <main className="w-full max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 pt-24 pb-12 flex-grow space-y-10">
         {/* --- Hero --- */}
         <header className="relative overflow-hidden rounded-2xl bg-background-light/60 backdrop-blur-sm border border-background-lighter p-8 flex flex-col items-center text-center space-y-4">
           <h1 className="text-4xl md:text-5xl font-bold text-primary-2 z-10">
@@ -324,16 +325,35 @@ export default function SupportPage({ onNavigate }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {filteredResources.map((item, idx) => {
               const Icon = item.icon;
-              return (
-                <button
-                  key={idx}
-                  className="group p-6 bg-background-light border border-background-lighter rounded-xl hover:bg-background-lighter hover:border-primary-2 transition-all text-center space-y-2"
-                >
+              const content = (
+                <>
                   <Icon className="w-10 h-10 text-primary-2 mx-auto group-hover:text-primary-3 transition-colors" />
                   <h4 className="text-lg font-semibold text-foreground">
                     {item.label}
                   </h4>
                   <p className="text-sm text-gray-300">{item.description}</p>
+                </>
+              );
+
+              // ✅ If href exists, use Link; otherwise button
+              if (item.href) {
+                return (
+                  <Link
+                    key={idx}
+                    href={item.href}
+                    className="group p-6 bg-background-light border border-background-lighter rounded-xl hover:bg-background-lighter hover:border-primary-2 transition-all text-center space-y-2 block"
+                  >
+                    {content}
+                  </Link>
+                );
+              }
+
+              return (
+                <button
+                  key={idx}
+                  className="group p-6 bg-background-light border border-background-lighter rounded-xl hover:bg-background-lighter hover:border-primary-2 transition-all text-center space-y-2 w-full"
+                >
+                  {content}
                 </button>
               );
             })}

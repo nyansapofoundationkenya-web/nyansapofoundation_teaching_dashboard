@@ -19,7 +19,7 @@ export default function UsersManagementPage() {
   const { users, loading, error, refetchUsers } = useAllUsers();
   const { updateInstructorRole, deleteInstructor, error: actionError } = useInstructorActions();
 
-  const [activeTab, setActiveTab] = useState("users"); // "users" | "stats"
+  const [activeTab, setActiveTab] = useState("users");
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -86,9 +86,6 @@ export default function UsersManagementPage() {
     }
   };
 
-  // ActionMenu only shows "Unassign" when currentOrganizationId is set, which
-  // we pass as null below — so this won't actually be reachable yet. Keeping
-  // it wired for when AssignmentDropdown grows an unassign action.
   const handleUnassignUser = async (uid, orgId, userName) => {
     if (!confirm(`Remove ${userName} from this organization?`)) return;
     try {
@@ -106,8 +103,6 @@ export default function UsersManagementPage() {
       if (["teacher", "admin"].includes(role)) {
         await updateInstructorRole(uid, role);
       } else {
-        // updateInstructorRole only accepts teacher/admin today — direct
-        // write for project_manager/school_head/super_admin until it's widened
         await updateDoc(doc(db, "user", uid), { role, updatedAt: new Date().toISOString() });
       }
       setRoleUpdateOpen(null);
@@ -121,87 +116,92 @@ export default function UsersManagementPage() {
   useMemo(() => setCurrentPage(1), [searchTerm]);
 
   return (
-    <div className="space-y-5 p-6">
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">User Management</h1>
-          <p className="text-sm text-gray-400">Directory and usage across the whole platform.</p>
-        </div>
-
-        <div className="flex items-center gap-1 bg-background-light p-1 rounded-xl border border-background-lighter w-fit">
-          <button
-            onClick={() => setActiveTab("users")}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-              activeTab === "users" ? "bg-primary-3 text-primary-1" : "text-gray-400 hover:text-foreground"
-            }`}
-          >
-            <UsersIcon size={15} /> Users
-          </button>
-          <button
-            onClick={() => setActiveTab("stats")}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-              activeTab === "stats" ? "bg-primary-3 text-primary-1" : "text-gray-400 hover:text-foreground"
-            }`}
-          >
-            <BarChart3 size={15} /> Platform Stats
-          </button>
-        </div>
-      </div>
-
-      {activeTab === "users" ? (
-        <>
-          <div className="relative w-full sm:max-w-md">
-            <input
-              type="text"
-              placeholder="Search by name, email, or phone..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent bg-background-lighter text-foreground placeholder-gray-400"
-            />
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+    // ✅ Updated container: same padding as MapAssessmentsPage
+    <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6">
+      <div className="space-y-5">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-foreground">User Management</h1>
+            <p className="text-sm text-gray-400">Directory and usage across the whole platform.</p>
           </div>
 
-          {error && <p className="text-red-400">{error}</p>}
-          {actionError && <p className="text-red-400">{actionError}</p>}
+          <div className="flex items-center gap-1 bg-background-light p-1 rounded-xl border border-background-lighter w-fit">
+            <button
+              onClick={() => setActiveTab("users")}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                activeTab === "users" ? "bg-primary-3 text-primary-1" : "text-gray-400 hover:text-foreground"
+              }`}
+            >
+              <UsersIcon size={15} /> Users
+            </button>
+            <button
+              onClick={() => setActiveTab("stats")}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                activeTab === "stats" ? "bg-primary-3 text-primary-1" : "text-gray-400 hover:text-foreground"
+              }`}
+            >
+              <BarChart3 size={15} /> Platform Stats
+            </button>
+          </div>
+        </div>
 
-          <InstructorTable
-            instructors={filteredUsers}
-            loading={loading}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            itemsPerPage={itemsPerPage}
-            onPageChange={setCurrentPage}
-            onItemsPerPageChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}
-            onEditInstructor={handleEditUser}
-            onDeleteInstructor={handleDeleteUser}
-            onUnassignInstructor={handleUnassignUser}
-            onUpdateRole={handleUpdateRole}
-            actionMenuOpen={actionMenuOpen}
-            setActionMenuOpen={setActionMenuOpen}
-            roleUpdateOpen={roleUpdateOpen}
-            setRoleUpdateOpen={setRoleUpdateOpen}
-            newRole={newRole}
-            setNewRole={setNewRole}
-            userRole={userRole}
-            canUpdateRoles={canUpdateRoles}
-            getRoleBadgeColor={getRoleBadgeColor}
-            getAvailableRoles={getAvailableRoles}
-            currentOrganizationId={null}
-            searchQuery={searchTerm}
-            requireAssignment={false}
-          />
+        {/* Users tab */}
+        {activeTab === "users" ? (
+          <>
+            <div className="relative w-full sm:max-w-md">
+              <input
+                type="text"
+                placeholder="Search by name, email, or phone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-3 focus:border-transparent bg-background-lighter text-foreground placeholder-gray-400"
+              />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            </div>
 
-          <InstructorModal
-            isOpen={isModalOpen}
-            onClose={() => { setIsModalOpen(false); setSelectedUser(null); }}
-            onSubmit={() => { setIsModalOpen(false); setSelectedUser(null); refetchUsers(); }}
-            selectedInstructor={selectedUser}
-            userRole={userRole}
-          />
-        </>
-      ) : (
-        <PlatformStats />
-      )}
+            {error && <p className="text-red-400">{error}</p>}
+            {actionError && <p className="text-red-400">{actionError}</p>}
+
+            <InstructorTable
+              instructors={filteredUsers}
+              loading={loading}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}
+              onEditInstructor={handleEditUser}
+              onDeleteInstructor={handleDeleteUser}
+              onUnassignInstructor={handleUnassignUser}
+              onUpdateRole={handleUpdateRole}
+              actionMenuOpen={actionMenuOpen}
+              setActionMenuOpen={setActionMenuOpen}
+              roleUpdateOpen={roleUpdateOpen}
+              setRoleUpdateOpen={setRoleUpdateOpen}
+              newRole={newRole}
+              setNewRole={setNewRole}
+              userRole={userRole}
+              canUpdateRoles={canUpdateRoles}
+              getRoleBadgeColor={getRoleBadgeColor}
+              getAvailableRoles={getAvailableRoles}
+              currentOrganizationId={null}
+              searchQuery={searchTerm}
+              requireAssignment={false}
+            />
+
+            <InstructorModal
+              isOpen={isModalOpen}
+              onClose={() => { setIsModalOpen(false); setSelectedUser(null); }}
+              onSubmit={() => { setIsModalOpen(false); setSelectedUser(null); refetchUsers(); }}
+              selectedInstructor={selectedUser}
+              userRole={userRole}
+            />
+          </>
+        ) : (
+          <PlatformStats />
+        )}
+      </div>
     </div>
   );
 }
