@@ -54,78 +54,120 @@ const TERMS_SECTIONS = [
     content: "TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL NYANSAPO AI, ITS AFFILIATES, AGENTS, DIRECTORS, EMPLOYEES, SUPPLIERS OR LICENSORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL OR EXEMPLARY DAMAGES, INCLUDING BUT NOT LIMITED TO, DAMAGES FOR LOSS OF PROFITS, GOODWILL, USE, DATA OR OTHER INTANGIBLE LOSSES (EVEN IF NYANSAPO AI HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES), RESULTING FROM: (i) THE USE OR THE INABILITY TO USE THE SERVICE; (ii) THE COST OF PROCUREMENT OF SUBSTITUTE GOODS AND SERVICES RESULTING FROM ANY GOODS, DATA, INFORMATION OR SERVICES PURCHASED OR OBTAINED OR MESSAGES RECEIVED OR TRANSACTIONS ENTERED INTO THROUGH OR FROM THE SERVICE; (iii) UNAUTHORIZED ACCESS TO OR ALTERATION OF YOUR TRANSMISSIONS OR DATA; (iv) STATEMENTS OR CONDUCT OF ANY THIRD PARTY ON THE SERVICE; OR (v) ANY OTHER MATTER RELATING TO THE SERVICE.",
   },
 ];
+
 const PRIVACY_SECTIONS = [
   {
-    title: "1. Purpose of this Policy",
-    content: "The Nyansapo Foundation (\"Nyansapo\", \"we\", \"us\", or \"our\") is committed to protecting the privacy, dignity, and fundamental rights of all individuals whose personal data we process. This Privacy Policy explains how we collect, use, store, share, transfer, and protect personal data when you access or use Nyansapo AI products, applications, websites, platforms, and related services (collectively, the \"Services\"). This Policy applies to all users of the Services, including learners (children and adults), parents and guardians, teachers, school administrators, institutional partners, researchers, and platform visitors. This Policy should be read together with the Nyansapo AI Terms and Conditions, which govern use of the Services. Where there is any inconsistency, this Privacy Policy shall prevail in relation to matters of personal data protection.",
+    title: "1. About this Privacy Policy",
+    content: "Nyansapo AI respects your privacy and is committed to protecting personal data, especially personal data relating to children. This Privacy Policy explains what information we collect, how we use and share it, how we protect it, and the rights available to learners, parents and guardians, teachers, school personnel, and other users.\n\nThis Privacy Policy applies to Nyansapo AI's websites, mobile applications, dashboards, and related services, including NAO Assessments, NAO Learn, Hekima, and Stadi Math (together, the \"Services\"). It applies whether the Services are accessed through a school, education programme, government or non-governmental partner, by a parent or guardian, or directly by another authorised user.\n\nThis Policy is intended to be read together with any consent form, school or partner privacy notice, data-processing agreement, terms of use, research consent form, or other notice provided for a particular programme.\n\nUsing a Service does not by itself constitute consent to every form of data processing. Where consent is the appropriate legal basis, we will seek specific and informed consent. For children, we will obtain or require consent from a parent or legal guardian unless another lawful basis clearly applies.",
   },
   {
-    title: "2. Scope of Application",
-    content: "This policy applies to all users of Nyansapo AI products and services, including learners, guardians, educators, service providers, and institutional stakeholders. It governs: - Our web and mobile platforms - Any data processed through learning apps, websites, and backend systems - Third-party tools and services we integrate or contract - Offline data collection activities (e.g., workshops, surveys, support services). It covers both automated and manual processing of personal data.",
+    title: "2. Who We Are and Our Role",
+    content: "Nyansapo AI is a Kenya-based education technology organisation that develops digital assessment and learning solutions for African learners. The Services help identify learning gaps, provide learning and remediation activities, and give authorised parents, teachers, schools, education programmes, and partners visibility into learning progress.\n\nThe organisation responsible for the processing described in this Policy is The Nyansapo Foundation, trading as Nyansapo AI, of P.O. Box 114-90201, Mutomo, Kitui, Kenya (\"Nyansapo AI\", \"we\", \"us\", or \"our\").\n\nOur legal role may differ depending on how a Service is used:\n- When a person registers directly with Nyansapo AI, Nyansapo AI will generally act as the data controller for the information collected for that account and Service.\n- When a school, government agency, NGO, or education partner engages Nyansapo AI, that organisation may act as the data controller and Nyansapo AI may act as its data processor, processing information under its documented instructions.\n- For some activities, Nyansapo AI and the relevant organisation may each be independent controllers or joint controllers. The applicable agreement or programme notice should explain the arrangement.",
   },
   {
-    title: "3. Key Definitions",
-    content: "Personal Data: Any information relating to an identified or identifiable natural person (e.g., name, location, ID number, learning performance data). Sensitive Personal Data: Includes data revealing child status, health, biometrics, or special education needs. Requires additional protections. Data Subject: The individual whose data is being processed (e.g., a student, teacher, or parent). Data Controller: Nyansapo AI which determines the purpose and manner of data processing. Data Processor: Any third party that processes data on our behalf under a written agreement. Data Protection Officer: The appointed officer responsible for overseeing data Protection compliance and communication with the ODPC. ODPC: The Office of the Data Protection Commissioner, Kenya's regulatory authority for data protection.",
+    title: "3. Our Products and the Data They Use",
+    products: [
+      {
+        name: "NAO Assessments",
+        description: "Supports digital foundational literacy, numeracy, EGRA, EGMA, Uwezo, TaRL, and other configured assessments. It may collect learner identity and school information, assessment items presented, learner responses, scores, accuracy, level, completion status, assessor details, timestamps, and related implementation data. Where an assessment uses speech recognition or image capture, it may also process short audio recordings, speech features, photographs or scans of written work, and text extracted through optical character recognition (\"OCR\").",
+      },
+      {
+        name: "NAO Learn",
+        description: "Provides literacy learning and remediation activities. It may collect learner identity and school information, assigned lessons, answers, scores, accuracy, skills or levels attempted, completion, time and frequency of use, and learning progress. Where a learning or assessment activity requires a learner to speak or read aloud, NAO Learn may also collect and process audio recordings and speech-derived results to assess reading and other literacy skills. These data may be used to recommend appropriate activities and to show progress to authorised users.",
+      },
+      {
+        name: "Hekima",
+        description: "Supports foundational literacy for young learners, including learners in ECDE and the early primary grades. It may collect learner identity and school information, activity responses, assessment results, skill or strand progress, completion, usage information, and, where speaking activities are enabled, short audio recordings or speech-derived results. It may provide authorised parents, guardians, teachers, and schools with progress updates and guidance for supporting learning.",
+      },
+      {
+        name: "Stadi Math",
+        description: "Supports mathematics teaching, practice, assessment, homework, and remediation, including for junior secondary learners. It may collect learner identity and school information, questions attempted, answers, working steps where submitted, scores, error patterns, assignments, completion, learning progress, and teacher feedback or actions.",
+      },
+    ],
   },
   {
-    title: "4. Legal & Regulatory Framework",
-    content: "This policy is guided by and adheres to the following legal instruments: - The Constitution of Kenya (2010), Article 31: Right to Privacy - The Kenya Data Protection Act (2019) - Data Protection (General) Regulations, 2021 - Data Protection (Complaints Handling & Enforcement Procedures), 2021 - Children Act, 2022 (with respect to children's rights and protections) - International Standards such as the UN Convention on the Rights of the Child (UNCRC) and GDPR (where applicable for cross-border standards) - Sector-specific guidance from the Ministry of Education, ICT Authority, and ODPC.",
+    title: "4. Information We Collect",
+    content: "4.1 Information provided by schools and education partners: A school, government agency, NGO, education programme, teacher, assessor, or other authorised partner may register learners or provide information necessary to deliver an assessment or learning programme, including learner name or identifier, age or date of birth, gender (where necessary), grade/class/level/cohort, school or programme, parent or guardian details where lawfully provided, teacher/assessor/administrator details, and other information specified in an approved data-collection form. The organisation providing the information is responsible for having a lawful basis to collect and disclose it, providing required privacy information, and obtaining valid parental or guardian consent where required. Nyansapo AI will also take reasonable steps to confirm appropriate safeguards and agreements are in place.\n\n4.2 Information provided by parents or guardians: Where a parent or guardian registers directly, we may collect their name, phone number, email address, account credentials and communication preferences, the learner's name, age or date of birth, grade/class and school, the parent's relationship to the learner, and consent records or survey/support responses. Nyansapo AI may request additional information from a school or programme to verify the adult's authority.\n\n4.3 Information provided when an authorised user creates an account: Parents, guardians, teachers, assessors, school administrators, and programme staff may provide their name, username, role, organisation, email, phone number, and account credentials, registering with a phone number and password. Children cannot create their own accounts. We do not currently offer social-login registration and do not request access to a user's contact list.\n\n4.4 Learning, assessment, and progress information: This includes assessment questions/activities and responses; scores, accuracy, level, mastery indicators, and learning gaps; lessons, assignments, or skills attempted and completed; baseline, follow-up, and endline results; time, date, duration and frequency of activity; teacher observations, feedback, and intervention records; and generated progress reports and recommendations.\n\n4.5 Speech, audio, images, and written work: Some activities require learners to read aloud, speak, or submit photographs/scans of written work. NAO Learn, NAO Assessments, and Hekima may collect learner audio; NAO Assessments and Stadi Math may collect photographs or scans of written work. We use this information to deliver activities, evaluate responses, generate results, identify learning gaps, and to develop, train, test, and improve our speech-recognition, OCR, assessment, and learning models. Where possible, we remove or replace direct identifiers before use in model-training datasets and restrict access to authorised personnel and approved providers. We do not use learner information for advertising profiles and do not use audio to clone or reproduce a learner's voice. Parents and guardians may withdraw consent for future model-development processing by contacting privacy@nyansapoai.app; withdrawal does not affect lawful past processing or already-trained anonymised models.\n\n4.6 Technical and usage information: Device type, operating system, app version, language, and device identifiers; IP address and approximate location derived from it; login, error, crash, sync, and security logs; features/screens used; and access dates, times, and duration. We do not use session-replay software to record a learner's complete interaction with the Services.\n\n4.7 Offline collection and synchronisation: The Services may operate offline in low-connectivity settings, with information temporarily stored on an authorised device and synchronised once connectivity is available. The device holder, school, or programme partner must protect the device and follow agreed data-handling procedures.\n\n4.8 Cookies and website information: Our website may use cookies necessary for login, security, preferences, and basic measurement. Where non-essential analytics cookies are used, we provide appropriate notice and choices. We do not use children's personal data for behavioural advertising or cross-site tracking.\n\n4.9 Information we do not currently collect: Unless we introduce a feature and update this Policy, the current Services do not create public learner profiles; allow following, searching for, messaging, or public interaction with learners; synchronise or upload contact lists; offer AI video calls or AI chat companions; use session replay to record complete sessions; or use learner information for personalised advertising.",
   },
   {
-    title: "5. Data Protection Principles",
-    content: "We commit to the following core data protection principles, in line with Section 25 of the Data Protection Act: 1. Lawfulness, Fairness, and Transparency 2. Purpose Limitation: We only collect data for specific, lawful purposes clearly communicated to users. 3. Data Minimization: We collect only data that is necessary and relevant. 4. Accuracy: Data is kept accurate and up to date. 5. Storage Limitation: Data is retained only for as long as necessary. 6. Integrity and Confidentiality: We ensure appropriate security of the data. 7. Accountability: We are responsible for and able to demonstrate compliance with data protection laws.",
+    title: "5. How and Why We Use Personal Data",
+    content: "We use personal data only for specified and lawful purposes, including to: create and administer authorised accounts and learner profiles; deliver assessments, lessons, practice, homework, and remediation; calculate scores, identify learning gaps, track progress, and recommend activities; provide authorised dashboards, reports, and progress updates to learners, parents, guardians, teachers, schools, and partners; link a learner with the correct parent, school, class, teacher, or programme; support implementation by teachers, assessors, schools, and partners; send account, security, service, assessment, assignment, and progress communications; respond to support requests and resolve technical issues; maintain safety, security, data quality, and service integrity; evaluate and improve accessibility, reliability, educational effectiveness, and performance; conduct approved monitoring, evaluation, research, and statistical analysis using anonymised or protected data wherever possible; meet contractual, safeguarding, regulatory, legal, audit, and reporting obligations; and establish, exercise, or defend legal claims and prevent fraud or misuse.",
   },
   {
-    title: "6. Categories of Data We Collect",
-    content: "We collect the following categories of data depending on the user group: a) Learners (Including Children under 18): - Name, date of birth, gender - School/grade/class - Learning records and assessments - Behavioural, engagement, or learning pattern data - Device usage and location data (where applicable) b) Parents/Guardians: - Names and contact details (email, phone) - Consent documentation - Feedback, support interactions c) Educators/Institutional Partners: - Names, roles, professional credentials - Communication data - Participation in training or events d) Technical Users & Platform Visitors: - IP address, browser/device type - Cookies, geolocation, platform usage analytics - Login credentials and activity logs.",
+    title: "6. Our Legal Bases for Processing",
+    content: "We identify an appropriate legal basis before processing personal data, which may include: Consent, where the individual or a parent/guardian acting for a child has given specific and informed consent; Performance of a contract, where processing is necessary to provide a requested Service; Legal obligation, where required to comply with Kenyan or other applicable law; Public interest or official authority, where an authorised public body lawfully requires processing for an education function; Legitimate interests, applied with particular caution for children's data; and Research or statistical purposes, supported by data minimisation, de-identification, access controls, and ethics approval where required. Where consent is used, it may be withdrawn; withdrawal does not affect prior lawful processing and may not require deletion where retention is otherwise legally required.",
   },
   {
-    title: "7. Purpose of Data Processing",
-    content: "We collect and process data for the following legitimate purposes: - Delivering personalized and adaptive learning content - Assessing learner performance and educational progress - Monitoring engagement and platform improvement - Communicating with guardians and educators for support or program coordination - Ensuring digital safety and compliance with child protection regulations - Conducting research and program evaluation (with proper anonymization or consent) - Fulfilling legal obligations (e.g., reporting, compliance).",
+    title: "7. Children's Privacy",
+    content: "Most learners using Nyansapo AI are children under 18, so we design and operate the Services with children's best interests, dignity, safety, and evolving capacities in mind:\n- A child should use a Service only through a school, programme, parent, guardian, or other properly authorised arrangement.\n- We seek or require parental or legal guardian consent through the applicable app when consent is the legal basis, and may take additional steps to verify the adult's authority.\n- We collect only information reasonably necessary for the relevant assessment, learning, safeguarding, or programme purpose.\n- Learner accounts and progress information are not public.\n- We do not sell children's personal data or use it for personalised advertising.\n- We restrict access to authorised personnel and users with a legitimate educational or operational need.\n- We present child-appropriate information where children interact directly with a Service.\n- We assess privacy risks before introducing material new processing involving children, including high-risk AI, biometrics, systematic monitoring, or large-scale sensitive data.\n\nParents and guardians may contact us to ask about, access, correct, restrict, or request deletion of their child's information, subject to verification of identity and authority and any lawful limits. Where a school or partner controls the relevant data, we may refer the request to that organisation or assist it in responding.",
   },
   {
-    title: "8. Lawful Basis for Processing Personal Data",
-    content: "We rely on one or more of the following lawful grounds under Section 30 of the Kenya Data Protection Act: - Consent: Obtained from users or guardians before collecting sensitive or optional data - Contractual Necessity: For delivery of agreed services - Legal Obligation: To comply with applicable laws or regulations - Vital Interests: Especially regarding safeguarding and child protection - Legitimate Interests: To enhance service quality or for educational analytics, balanced with user rights.",
+    title: "8. Automated Tools, Speech Recognition, and OCR",
+    content: "Nyansapo AI uses automated technologies in limited ways to support assessment and learning, which may recognise speech, extract text from an image, calculate a score, identify likely learning gaps, group a learner by level, or recommend an activity. Automated results may be affected by background noise, accent, language variation, image quality, handwriting, connectivity, or other factors. Where a result may materially affect a learner, authorised teachers, assessors, or programme staff should review it together with other relevant evidence, and a parent, guardian, learner, or authorised school representative may ask for human review of a significant automated result.\n\nNyansapo AI stores learner audio, images, and results in Google Firebase. Our speech-recognition and OCR models are deployed using Microsoft Azure computing infrastructure in the United States. Azure processes submitted audio and images to return speech-derived or extracted-text results; under our current deployment, submitted audio, images, and extracted text are not retained by Azure after processing, though diagnostic logging is enabled for technical and operational purposes. Nyansapo AI has not authorised Microsoft to use learner information for Microsoft's own model training or product-improvement purposes.",
   },
   {
-    title: "9. Rights of Data Subjects",
-    content: "We uphold the following rights of our users as per Sections 26-29 of the Data Protection Act: - Right to be informed: Clear and timely notice about data collection and purposes - Right of access: Users can request a copy of their data - Right to correction/rectification - Right to erasure ('Right to be forgotten') - Right to data portability - Right to object to processing - Right to withdraw consent - Right to complain: Users may lodge complaints with the ODPC. To exercise any of the above rights, contact us via info@nyansapoai.app or through our website's user portal.",
+    title: "9. When We Share Personal Data",
+    content: "We may share personal data only where necessary and proportionate, including with:\n- Schools, teachers, parents, and guardians, to provide learning, assessment, progress, and support functions, with access limited to the learner or group they are authorised to support.\n- Government agencies, NGOs, funders, and education partners, where they sponsor, operate, evaluate, or oversee a programme and have a lawful basis to receive the information; wherever possible, reports are aggregated or de-identified.\n- Service providers, such as secure hosting, database, communications, analytics, technical support, payment, speech-recognition, and OCR providers processing information on our instructions and bound by confidentiality, security, and data-protection obligations.\n- Professional advisers and auditors, where necessary for legal, financial, security, compliance, or audit purposes and subject to confidentiality obligations.\n- Public authorities, where disclosure is required by law, court order, lawful regulatory request, safeguarding duty, or to protect a person from serious harm.\n- A successor organisation, if Nyansapo AI undergoes a merger, reorganisation, financing, or transfer of operations, subject to lawful safeguards and notice where required.\n\nWe do not sell or rent personal data, and we do not permit service providers to use personal data for their own advertising or unrelated purposes. Our principal service providers include Google Firebase (hosting, databases, file storage, analytics, crash reporting), Microsoft Azure (speech-recognition and OCR computing infrastructure), Google Workspace (email and internal support), Onfon Media Limited (SMS delivery), and Safaricom (M-PESA payment processing). These providers receive only the information reasonably necessary to provide the applicable service.",
   },
   {
-    title: "10. Data Retention and Disposal",
-    content: "We retain personal data only for as long as necessary for the purposes described above: Learning and engagement data: 3 years post-program completion; Guardian contact information: Active enrollment period + 1 year; Staff/partner data: 6 years post-engagement; Financial records: 7 years (as required by tax laws). Disposal Methods: Data no longer required is securely deleted (digitally wiped or shredded if physical) or anonymized.",
+    title: "10. Access to School and Programme Data",
+    content: "Teachers, assessors, school administrators, and programme personnel may access learner information only where they are authorised and only to the extent required for their role, which may include registration details, assessment results, learning progress, assignments, group or cohort summaries, and intervention records. Schools and partners must manage user access, promptly remove access when a person changes role or leaves, protect login credentials and devices, and notify Nyansapo AI of suspected unauthorised access. Nyansapo AI may suspend access where needed to protect learners or the security of the Services.",
   },
   {
-    title: "11. Data Sharing and Disclosure",
-    content: "We do not sell personal data. However, we may share data with third parties under strict contractual agreements for: - Educational delivery (e.g., schools, researchers) - Technology services (e.g., secure cloud hosting, analytics platforms) - Legal authorities or regulators (where required). All third parties are required to comply with the Kenya Data Protection Act and maintain high standards of security and confidentiality.",
+    title: "11. Communications",
+    content: "We may use an adult user's phone number or email address to send account verification, password reset, security, and service notices; assessment, assignment, implementation, or support messages; learner progress reports, learning reminders, and home-support guidance requested as part of a Service; notices about material changes to the Services or this Policy; and optional information about Nyansapo AI products, events, research, or opportunities, where the recipient has consented or another lawful basis applies. Recipients may opt out of optional marketing communications; this will not stop essential account, safety, or service messages. Learner progress reports are sent primarily to authorised parents and guardians by SMS and may also be sent by email, with reasonable steps taken to link the recipient to the correct learner profile.",
   },
   {
-    title: "12. International or Cross-Border Data Transfers",
-    content: "If user data is stored or processed outside Kenya: - We ensure adequate data protection measures (e.g., Standard Contractual Clauses) - Transfers are conducted only with proper legal basis and ODPC guidance - Users are informed and their consent is obtained where required.",
+    title: "12. Research, Monitoring, Evaluation, and Anonymised Data",
+    content: "Nyansapo AI and authorised programme partners may analyse information to understand implementation, learning outcomes, usage, access, and product performance. We use aggregated or anonymised data wherever the purpose can be achieved without identifying a learner, and may retain and use genuinely anonymised information because it is no longer personal data. Identifiable personal data will not be used for a materially different research purpose without an appropriate legal basis, clear information to affected individuals, and any consent, ethics review, or regulatory approval required by law.",
   },
   {
-    title: "13. Security Safeguards",
-    content: "We implement a layered security approach including: - SSL/TLS encryption of data in transit - Encrypted databases and secure backups - Role-based access controls (RBAC) - Multi-factor authentication for staff/admins - Regular vulnerability assessments and penetration testing - Data protection training for team members.",
+    title: "13. International Data Transfers",
+    content: "Nyansapo AI is based in Kenya, while its primary application storage and cloud-processing locations are in the United States. Learner profiles, assessment and learning records, audio, images, written work, and related technical information stored in Google Firebase may therefore be transferred to and stored in the United States. Learner audio and images may also be transmitted to Microsoft Azure infrastructure in the United States for speech-recognition and OCR processing. Before transferring personal data outside Kenya, we assess the purpose, destination, recipient, and safeguards applicable to the transfer, limit the data transferred, use appropriate contractual, organisational, and technical safeguards, and obtain consent or regulatory approval where required by applicable law. Information about our providers and international processing arrangements is available by contacting privacy@nyansapoai.app.",
   },
   {
-    title: "14. Data Breach Response Plan",
-    content: "In the event of a data breach: - Affected users and the ODPC will be notified within 72 hours - A root cause analysis and risk assessment will be conducted - The breach will be resolved and preventive measures reinforced - Affected parties will be supported in mitigating any impacts.",
+    title: "14. Data Security",
+    content: "We use reasonable technical and organisational safeguards appropriate to the nature and risk of the data, including encryption in transit and at rest, access controls, role-based permissions, authentication, secure development and testing practices, logging, backups, vulnerability management, staff confidentiality and training, vendor due diligence, and incident-response procedures. No system is completely secure. Users and participating organisations must protect passwords and devices, avoid sharing accounts, use only authorised devices, install updates, and promptly report suspected loss, misuse, or unauthorised access.",
   },
   {
-    title: "15. Children's Data Protection",
-    content: "In line with the Children Act, 2022 and international child rights standards: - We obtain verifiable parental/guardian consent before collecting data from children under 18 - Data is only used to enhance child learning and wellbeing - Special care is taken to minimize profiling or behavioral tracking - We ensure age-appropriate language in all privacy notices for children and youth.",
+    title: "15. Personal Data Breaches",
+    content: "If a personal data breach occurs, Nyansapo AI will investigate, contain, assess, document, and address it. Where required by applicable law, we will notify the Office of the Data Protection Commissioner and affected individuals within the legally required period. Schools and partners must notify Nyansapo AI promptly of incidents affecting Nyansapo AI data or systems.",
   },
   {
-    title: "16. Data Protection Officer (DPO)",
-    content: "We have appointed a qualified Data Protection Officer (DPO) to: - Oversee compliance with data protection obligations - Serve as the contact point for the ODPC and data subjects - Monitor, advise, and audit internal data protection practices. DPO Contact: victor@nyansapoai.app",
+    title: "16. Data Retention and Deletion",
+    content: "We retain personal data only for as long as necessary for the purpose for which it was collected, including delivery of the relevant Service or programme, educational reporting, safeguarding, audit, dispute resolution, and compliance with legal or contractual obligations. Retention periods depend on the type of information, the product, the programme agreement, the learner's age, the sensitivity of the data, and the risks associated with continued retention. At the end of the applicable period, we securely delete, destroy, return, or anonymise the information; data stored temporarily on offline devices should be removed after successful synchronisation and verification. We periodically review retained audio, images, written work, model-training datasets, logs, consent records, support records, financial records, and backups, and delete, anonymise, or restrict information that is no longer reasonably required.",
   },
   {
-    title: "17. Policy Review and Updates",
-    content: "This policy will be reviewed: - Annually, and - Immediately following major changes to laws, services, or data practices. All updates will be made publicly available and communicated via appropriate channels (website, email, app notifications).",
+    title: "17. Your Data-Protection Rights",
+    content: "Subject to applicable law and appropriate identity verification, individuals may have the right to: be informed about how their personal data is used; access personal data held about them; request correction of inaccurate, outdated, incomplete, or misleading data; object to certain processing; request restriction of processing; request deletion of data that is no longer necessary or is being processed unlawfully; receive or request transfer of eligible personal data in a usable format; withdraw consent where processing is based on consent; ask for reconsideration or human review of a significant decision based solely on automated processing; and complain to the Office of the Data Protection Commissioner. A parent or legal guardian may exercise appropriate rights for a child, subject to identity and authority verification. If a school or programme partner is the controller, requests should normally be made to that organisation; Nyansapo AI will assist as required. To exercise a right, contact privacy@nyansapoai.app. We will respond within the period required by applicable law, and a request may be limited or refused where permitted by law, with any refusal explained along with available complaint options.",
   },
   {
-    title: "18. Contact Us",
-    content: "For general inquiries, data access requests, or complaints: -  info@nyansapoai.app - +254746 664982 - Nyansapo AI Office: 114-90201, Mutomo, Kitui - ODPC Website: www.odpc.go.ke",
+    title: "18. Complaints",
+    content: "Please contact us first at privacy@nyansapoai.app so that we can try to resolve your concern. You also have the right to lodge a complaint with the Office of the Data Protection Commissioner of Kenya through its official complaint channels at https://www.odpc.go.ke/.",
+  },
+  {
+    title: "19. Third-Party Links and Services",
+    content: "The Services may contain links to websites or services operated by third parties. Their privacy practices are governed by their own notices. Nyansapo AI is not responsible for a third party's independent processing, but we assess and contract with providers that process personal data on our behalf.",
+  },
+  {
+    title: "20. Changes to this Privacy Policy",
+    content: "We may update this Policy to reflect changes in our Services, data practices, partnerships, or legal obligations. We will show the date of the latest update. If a change materially affects how personal data is used, we will provide appropriate notice through the Service, by email or SMS to an adult contact, through a participating school or partner, or by another suitable method. Where required, we will seek fresh consent.",
+  },
+  {
+    title: "21. Contact Us",
+    fields: [
+      { label: "Organisation", value: "The Nyansapo Foundation, trading as Nyansapo AI" },
+      { label: "Postal address", value: "P.O. Box 114-90201, Mutomo, Kitui, Kenya" },
+      { label: "Telephone", value: "+254 143 596 886", href: "tel:+254143596886" },
+      { label: "Website", value: "www.nyansapoai.app", href: "https://www.nyansapoai.app" },
+      { label: "Privacy, data-protection, and support enquiries", value: "privacy@nyansapoai.app", href: "mailto:privacy@nyansapoai.app" },
+      { label: "Data Protection Officer", value: "Victor Nzyoka" },
+      { label: "Data Protection Officer email", value: "victor@nyansapoai.app", href: "mailto:victor@nyansapoai.app" },
+    ],
+  },
+  {
+    title: "22. Legal Framework",
+    content: "This Policy is intended to support compliance with the Constitution of Kenya, the Data Protection Act, 2019, the Data Protection (General) Regulations, 2021, the Data Protection (Registration of Data Controllers and Data Processors) Regulations, 2021, the Children Act, 2022, and applicable guidance issued by the Office of the Data Protection Commissioner, including guidance for the education sector and processing children's data. If the Services are offered in another country, applicable local requirements may also apply.",
   },
 ];
 
@@ -217,7 +259,7 @@ function LegalContent() {
             <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
               {isTerms
                 ? "Last updated: 2024 · Governed by Kenyan law"
-                : "Annual review policy · Kenya Data Protection Act 2019"}
+                : "Effective date: 24 July 2026 · Kenya Data Protection Act, 2019"}
             </p>
           </div>
         </div>
@@ -230,7 +272,7 @@ function LegalContent() {
           <p className="text-sm leading-7" style={{ color: "rgba(255,255,255,0.75)" }}>
             {isTerms
               ? "Thank you for your interest in using the online services operated by The Nyansapo Foundation (hereafter called \"Nyansapo AI\"). These Terms of Service govern your use of online and/or mobile services, websites, and software provided on or in connection with www.nyansapoai.app (collectively, the \"Service\"), which are offered through (i), (ii) mobile applications associated with Nyansapo AI, and (iii) any other Nyansapo AI website, app or online service which links to these Terms of Service. By accessing or using the Service, or by clicking a button or checking a box marked \"I Agree\" (or something similar), you signify that you have read, understood and agree to be bound by these Terms of Service (the \"Agreement\"), and to the collection and use of your information as set forth in our Privacy Policy, whether or not you are a registered user of our Service. Nyansapo AI reserves the right to modify this Agreement so long as it provides notice of these changes to you as described below. This Agreement applies to all visitors, users, and others who access or otherwise use the Service (\"you\" or \"Users\"). If you open an Nyansapo AI account on behalf of a School, company, organization, or other entity, then \"you\" includes you and that entity. PLEASE READ THIS AGREEMENT CAREFULLY TO ENSURE THAT YOU UNDERSTAND EACH PROVISION. THIS AGREEMENT CONTAINS A MANDATORY INDIVIDUAL ARBITRATION AND CLASS ACTION/JURY TRIAL WAIVER PROVISION THAT REQUIRES THE USE OF ARBITRATION ON AN INDIVIDUAL BASIS TO RESOLVE DISPUTES, RATHER THAN JURY TRIALS OR CLASS ACTIONS."
-              : "The Nyansapo Foundation is committed to protecting your privacy and the privacy of learners on our platform. This policy explains what data we collect, why we collect it, and how it is protected under Kenyan and international law."}
+              : "Nyansapo AI respects your privacy and is committed to protecting personal data, especially personal data relating to children. This policy explains what information we collect across NAO Assessments, NAO Learn, Hekima, and Stadi Math, how we use and share it, how we protect it, and the rights available to learners, parents and guardians, teachers, and school personnel under Kenyan and international law."}
           </p>
         </div>
 
@@ -246,12 +288,42 @@ function LegalContent() {
                   {section.title}
                 </h3>
               </div>
-              <p
-                className="text-sm leading-7 whitespace-pre-line"
-                style={{ color: "rgba(255,255,255,0.65)", paddingLeft: "15px" }}
-              >
-                {section.content}
-              </p>
+              {section.products ? (
+                <div className="space-y-5" style={{ paddingLeft: "15px" }}>
+                  {section.products.map((product, pi) => (
+                    <p key={pi} className="text-sm leading-7" style={{ color: "rgba(255,255,255,0.65)" }}>
+                      <span className="font-bold" style={{ color: accent }}>
+                        {product.name}:
+                      </span>{" "}
+                      {product.description}
+                    </p>
+                  ))}
+                </div>
+              ) : section.fields ? (
+                <div className="space-y-2.5" style={{ paddingLeft: "15px" }}>
+                  {section.fields.map((field, fi) => (
+                    <p key={fi} className="text-sm leading-7" style={{ color: "rgba(255,255,255,0.65)" }}>
+                      <span className="font-bold" style={{ color: accent }}>
+                        {field.label}:
+                      </span>{" "}
+                      {field.href ? (
+                        <a href={field.href} style={{ color: "rgba(255,255,255,0.75)" }}>
+                          {field.value}
+                        </a>
+                      ) : (
+                        field.value
+                      )}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p
+                  className="text-sm leading-7 whitespace-pre-line"
+                  style={{ color: "rgba(255,255,255,0.65)", paddingLeft: "15px" }}
+                >
+                  {section.content}
+                </p>
+              )}
               {i < sections.length - 1 && (
                 <div
                   className="mt-8"
@@ -274,11 +346,11 @@ function LegalContent() {
             Questions about our policies?
           </p>
           <a
-            href="mailto:info@nyansapoai.net"
+            href="mailto:privacy@nyansapoai.app"
             className="text-sm font-medium"
             style={{ color: accent }}
           >
-            info@nyansapoai.app
+            privacy@nyansapoai.app
           </a>
           <p className="text-xs mt-4" style={{ color: "rgba(255,255,255,0.2)" }}>
             © {new Date().getFullYear()} The Nyansapo Foundation. All rights reserved.
