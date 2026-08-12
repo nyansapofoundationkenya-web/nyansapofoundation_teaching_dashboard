@@ -9,8 +9,8 @@ const raleway = Raleway({
 });
 
 export const metadata = {
-  title: "Nyansapo Teaching Dashboard",
-  description: "Nyansapo Teaching Dashboard",
+  title: "Nao Assessments Dashboard",
+  description: "Nao Assessments Dashboard",
 };
 
 export default function RootLayout({ children }) {
