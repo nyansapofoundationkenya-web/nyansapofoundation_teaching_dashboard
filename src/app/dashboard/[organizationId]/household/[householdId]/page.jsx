@@ -22,7 +22,8 @@ export default function HouseholdDetailPage() {
   const allowedEditRoles = ["admin", "super_admin", "project_manager"];
   const canEdit = allowedEditRoles.includes(userRole);
 
-  const { household, loading, error, refetchHousehold } = useHouseholdDetails(
+  // Get the data – no refetch function needed
+  const { household, loading, error } = useHouseholdDetails(
     organizationId,
     householdId,
     projectId,
@@ -185,7 +186,7 @@ export default function HouseholdDetailPage() {
       );
       const { id, ...updateData } = formData;
       await updateDoc(householdRef, updateData);
-      await refetchHousehold();
+      // No refetch needed – formData already has the updated data
       setIsEditing(false);
     } catch (err) {
       console.error("Error updating household:", err);
@@ -258,7 +259,6 @@ export default function HouseholdDetailPage() {
             <input {...inputProps} />
           )
         ) : (
-          // Display value: for booleans show "Yes"/"No", otherwise show value or "N/A"
           <p className="text-foreground">
             {type === "checkbox" ? (value ? "Yes" : "No") : value || "N/A"}
           </p>
@@ -365,7 +365,6 @@ export default function HouseholdDetailPage() {
         <div className="bg-background-lighter rounded-xl border border-gray-600 p-6">
           <h2 className="text-lg font-semibold text-foreground mb-4">Household Information</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Show county only if editing OR data exists */}
             {(isEditing || formData.county) && renderField("County", "county")}
             {renderField("Household Head", "householdHead", "checkbox")}
             {renderField("Household Head Phone", "householdHeadPhone")}
@@ -402,7 +401,7 @@ export default function HouseholdDetailPage() {
           </div>
         </div>
 
-        {/* Parents / Guardians - unchanged */}
+        {/* Parents / Guardians */}
         <div className="bg-background-lighter rounded-xl border border-gray-600 p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold text-foreground">Parents / Guardians</h2>
@@ -416,7 +415,6 @@ export default function HouseholdDetailPage() {
               </button>
             )}
           </div>
-          {/* new parent form and list - same as before */}
           {newParent && isEditing && (
             <div className="border border-blue-500 rounded-lg p-4 mb-4 bg-background-light">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -496,7 +494,7 @@ export default function HouseholdDetailPage() {
           )}
         </div>
 
-        {/* Children (top‑level) - unchanged except using formData.children */}
+        {/* Children */}
         <div className="bg-background-lighter rounded-xl border border-gray-600 p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold text-foreground">Children</h2>
@@ -514,6 +512,7 @@ export default function HouseholdDetailPage() {
                 <input type="text" placeholder="Last Name *" value={newChild.lastName} onChange={(e) => setNewChild({ ...newChild, lastName: e.target.value })} className="px-3 py-2 border border-gray-500 rounded bg-background-light text-foreground" />
                 <input type="text" placeholder="Age" value={newChild.age} onChange={(e) => setNewChild({ ...newChild, age: e.target.value })} className="px-3 py-2 border border-gray-500 rounded bg-background-light text-foreground" />
                 <input type="text" placeholder="Gender (Male/Female)" value={newChild.gender} onChange={(e) => setNewChild({ ...newChild, gender: e.target.value })} className="px-3 py-2 border border-gray-500 rounded bg-background-light text-foreground" />
+                {/* Linked Learner ID – editable when adding new child */}
                 <input type="text" placeholder="Linked Learner ID" value={newChild.linkedLearnerId} onChange={(e) => setNewChild({ ...newChild, linkedLearnerId: e.target.value })} className="px-3 py-2 border border-gray-500 rounded bg-background-light text-foreground" />
                 <input type="text" placeholder="Lives With" value={newChild.livesWith} onChange={(e) => setNewChild({ ...newChild, livesWith: e.target.value })} className="px-3 py-2 border border-gray-500 rounded bg-background-light text-foreground" />
               </div>
@@ -558,11 +557,8 @@ export default function HouseholdDetailPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                     <div>
                       <p className="text-gray-300">Linked Learner ID</p>
-                      {isEditing ? (
-                        <input type="text" value={child.linkedLearnerId || ""} onChange={(e) => handleChildItemChange(index, "linkedLearnerId", e.target.value)} className="w-full px-3 py-1 border border-gray-500 rounded bg-background-light text-foreground" disabled={saving} />
-                      ) : (
-                        <p className="text-foreground">{child.linkedLearnerId || "N/A"}</p>
-                      )}
+                      {/* ✅ Display only – never editable for existing children */}
+                      <p className="text-foreground">{child.linkedLearnerId || "N/A"}</p>
                     </div>
                     <div>
                       <p className="text-gray-300">Lives With</p>
