@@ -73,20 +73,34 @@ export default function InstructorModal({
     if (selectedInstructor) {
       const org = selectedInstructor.organizations?.find((org) => org.id === organizationId) || null;
       const project = org?.projects?.[0] || null;
-      const schools = project?.schools || [];
 
       setFormState({
         name: selectedInstructor.name || "",
         organization: org ? { value: org.id, label: org.name } : null,
         project: project ? { value: project.id, label: project.name } : null,
-        schools: schools.map((school) => ({ value: school.id, label: school.name })),
+        schools: project ? getExistingSchools(org.id, project.id) : [],
       });
 
       if (org) {
         fetchProjects(org.id);
+        // Pull in the schools already assigned so the checklist shows them
+        // pre-checked right away — no need to touch the Project field first.
+        if (project) {
+          fetchSchools(project.id, org.id);
+        }
       }
     }
   }, [isOpen, selectedInstructor, initialOrganizations, organizationId, currentUserRole]);
+
+  // Looks up what this instructor is *actually already assigned* to for a
+  // given org + project, straight from their record — not from local state.
+  // This is the single source of truth for "what should start checked".
+  const getExistingSchools = (orgId, projectId) => {
+    if (!selectedInstructor || !orgId || !projectId) return [];
+    const org = selectedInstructor.organizations?.find((o) => o.id === orgId);
+    const project = org?.projects?.find((p) => p.id === projectId);
+    return (project?.schools || []).map((s) => ({ value: s.id, label: s.name }));
+  };
 
   const handleChange = (name, value) => {
     setFormState((prev) => ({ ...prev, [name]: value }));
@@ -100,9 +114,15 @@ export default function InstructorModal({
       }
     } else if (name === "project") {
       setSchoolOptions([]);
-      setFormState((prev) => ({ ...prev, schools: [] }));
+      // Re-derive from the instructor's actual record every time a project
+      // is chosen — whether that's the auto-preload on open or a manual
+      // pick from the dropdown. This is what makes the checklist always
+      // start from "what's really assigned", so ticking one more school
+      // never drops the ones that were already there.
+      const existing = value ? getExistingSchools(formState.organization?.value, value.value) : [];
+      setFormState((prev) => ({ ...prev, schools: existing }));
       if (value) {
-        fetchSchools(value.value);
+        fetchSchools(value.value, formState.organization?.value);
       }
     }
   };
@@ -150,14 +170,15 @@ export default function InstructorModal({
     }
   };
 
-  const fetchSchools = async (projectId) => {
-    if (!projectId || !formState.organization?.value) return;
+  const fetchSchools = async (projectId, orgIdOverride) => {
+    const orgId = orgIdOverride || formState.organization?.value;
+    if (!projectId || !orgId) return;
     setLoadingOptions(true);
     setFetchError(null);
     try {
       const schoolRef = collection(
         db,
-        `organization/${formState.organization.value}/projects/${projectId}/schools`
+        `organization/${orgId}/projects/${projectId}/schools`
       );
       const schoolSnap = await getDocs(schoolRef);
       const schools = schoolSnap.docs.map((doc) => ({
