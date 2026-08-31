@@ -69,21 +69,25 @@ export default function MapAssessmentsPage() {
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  const fetchOrganizations = async () => {
-    setOrgsLoading(true);
-    try {
-      const orgSnap = await getDocs(collection(db, "organization"));
-      const orgs = orgSnap.docs
-        .map((doc) => ({ id: doc.id, name: doc.data().name }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-      setOrganizations(orgs);
-    } catch (err) {
-      console.error("Failed to fetch organizations:", err);
-      showToast("Failed to load organizations", "error");
-    } finally {
-      setOrgsLoading(false);
-    }
-  };
+const fetchOrganizations = async () => {
+  setOrgsLoading(true);
+  try {
+    const orgSnap = await getDocs(collection(db, "organization"));
+    const orgs = orgSnap.docs
+      .map((doc) => ({
+        id: doc.id,
+        name: doc.data().name || "", 
+      }))
+      .filter((org) => org.name.trim() !== "") 
+      .sort((a, b) => a.name.localeCompare(b.name));
+    setOrganizations(orgs);
+  } catch (err) {
+    console.error("Failed to fetch organizations:", err);
+    showToast("Failed to load organizations", "error");
+  } finally {
+    setOrgsLoading(false);
+  }
+};
 
   const fetchAssessments = async () => {
     setLoading(true);
