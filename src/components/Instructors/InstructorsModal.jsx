@@ -12,13 +12,13 @@ export default function InstructorModal({
   isOpen,
   onClose,
   onSubmit,
-  schools: initialSchools,
+  // schools is not used – kept for backward compatibility only
+  schools: _unusedSchools,
   organizations: initialOrganizations,
   selectedInstructor,
   organizationId,
-  userRole, // Receive user role from parent
+  userRole,
 }) {
-  // Also get user role from Redux as fallback
   const { user: currentUser } = useSelector((state) => state.auth);
   const currentUserRole = userRole || currentUser?.role;
 
@@ -37,6 +37,27 @@ export default function InstructorModal({
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const { updateInstructorAssignment, loading, error } = useInstructors(organizationId);
 
+  // ---------- helper to fetch all organizations from Firestore ----------
+  const fetchAllOrganizations = async () => {
+    setLoadingOptions(true);
+    setFetchError(null);
+    try {
+      const orgRef = collection(db, "organization");
+      const orgSnap = await getDocs(orgRef);
+      return orgSnap.docs.map((doc) => ({
+        id: doc.id,
+        name: doc.data().name || `Organization ${doc.id.slice(0, 8)}`,
+      }));
+    } catch (err) {
+      console.error("Error fetching organizations:", err);
+      setFetchError("Failed to load organizations.");
+      return [];
+    } finally {
+      setLoadingOptions(false);
+    }
+  };
+
+  // ---------- load organizations on open ----------
   useEffect(() => {
     if (!isOpen) {
       setFormState({
@@ -54,47 +75,65 @@ export default function InstructorModal({
       return;
     }
 
-    // Filter organizations based on user role
-    let filteredOrgs = initialOrganizations;
+    const loadOrganizations = async () => {
+      // 1. get the list of organizations (from prop or fetch)
+      let orgs = [];
+      if (Array.isArray(initialOrganizations) && initialOrganizations.length > 0) {
+        orgs = initialOrganizations;
+      } else {
+        orgs = await fetchAllOrganizations();
+      }
 
-    if (currentUserRole === "admin") {
-      // Admin can only see and assign to their own organization
-      filteredOrgs = initialOrganizations.filter((org) => org.id === organizationId);
-    }
-    // super_admin can see all organizations (no filtering)
-    // teacher shouldn't have access to this modal
-
-    const options = filteredOrgs.map((org) => ({
-      value: org.id,
-      label: org.name,
-    }));
-    setOrgOptions(options);
-
-    if (selectedInstructor) {
-      const org = selectedInstructor.organizations?.find((org) => org.id === organizationId) || null;
-      const project = org?.projects?.[0] || null;
-
-      setFormState({
-        name: selectedInstructor.name || "",
-        organization: org ? { value: org.id, label: org.name } : null,
-        project: project ? { value: project.id, label: project.name } : null,
-        schools: project ? getExistingSchools(org.id, project.id) : [],
-      });
-
-      if (org) {
-        fetchProjects(org.id);
-        // Pull in the schools already assigned so the checklist shows them
-        // pre-checked right away — no need to touch the Project field first.
-        if (project) {
-          fetchSchools(project.id, org.id);
+      // 2. filter based on user role
+      let filteredOrgs = orgs;
+      if (currentUserRole === "admin") {
+        // admin can only see their own organization
+        if (organizationId) {
+          filteredOrgs = orgs.filter((org) => org.id === organizationId);
+        } else {
+          filteredOrgs = []; // admin without orgId gets none (should not happen)
         }
       }
-    }
+      // super_admin sees all (no filtering)
+
+      const options = filteredOrgs.map((org) => ({
+        value: org.id,
+        label: org.name,
+      }));
+      setOrgOptions(options);
+
+      // 3. pre-fill form if editing an instructor
+      if (selectedInstructor) {
+        let org = null;
+        // if we have an organizationId, find that specific org
+        if (organizationId) {
+          org = selectedInstructor.organizations?.find((o) => o.id === organizationId) || null;
+        } else if (options.length === 1) {
+          // if only one org available, auto-select it (useful for admins with one org)
+          org = filteredOrgs[0];
+        }
+        const project = org?.projects?.[0] || null;
+
+        setFormState({
+          name: selectedInstructor.name || "",
+          organization: org ? { value: org.id, label: org.name } : null,
+          project: project ? { value: project.id, label: project.name } : null,
+          schools: project ? getExistingSchools(org.id, project.id) : [],
+        });
+
+        if (org) {
+          fetchProjects(org.id);
+          if (project) {
+            fetchSchools(project.id, org.id);
+          }
+        }
+      }
+    };
+
+    loadOrganizations();
   }, [isOpen, selectedInstructor, initialOrganizations, organizationId, currentUserRole]);
 
-  // Looks up what this instructor is *actually already assigned* to for a
-  // given org + project, straight from their record — not from local state.
-  // This is the single source of truth for "what should start checked".
+  // ---------- helper to get existing schools from instructor record ----------
   const getExistingSchools = (orgId, projectId) => {
     if (!selectedInstructor || !orgId || !projectId) return [];
     const org = selectedInstructor.organizations?.find((o) => o.id === orgId);
@@ -102,6 +141,7 @@ export default function InstructorModal({
     return (project?.schools || []).map((s) => ({ value: s.id, label: s.name }));
   };
 
+  // ---------- handle form field changes ----------
   const handleChange = (name, value) => {
     setFormState((prev) => ({ ...prev, [name]: value }));
 
@@ -114,11 +154,7 @@ export default function InstructorModal({
       }
     } else if (name === "project") {
       setSchoolOptions([]);
-      // Re-derive from the instructor's actual record every time a project
-      // is chosen — whether that's the auto-preload on open or a manual
-      // pick from the dropdown. This is what makes the checklist always
-      // start from "what's really assigned", so ticking one more school
-      // never drops the ones that were already there.
+      // re‑derive the already assigned schools from the instructor's record
       const existing = value ? getExistingSchools(formState.organization?.value, value.value) : [];
       setFormState((prev) => ({ ...prev, schools: existing }));
       if (value) {
@@ -127,6 +163,7 @@ export default function InstructorModal({
     }
   };
 
+  // ---------- fetch projects for an organization ----------
   const fetchProjects = async (orgId) => {
     if (!orgId) return;
     setLoadingOptions(true);
@@ -170,6 +207,7 @@ export default function InstructorModal({
     }
   };
 
+  // ---------- fetch schools for a project ----------
   const fetchSchools = async (projectId, orgIdOverride) => {
     const orgId = orgIdOverride || formState.organization?.value;
     if (!projectId || !orgId) return;
@@ -200,6 +238,7 @@ export default function InstructorModal({
     }
   };
 
+  // ---------- toggle a school in the checklist ----------
   const toggleSchool = (option) => {
     setFormState((prev) => {
       const exists = prev.schools.some((s) => s.value === option.value);
@@ -212,12 +251,14 @@ export default function InstructorModal({
     });
   };
 
+  // ---------- filter school options by search query ----------
   const filteredSchoolOptions = useMemo(() => {
     const q = schoolQuery.trim().toLowerCase();
     if (!q) return schoolOptions;
     return schoolOptions.filter((s) => s.label.toLowerCase().includes(q));
   }, [schoolOptions, schoolQuery]);
 
+  // ---------- submit the assignment ----------
   const handleSubmit = async (e) => {
     e.preventDefault();
     setAttemptedSubmit(true);
@@ -245,6 +286,7 @@ export default function InstructorModal({
     }
   };
 
+  // ---------- custom react‑select styles ----------
   const customSelectStyles = {
     control: (provided, state) => ({
       ...provided,
@@ -287,6 +329,7 @@ export default function InstructorModal({
     }),
   };
 
+  // ---------- render ----------
   if (!isOpen) return null;
 
   const missingOrg = attemptedSubmit && !formState.organization;
