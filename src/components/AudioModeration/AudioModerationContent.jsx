@@ -2,6 +2,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
+import { getAuth } from "firebase/auth";
 import { db, storage } from "@/firebase/config";
 import { doc, getDoc, updateDoc, collection, getDocs } from "firebase/firestore";
 import { ref, deleteObject } from "firebase/storage";
@@ -30,9 +32,14 @@ export default function AudioModerationContent({
   const [showDeleteConfirm, setShowDeleteConfirm]   = useState(false);
   const [moderationHistory, setModerationHistory]   = useState([]);
   const [savingFlagReasons, setSavingFlagReasons]   = useState(false);
+  const [retranscribing, setRetranscribing]         = useState(false); // NEW
 
   const backUrl = `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}`;
   const { saveFlagReasons, incrementResolved } = useFlagReasons(assessmentId, studentId);
+
+  // NEW — super admin check
+  const { user: currentUser } = useSelector((state) => state.auth);
+  const isSuperAdmin = currentUser?.role === "super_admin";
 
   const groupResultsByType = (results) => {
     const groups = { letter: [], word: [], paragraph: [], story: [] };
@@ -246,6 +253,56 @@ export default function AudioModerationContent({
       setError(`Failed to save flag reasons: ${err.message}`);
     } finally {
       setSavingFlagReasons(false);
+    }
+  };
+
+  // ── Re-transcribe (super admin only, unmoderated only) ─────────────────────
+  // Uses the same globalIndex concept as updateAssessmentResult — no separate
+  // entry_key field needed, the array position from the current snapshot is
+  // the identifier the server uses to find the record.
+  const handleRetranscribe = async () => {
+    const sectionResults = groupedResults[currentSection] || [];
+    const currentResult  = sectionResults[currentLocalIndex];
+    if (!currentResult) return;
+
+    setRetranscribing(true);
+    setError(null);
+    try {
+      const auth  = getAuth();
+      const token = await auth.currentUser.getIdToken();
+
+      const res = await fetch("/api/retranscription", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          assessmentId,
+          studentId,
+          globalIndex: currentResult.globalIndex,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Re-transcription failed");
+
+      // Reuse the existing update path — only touches metadata.transcript
+      await updateAssessmentResult({ transcript: data.transcript });
+      setEditedTranscript(data.transcript);
+
+      setModerationHistory(prev => [{
+        section: currentSection,
+        index: currentLocalIndex + 1,
+        action: "retranscribed",
+        timestamp: new Date().toISOString(),
+      }, ...prev.slice(0, 9)]);
+
+    } catch (err) {
+      console.error("Error retranscribing:", err);
+      setError(`Failed to re-transcribe: ${err.message}`);
+    } finally {
+      setRetranscribing(false);
     }
   };
 
@@ -591,6 +648,9 @@ export default function AudioModerationContent({
                       savingFlagReasons={savingFlagReasons}
                       hasMadeDecision={hasMadeDecision}
                       currentPassedStatus={currentResult?.metadata?.passed}
+                      isSuperAdmin={isSuperAdmin}
+                      onRetranscribe={handleRetranscribe}
+                      retranscribing={retranscribing}
                     />
                   </>
                 )}
