@@ -260,6 +260,13 @@ export default function AudioModerationContent({
   // Uses the same globalIndex concept as updateAssessmentResult — no separate
   // entry_key field needed, the array position from the current snapshot is
   // the identifier the server uses to find the record.
+  //
+  // IMPORTANT: this endpoint can legitimately take a while (Gradio cold
+  // starts, rate-limit backoff, long paragraph/story audio). If the
+  // platform kills the function before it responds, the client gets back
+  // an HTML/plain-text error page instead of JSON — so we always read the
+  // body as text first and parse defensively, rather than calling
+  // res.json() directly and blowing up with a SyntaxError.
   const handleRetranscribe = async () => {
     const sectionResults = groupedResults[currentSection] || [];
     const currentResult  = sectionResults[currentLocalIndex];
@@ -284,8 +291,30 @@ export default function AudioModerationContent({
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Re-transcription failed");
+      const rawText = await res.text();
+      let data;
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        // Not JSON — most likely a platform-level timeout/error page
+        // (e.g. a 504 from the hosting proxy) rather than our route
+        // actually responding.
+        if (res.status === 504) {
+          throw new Error(
+            "Re-transcription timed out. The model may be slow to respond right now — please try again."
+          );
+        }
+        throw new Error(
+          `Re-transcription failed (HTTP ${res.status}): ${rawText.slice(0, 200) || "no response body"}`
+        );
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || `Re-transcription failed (HTTP ${res.status})`);
+      }
+      if (!data.transcript) {
+        throw new Error("Re-transcription succeeded but returned no transcript");
+      }
 
       // Reuse the existing update path — only touches metadata.transcript
       await updateAssessmentResult({ transcript: data.transcript });
