@@ -67,11 +67,13 @@ export default function OrganizationPage({
 
   // Filter to orgs this user can see
   const getFilteredOrganizations = useCallback(() => {
-    if (!currentUser || !organizations.length) return [];
-    if (currentUser.role === "super_admin") return organizations;
+    if (!currentUser || !Array.isArray(organizations) || !organizations.length) return [];
+    if (currentUser.role === "super_admin") {
+      return organizations.filter(Boolean);
+    }
     const userOrganizations = currentUser.organizations || [];
-    return organizations.filter((org) =>
-      userOrganizations.some((userOrg) => userOrg.id === org.id)
+    return organizations.filter(
+      (org) => org && userOrganizations.some((userOrg) => userOrg?.id === org?.id)
     );
   }, [currentUser, organizations]);
 
@@ -84,14 +86,14 @@ export default function OrganizationPage({
   // Apply search + sort to whichever tab is active
   const filteredOrganizations = useMemo(() => {
     const source = activeTab === "sandboxes" ? sandboxOrgs : realOrgs;
-    let filtered = [...source];
+    let filtered = [...source].filter(Boolean);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      filtered = filtered.filter((org) => org.name.toLowerCase().includes(q));
+      filtered = filtered.filter((org) => (org?.name ?? "").toLowerCase().includes(q));
     }
     filtered.sort((a, b) => {
-      const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-      const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+      const dateA = a?.createdAt ? new Date(a.createdAt) : new Date(0);
+      const dateB = b?.createdAt ? new Date(b.createdAt) : new Date(0);
       return dateB - dateA;
     });
     return filtered;
@@ -123,7 +125,7 @@ export default function OrganizationPage({
 
     const trimmedName = newOrgName.trim();
     const existingOrg = organizations.find(
-      (org) => org.name.toLowerCase() === trimmedName.toLowerCase()
+      (org) => (org?.name ?? "").toLowerCase() === trimmedName.toLowerCase()
     );
     if (existingOrg) {
       alert(`An organization named "${trimmedName}" already exists. Please use a different name.`);
