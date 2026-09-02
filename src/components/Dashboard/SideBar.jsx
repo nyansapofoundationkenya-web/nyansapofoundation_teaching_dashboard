@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
 import { 
@@ -74,6 +74,57 @@ const SidebarSkeleton = () => {
 };
 
 // ─────────────────────────────────────────────────────────────
+// STATIC MENU DEFINITIONS (module scope — never recreated)
+// ─────────────────────────────────────────────────────────────
+const createMenuItem = (name, iconKey, pathFn, section, weight) => ({
+  name,
+  iconKey,
+  pathFn,
+  section,
+  weight,
+});
+
+const ICONS = {
+  home: <FiHome size={20} />,
+  folder: <FiFolder size={20} />,
+  mapPin: <FiMapPin size={20} />,
+  clipboard: <FiClipboard size={20} />,
+  checkSquare: <FiCheckSquare size={20} />,
+  userCheck: <FiUserCheck size={20} />,
+  users: <FiUsers size={20} />,
+  fileText: <FiFileText size={20} />,
+  messageSquare: <FiMessageSquare size={20} />,
+};
+
+const BASE_MENU_DEFS = [
+  createMenuItem("Home", "home", (id) => `/dashboard/${id}/welcome`, "home", MENU_WEIGHTS.HOME),
+  createMenuItem("Projects", "folder", (id) => `/dashboard/${id}/projects`, "projects", MENU_WEIGHTS.PROJECTS),
+  createMenuItem("Schools", "mapPin", (id) => `/dashboard/${id}/schools`, "schools", MENU_WEIGHTS.SCHOOLS),
+  createMenuItem("Assessments", "clipboard", (id) => `/dashboard/${id}/moderations`, "assessments", MENU_WEIGHTS.ASSESSMENTS),
+  createMenuItem("Attendance", "checkSquare", (id) => `/dashboard/${id}/attendance`, "attendance", MENU_WEIGHTS.ATTENDANCE),
+  createMenuItem("Instructors", "userCheck", (id) => `/dashboard/${id}/instructors`, "instructors", MENU_WEIGHTS.INSTRUCTORS),
+  createMenuItem("Students", "users", (id) => `/dashboard/${id}/admin/students`, "students", MENU_WEIGHTS.STUDENTS),
+];
+
+const SURVEY_MENU_DEF = createMenuItem(
+  "Survey", "fileText", (id) => `/dashboard/${id}/household`, "survey", MENU_WEIGHTS.SURVEY
+);
+
+const SUPER_ADMIN_MENU_DEFS = [
+  createMenuItem("Ai Assistant", "messageSquare", (id) => `/dashboard/${id}/ai-assistant`, "ai-assistant", MENU_WEIGHTS.AI_ASSISTANT),
+];
+
+const ADMIN_MENU_DEFS = [
+  createMenuItem("Ai Assistant", "messageSquare", (id) => `/dashboard/${id}/ai-assistant`, "ai-assistant", MENU_WEIGHTS.AI_ASSISTANT),
+];
+
+const MANAGER_MENU_DEFS = [];
+const HEAD_MENU_DEFS = [];
+const TEACHER_MENU_DEFS = [];
+
+const sortByWeight = (items) => [...items].sort((a, b) => a.weight - b.weight);
+
+// ─────────────────────────────────────────────────────────────
 // SIDEBAR
 // ─────────────────────────────────────────────────────────────
 const Sidebar = ({ 
@@ -107,101 +158,68 @@ const Sidebar = ({
     }
   };
 
-  // ── Menu item factory ──────────────────────────────────────
-  const createMenuItem = (name, icon, path, section, weight) => ({
-    name,
-    icon,
-    path,
-    section,
-    weight,
-  });
-
-  // ── Base items (all roles) ─────────────────────────────────
-  const baseMenuItems = [
-    createMenuItem("Home", <FiHome size={20} />, `/dashboard/${organizationId}/welcome`, "home", MENU_WEIGHTS.HOME),
-    createMenuItem("Projects", <FiFolder size={20} />, `/dashboard/${organizationId}/projects`, "projects", MENU_WEIGHTS.PROJECTS),
-    createMenuItem("Schools", <FiMapPin size={20} />, `/dashboard/${organizationId}/schools`, "schools", MENU_WEIGHTS.SCHOOLS),
-    createMenuItem("Assessments", <FiClipboard size={20} />, `/dashboard/${organizationId}/moderations`, "assessments", MENU_WEIGHTS.ASSESSMENTS),
-    createMenuItem("Attendance", <FiCheckSquare size={20} />, `/dashboard/${organizationId}/attendance`, "attendance", MENU_WEIGHTS.ATTENDANCE),
-    createMenuItem("Instructors", <FiUserCheck size={20} />, `/dashboard/${organizationId}/instructors`, "instructors", MENU_WEIGHTS.INSTRUCTORS),
-    createMenuItem("Students", <FiUsers size={20} />, `/dashboard/${organizationId}/admin/students`, "students", MENU_WEIGHTS.STUDENTS),
-  ];
-
-  // ── Survey item (survey permission flag) ──────────────────
-  const surveyMenuItem = createMenuItem(
-    "Survey",
-    <FiFileText size={20} />,
-    `/dashboard/${organizationId}/household`,
-    "survey",
-    MENU_WEIGHTS.SURVEY
-  );
-
-  // ── Role-specific additions ────────────────────────────────
-  const superAdminMenuItems = [
-    createMenuItem("Ai Assistant", <FiMessageSquare size={20} />, `/dashboard/${organizationId}/ai-assistant`, "ai-assistant", MENU_WEIGHTS.AI_ASSISTANT),
-
-  ];
-
-  const adminMenuItems = [
-    createMenuItem("Ai Assistant", <FiMessageSquare size={20} />, `/dashboard/${organizationId}/ai-assistant`, "ai-assistant", MENU_WEIGHTS.AI_ASSISTANT),
-  ];
-
-  const managerMenuItems = [];
-  const headMenuItems = [];
-  const teacherMenuItems = [];
-
-  // ── Sort helper ────────────────────────────────────────────
-  const sortByWeight = (items) => [...items].sort((a, b) => a.weight - b.weight);
-
-  // ── Assemble menu based on role ────────────────────────────
-  const getMenuItems = () => {
-    if (!currentUser) return sortByWeight(baseMenuItems);
+  // ── Assemble menu based on role (memoized — only recomputes when role/survey flag changes) ──
+  const menuDefs = useMemo(() => {
+    if (!currentUser) return sortByWeight(BASE_MENU_DEFS);
 
     const userRole = currentUser.role;
     const hasSurveyPermission = currentUser.survey === true;
-    const isAdminOrAbove = ["super_admin", "admin"].includes(userRole);
 
-    let items = [...baseMenuItems];
+    let items = [...BASE_MENU_DEFS];
 
     switch (userRole) {
       case "super_admin":
-        items = [...items, ...superAdminMenuItems];
+        items = [...items, ...SUPER_ADMIN_MENU_DEFS];
         break;
       case "admin":
-        items = [...items, ...adminMenuItems];
+        items = [...items, ...ADMIN_MENU_DEFS];
         break;
       case "project_manager":
-        items = [...items, ...managerMenuItems];
+        items = [...items, ...MANAGER_MENU_DEFS];
         break;
       case "school_head":
-        items = [...items, ...headMenuItems];
+        items = [...items, ...HEAD_MENU_DEFS];
         break;
       case "teacher":
-        items = [...items, ...teacherMenuItems];
+        items = [...items, ...TEACHER_MENU_DEFS];
         break;
       default:
         break;
     }
 
-    // Survey: users with the survey permission flag
     if (hasSurveyPermission) {
-      items.push(surveyMenuItem);
+      items.push(SURVEY_MENU_DEF);
     }
 
     return sortByWeight(items);
-  };
+  }, [currentUser?.role, currentUser?.survey]);
 
-  const menuItems = getMenuItems();
+  // ── Resolve path/icon per render (cheap — just string/JSX lookup, no state) ──
+  const menuItems = useMemo(
+    () =>
+      menuDefs.map((def) => ({
+        ...def,
+        icon: ICONS[def.iconKey],
+        path: def.pathFn(organizationId),
+      })),
+    [menuDefs, organizationId]
+  );
 
   // ── Active state ───────────────────────────────────────────
-  const isMenuItemActive = (item) => {
-    if (currentSection) return item.section === currentSection;
-    return pathname === item.path;
-  };
+  const isMenuItemActive = useCallback(
+    (item) => {
+      if (currentSection) return item.section === currentSection;
+      return pathname === item.path;
+    },
+    [currentSection, pathname]
+  );
 
   useEffect(() => {
     const activeItem = menuItems.find((item) => isMenuItemActive(item));
-    if (activeItem) setTitle(activeItem.name);
+    if (activeItem && activeItem.name !== title) {
+      setTitle(activeItem.name);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, menuItems, currentSection]);
 
   const handleMenuClick = (item) => {
@@ -210,16 +228,25 @@ const Sidebar = ({
   };
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchOrg = async () => {
       try {
         const org = await handleFetchOrganizationById(organizationId);
-        setOrganization(org);
+        if (!cancelled) setOrganization(org);
       } catch (err) {
         console.error("Error fetching organization:", err);
       }
     };
+
     if (organizationId) fetchOrg();
-  }, [organizationId, handleFetchOrganizationById]);
+
+    return () => {
+      cancelled = true;
+    };
+    // Only re-fetch when the organizationId itself changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId]);
 
   if (userLoading && !currentUser) return <SidebarSkeleton />;
 

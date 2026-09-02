@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   collection, getDocs, doc, getDoc,
   addDoc, serverTimestamp, deleteDoc, query, where
@@ -12,11 +12,11 @@ export function useOrganizations() {
   const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  
+
   const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
   const role = currentUser?.role;
 
-  const handleFetchOrganizations = async () => {
+  const handleFetchOrganizations = useCallback(async () => {
     if (userLoading || !currentUser) return [];
 
     setLoading(true);
@@ -54,9 +54,9 @@ export function useOrganizations() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userLoading, currentUser, role]);
 
-  const handleFetchOrganizationById = async (orgId) => {
+  const handleFetchOrganizationById = useCallback(async (orgId) => {
     if (!orgId) return null;
 
     setLoading(true);
@@ -101,33 +101,33 @@ export function useOrganizations() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser, role]);
 
-  const handleAddOrganization = async (orgName, createSandbox = false) => {
+  const handleAddOrganization = useCallback(async (orgName, createSandbox = false) => {
     if (!orgName) throw new Error("Organization name is required");
-    
+
     // Client-side validation
     const trimmedName = orgName.trim();
-    
+
     if (trimmedName.length < 3) {
       throw new Error("Organization name must be at least 3 characters");
     }
-    
+
     if (trimmedName.length > 50) {
       throw new Error("Organization name must be less than 50 characters");
     }
-    
+
     // Validate characters (allow letters, numbers, spaces, hyphens, apostrophes, periods, commas, ampersands)
     const validNameRegex = /^[a-zA-Z0-9\s\-'.,&]+$/;
     if (!validNameRegex.test(trimmedName)) {
       throw new Error("Organization name can only contain letters, numbers, spaces, hyphens (-), apostrophes ('), periods (.), commas (,), and ampersands (&)");
     }
-    
+
     // Prevent names that are just numbers
     if (/^\d+$/.test(trimmedName)) {
       throw new Error("Organization name cannot be only numbers");
     }
-    
+
     // Prevent names with excessive repeated characters
     if (/(.)\1{4,}/.test(trimmedName)) {
       throw new Error("Organization name cannot have too many repeated characters");
@@ -138,27 +138,26 @@ export function useOrganizations() {
 
     try {
       const orgsRef = collection(db, "organization");
-      
+
       // Check for duplicate organization names (case-insensitive)
-      // Note: Firestore queries are case-sensitive, so we need to handle this carefully
       const allOrgs = await getDocs(orgsRef);
       const existingOrg = allOrgs.docs.find(
         doc => doc.data().name.toLowerCase() === trimmedName.toLowerCase()
       );
-      
+
       if (existingOrg) {
         throw new Error(`An organization named "${trimmedName}" already exists`);
       }
 
-      const newOrg = { 
-        name: trimmedName, 
+      const newOrg = {
+        name: trimmedName,
         createdAt: serverTimestamp(),
         total_projects: 0,
         total_teachers: 0,
         total_schools: 0,
         total_students: 0
       };
-      
+
       const docRef = await addDoc(orgsRef, newOrg);
       const mainOrgId = docRef.id;
 
@@ -167,12 +166,12 @@ export function useOrganizations() {
       if (createSandbox) {
         // Sanitize sandbox name
         const sandboxName = `${trimmedName}-sandbox`;
-        
+
         // Check if sandbox already exists
         const existingSandbox = allOrgs.docs.find(
           doc => doc.data().name.toLowerCase() === sandboxName.toLowerCase()
         );
-        
+
         if (!existingSandbox) {
           const sandboxOrg = {
             name: sandboxName,
@@ -196,11 +195,11 @@ export function useOrganizations() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleDeleteOrganization = async (orgId) => {
+  const handleDeleteOrganization = useCallback(async (orgId) => {
     if (!orgId) throw new Error("Organization ID is required");
-    
+
     // Check if user is super_admin
     if (role !== "super_admin") {
       throw new Error("Only super administrators can delete organizations");
@@ -213,13 +212,13 @@ export function useOrganizations() {
       // Get the organization to check if it's empty
       const orgRef = doc(db, "organization", orgId);
       const orgSnap = await getDoc(orgRef);
-      
+
       if (!orgSnap.exists()) {
         throw new Error("Organization not found");
       }
-      
+
       const orgData = orgSnap.data();
-      
+
       // Verify organization has no associated data
       if (
         (orgData.total_projects && orgData.total_projects > 0) ||
@@ -229,13 +228,13 @@ export function useOrganizations() {
       ) {
         throw new Error("Cannot delete organization with existing projects, teachers, schools, or students");
       }
-      
+
       // Delete the organization
       await deleteDoc(orgRef);
-      
+
       // Remove from local state
       setOrganizations((prev) => prev.filter((org) => org.id !== orgId));
-      
+
       return true;
     } catch (err) {
       setError(err.message);
@@ -243,7 +242,7 @@ export function useOrganizations() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [role]);
 
   return {
     organizations,
