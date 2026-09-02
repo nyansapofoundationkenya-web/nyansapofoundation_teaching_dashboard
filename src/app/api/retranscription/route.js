@@ -13,7 +13,7 @@ const USERS_COLLECTION = "user";
 const ROLE_FIELD = "role";
 // ────────────────────────────────────────────────────────────────────────
 
-const GRADIO_SPACE = "Nzyoka19/nyansapo_llm"; // English model, matches transcribe_audio.py
+const GRADIO_SPACE = "Nyansapoaike/nyansapo_stt"; // English model, matches transcribe_audio.py
 const HF_TOKEN = process.env.HF_TOKEN;
 const STORAGE_BUCKET = process.env.STORAGE_BUCKET; // same bucket used by the storage trigger
 
