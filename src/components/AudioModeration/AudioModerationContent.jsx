@@ -30,6 +30,7 @@ export default function AudioModerationContent({
   const [loading, setLoading]                       = useState(true);
   const [error, setError]                           = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm]   = useState(false);
+  const [isDeleting, setIsDeleting]                 = useState(false); // NEW — guards against double-delete
   const [moderationHistory, setModerationHistory]   = useState([]);
   const [savingFlagReasons, setSavingFlagReasons]   = useState(false);
   const [retranscribing, setRetranscribing]         = useState(false); // NEW
@@ -345,7 +346,16 @@ export default function AudioModerationContent({
   };
 
   const deleteCurrentRound = async () => {
+    // Guard against double-invocation (e.g. a fast double-click on the
+    // confirm button before the button has a chance to re-render as
+    // disabled). Without this, two calls can both read the same stale
+    // `assessmentData`/`groupedResults` snapshot and each splice out a
+    // different index, silently deleting two rounds instead of one.
+    if (isDeleting) return;
+
     try {
+      setIsDeleting(true);
+
       if (!assessmentData?.literacy_results?.reading_results) {
         setError("No assessment data found"); return;
       }
@@ -399,6 +409,8 @@ export default function AudioModerationContent({
     } catch (err) {
       console.error("❌ Error deleting round:", err);
       setError(`Failed to delete round: ${err.message}`);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -778,11 +790,29 @@ export default function AudioModerationContent({
               Are you sure you want to delete this round? This will also delete the associated audio file. This action cannot be undone.
             </p>
             <div className="flex justify-end space-x-3">
-              <button onClick={() => setShowDeleteConfirm(false)} className="px-4 py-2 text-sm border border-gray-600 rounded hover:bg-gray-700 transition-colors text-foreground">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm border border-gray-600 rounded hover:bg-gray-700 transition-colors text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 Cancel
               </button>
-              <button onClick={deleteCurrentRound} className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors">
-                Delete
+              <button
+                onClick={deleteCurrentRound}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete"
+                )}
               </button>
             </div>
           </div>

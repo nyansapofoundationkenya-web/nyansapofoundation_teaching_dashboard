@@ -8,15 +8,21 @@ import {
   getDoc,
   getDocs,
   updateDoc,
-  setDoc,
+  writeBatch,
+  arrayUnion,
 } from "firebase/firestore"
 import { db } from "@/firebase/config"
+
+// Firestore batched writes cap out at 500 operations per batch.
+// We stay well under that to leave headroom for the future.
+const BATCH_CHUNK_SIZE = 400
 
 export default function AddStudentModal({ assessmentId, onClose }) {
   const [loading, setLoading] = useState(true)
   const [students, setStudents] = useState([])          // all unassigned students
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [saving, setSaving] = useState(false)
+  const [saveProgress, setSaveProgress] = useState(null) // { done, total } while saving
   const [assessmentData, setAssessmentData] = useState(null)
   const [gradeFilter, setGradeFilter] = useState("all") // new state for grade filter
 
@@ -108,43 +114,42 @@ export default function AddStudentModal({ assessmentId, onClose }) {
     })
   }
 
-  // Create a single assessment‑result sub‑document
-  const createAssessmentResult = async (studentId, studentData) => {
-    const assessmentResultId = `${assessmentId}_${studentId}`
-    const assessmentResultRef = doc(
-      db,
-      "assessments", assessmentId,
-      "assessments-results", assessmentResultId
-    )
-
-    const resultData = {
-      assessmentId,
-      school_id: assessmentData?.school_id,
-      student_id: studentId,
-      student_first_name: studentData.first_name || "",
-      student_last_name: studentData.last_name || "",
-      student_name: `${studentData.first_name || ""} ${studentData.last_name || ""}`.trim(),
-      student_grade: Number(studentData.grade) || 0,
-      competence_level: 0,
-      assessment_level: assessmentData?.level || "Baseline",
-      to_be_done: assessmentData?.to_be_done || new Date().toISOString().split("T")[0],
-      created_at: new Date().toISOString(),
-      status: "pending",
-      sex: studentData.sex || "",
-      group: studentData.group || "",
-      baseline: "",
-      completed_assessment: false,
-      has_done: false,
+  // Split an array into chunks of a given size
+  const chunkArray = (arr, size) => {
+    const chunks = []
+    for (let i = 0; i < arr.length; i += size) {
+      chunks.push(arr.slice(i, i + size))
     }
-
-    await setDoc(assessmentResultRef, resultData)
+    return chunks
   }
+
+  // Build the assessments-results payload for one student
+  const buildAssessmentResultData = (studentId, studentData) => ({
+    assessmentId,
+    school_id: assessmentData?.school_id,
+    student_id: studentId,
+    student_first_name: studentData.first_name || "",
+    student_last_name: studentData.last_name || "",
+    student_name: `${studentData.first_name || ""} ${studentData.last_name || ""}`.trim(),
+    student_grade: Number(studentData.grade) || 0,
+    competence_level: 0,
+    assessment_level: assessmentData?.level || "Baseline",
+    to_be_done: assessmentData?.to_be_done || new Date().toISOString().split("T")[0],
+    created_at: new Date().toISOString(),
+    status: "pending",
+    sex: studentData.sex || "",
+    group: studentData.group || "",
+    baseline: "",
+    completed_assessment: false,
+    has_done: false,
+  })
 
   const handleAddStudents = async () => {
     if (selectedIds.size === 0) return
 
     try {
       setSaving(true)
+      setSaveProgress({ done: 0, total: selectedIds.size })
 
       const selectedStudents = students
         .filter(s => selectedIds.has(s.id))
@@ -161,35 +166,58 @@ export default function AddStudentModal({ assessmentId, onClose }) {
           name: `${s.first_name || ""} ${s.last_name || ""}`.trim(),
         }))
 
-      // ----- CRITICAL FIX -----
-      // Create ALL assessment results first. If any fails, we abort the entire operation.
-      await Promise.all(
-        selectedStudents.map(s => createAssessmentResult(s.id, s))
-      )
-      // -------------------------
+      console.log(`[AddStudentModal] Adding ${selectedStudents.length} students to assessment ${assessmentId}`)
 
-      // Now that all sub‑documents exist, update the assessment's assigned_students list
+      // ----- Step 1: create all assessments-results docs using batched writes -----
+      // Batched writes are atomic (all succeed or all fail together) and far more
+      // reliable at high volume than firing 100+ independent setDoc calls with
+      // Promise.all, which can silently drop writes under load.
+      const chunks = chunkArray(selectedStudents, BATCH_CHUNK_SIZE)
+      let done = 0
+
+      for (const chunk of chunks) {
+        const batch = writeBatch(db)
+
+        chunk.forEach(s => {
+          const assessmentResultId = `${assessmentId}_${s.id}`
+          const assessmentResultRef = doc(
+            db,
+            "assessments", assessmentId,
+            "assessments-results", assessmentResultId
+          )
+          batch.set(assessmentResultRef, buildAssessmentResultData(s.id, s))
+        })
+
+        await batch.commit()
+        done += chunk.length
+        setSaveProgress({ done, total: selectedStudents.length })
+        console.log(`[AddStudentModal] Committed batch: ${done}/${selectedStudents.length} results created`)
+      }
+
+      // ----- Step 2: atomically append to assigned_students -----
+      // Using arrayUnion instead of a read -> merge -> overwrite avoids the race
+      // condition where a stale read of assigned_students clobbers writes that
+      // landed in between the read and the update (the likely cause of only a
+      // handful of students "sticking" per attempt).
       const assessmentRef = doc(db, "assessments", assessmentId)
-      const freshSnap = await getDoc(assessmentRef)
-      const existing = freshSnap.data()?.assigned_students || []
-      const existingIds = new Set(existing.map(s => s.id))
-
-      const merged = [
-        ...existing,
-        ...selectedStudents.filter(s => !existingIds.has(s.id)),
-      ]
-
       await updateDoc(assessmentRef, {
-        assigned_students: merged,
-        student_count: merged.length,
+        assigned_students: arrayUnion(...selectedStudents),
       })
+
+      // Keep student_count accurate by reading the doc fresh after the atomic append
+      const finalSnap = await getDoc(assessmentRef)
+      const finalCount = (finalSnap.data()?.assigned_students || []).length
+      await updateDoc(assessmentRef, { student_count: finalCount })
+
+      console.log(`[AddStudentModal] Done. assigned_students now has ${finalCount} entries.`)
 
       onClose() // success: close modal
     } catch (err) {
       console.error("Error adding students:", err)
-      alert("Failed to add students. Please try again.")
+      alert(`Failed to add students: ${err.message || "Please try again."}`)
     } finally {
       setSaving(false)
+      setSaveProgress(null)
     }
   }
 
@@ -291,7 +319,11 @@ export default function AddStudentModal({ assessmentId, onClose }) {
         {/* Footer */}
         <div className="flex justify-between items-center">
           <span className="text-sm text-gray-400">
-            {selectedIds.size > 0 ? `${selectedIds.size} selected` : ""}
+            {saving && saveProgress
+              ? `Saving ${saveProgress.done}/${saveProgress.total}...`
+              : selectedIds.size > 0
+                ? `${selectedIds.size} selected`
+                : ""}
           </span>
           <div className="flex gap-3">
             <button
