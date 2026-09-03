@@ -7,9 +7,8 @@ import {
   doc,
   getDoc,
   getDocs,
-  updateDoc,
   writeBatch,
-  arrayUnion,
+  runTransaction,
 } from "firebase/firestore"
 import { db } from "@/firebase/config"
 
@@ -149,7 +148,7 @@ export default function AddStudentModal({ assessmentId, onClose }) {
 
     try {
       setSaving(true)
-      setSaveProgress({ done: 0, total: selectedIds.size })
+      setSaveProgress({ phase: "assigning", done: 0, total: selectedIds.size })
 
       const selectedStudents = students
         .filter(s => selectedIds.has(s.id))
@@ -168,10 +167,75 @@ export default function AddStudentModal({ assessmentId, onClose }) {
 
       console.log(`[AddStudentModal] Adding ${selectedStudents.length} students to assessment ${assessmentId}`)
 
-      // ----- Step 1: create all assessments-results docs using batched writes -----
-      // Batched writes are atomic (all succeed or all fail together) and far more
-      // reliable at high volume than firing 100+ independent setDoc calls with
-      // Promise.all, which can silently drop writes under load.
+      // ----- Step 1: atomically merge into assigned_students, deduped by id -----
+      // IMPORTANT — ORDER MATTERS HERE: a Cloud Function is set up to trigger on
+      // *any* change to the assessments-results subcollection, and it writes
+      // back to this same parent assessments doc. If we create the 203
+      // assessments-results docs first, that fires the function up to 203
+      // times in a burst, and each of those writes to the assessment doc
+      // collides with our transaction trying to read+write it — causing
+      // "stored version does not match required base version" errors once
+      // Firestore's retry budget is exhausted.
+      //
+      // Doing the assigned_students merge FIRST, before any subcollection
+      // writes happen, means the Cloud Function hasn't fired yet and there's
+      // nothing to contend with. We still keep a retry loop below as a safety
+      // net for ordinary contention (e.g. another admin editing the same
+      // assessment at the same time), but this ordering avoids the
+      // self-inflicted contention entirely.
+      const assessmentRef = doc(db, "assessments", assessmentId)
+      let finalCount = 0
+
+      const MAX_TRANSACTION_ATTEMPTS = 8
+      let lastErr = null
+
+      for (let attempt = 1; attempt <= MAX_TRANSACTION_ATTEMPTS; attempt++) {
+        try {
+          await runTransaction(db, async (transaction) => {
+            const freshSnap = await transaction.get(assessmentRef)
+            const existing = freshSnap.data()?.assigned_students || []
+            const existingIds = new Set(existing.map(s => s.id))
+
+            const newOnes = selectedStudents.filter(s => !existingIds.has(s.id))
+            const merged = [...existing, ...newOnes]
+            finalCount = merged.length
+
+            transaction.update(assessmentRef, {
+              assigned_students: merged,
+              student_count: merged.length,
+            })
+          })
+          lastErr = null
+          break // success
+        } catch (err) {
+          lastErr = err
+          const isVersionConflict =
+            err?.code === "aborted" ||
+            /version/i.test(err?.message || "") ||
+            /aborted/i.test(err?.message || "")
+
+          if (!isVersionConflict || attempt === MAX_TRANSACTION_ATTEMPTS) {
+            throw err
+          }
+
+          const backoffMs = Math.min(300 * 2 ** (attempt - 1), 5000)
+          console.warn(
+            `[AddStudentModal] Transaction conflict on attempt ${attempt}/${MAX_TRANSACTION_ATTEMPTS}, retrying in ${backoffMs}ms...`,
+            err.message
+          )
+          await new Promise(res => setTimeout(res, backoffMs))
+        }
+      }
+
+      if (lastErr) throw lastErr
+
+      console.log(`[AddStudentModal] assigned_students now has ${finalCount} entries.`)
+      setSaveProgress({ phase: "creating", done: 0, total: selectedStudents.length })
+
+      // ----- Step 2: create all assessments-results docs using batched writes -----
+      // Now that assigned_students is safely committed, it's fine for this to
+      // trigger the Cloud Function repeatedly — we're not writing to the
+      // assessment doc anymore, so there's nothing left for it to collide with.
       const chunks = chunkArray(selectedStudents, BATCH_CHUNK_SIZE)
       let done = 0
 
@@ -190,26 +254,11 @@ export default function AddStudentModal({ assessmentId, onClose }) {
 
         await batch.commit()
         done += chunk.length
-        setSaveProgress({ done, total: selectedStudents.length })
+        setSaveProgress({ phase: "creating", done, total: selectedStudents.length })
         console.log(`[AddStudentModal] Committed batch: ${done}/${selectedStudents.length} results created`)
       }
 
-      // ----- Step 2: atomically append to assigned_students -----
-      // Using arrayUnion instead of a read -> merge -> overwrite avoids the race
-      // condition where a stale read of assigned_students clobbers writes that
-      // landed in between the read and the update (the likely cause of only a
-      // handful of students "sticking" per attempt).
-      const assessmentRef = doc(db, "assessments", assessmentId)
-      await updateDoc(assessmentRef, {
-        assigned_students: arrayUnion(...selectedStudents),
-      })
-
-      // Keep student_count accurate by reading the doc fresh after the atomic append
-      const finalSnap = await getDoc(assessmentRef)
-      const finalCount = (finalSnap.data()?.assigned_students || []).length
-      await updateDoc(assessmentRef, { student_count: finalCount })
-
-      console.log(`[AddStudentModal] Done. assigned_students now has ${finalCount} entries.`)
+      console.log(`[AddStudentModal] Done.`)
 
       onClose() // success: close modal
     } catch (err) {
@@ -320,7 +369,9 @@ export default function AddStudentModal({ assessmentId, onClose }) {
         <div className="flex justify-between items-center">
           <span className="text-sm text-gray-400">
             {saving && saveProgress
-              ? `Saving ${saveProgress.done}/${saveProgress.total}...`
+              ? saveProgress.phase === "assigning"
+                ? "Assigning students..."
+                : `Creating records ${saveProgress.done}/${saveProgress.total}...`
               : selectedIds.size > 0
                 ? `${selectedIds.size} selected`
                 : ""}
