@@ -293,7 +293,7 @@ export default function StudentLevelsChart({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 bg-primary-2/10 border border-primary-2/30 rounded-lg px-4 py-2 self-start lg:self-auto">
+      {/* <div className="flex items-center gap-2 bg-primary-2/10 border border-primary-2/30 rounded-lg px-4 py-2 self-start lg:self-auto">
         <Info className="h-4 w-4 text-primary-2" />
         <div>
           <p className="text-xs text-gray-400 leading-none">Total Students</p>
@@ -301,7 +301,7 @@ export default function StudentLevelsChart({
             {hasRealData ? totalStudents.toLocaleString() : "—"}
           </p>
         </div>
-      </div>
+      </div> */}
     </div>
   )
 
