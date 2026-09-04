@@ -11,6 +11,7 @@ import { useAttendanceOverview } from "@/hooks/stats/useAttendanceOverview";
 import { useAssessmentHealth } from "@/hooks/stats/useAssessmentHealth";
 import { useStudentLevels } from "@/hooks/stats/useStudentLevels";
 import { useNumeracyLevels } from "@/hooks/stats/useNumeracyLevels";
+import { useDemographicsLevels } from "@/hooks/stats/Usedemographicslevels";
 import {
   GraduationCap,
   School,
@@ -83,6 +84,18 @@ export default function ProjectDetails() {
     error: numeracyError,
     fetchData: fetchNumeracyLevels
   } = useNumeracyLevels({
+    organizationId,
+    projectId,
+    schoolId: null
+  });
+
+  // Demographics (grade / age / gender cross-tab) — scoped to this project
+  const {
+    data: demographicsData,
+    loading: demographicsLoading,
+    error: demographicsError,
+    fetchData: fetchDemographicsLevels
+  } = useDemographicsLevels({
     organizationId,
     projectId,
     schoolId: null
@@ -186,6 +199,8 @@ export default function ProjectDetails() {
       } else {
         await fetchNumeracyLevels();
       }
+      // Keep the Grade/Age/Gender tab in sync too
+      await fetchDemographicsLevels();
       // Also refresh the old stats for backward compatibility
       await refreshProjectStats(organizationId, projectId);
     } catch (err) {
@@ -359,9 +374,29 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
               />
             </div>
 
-            {/* Key Barriers + Student Levels Distribution Chart */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-1">
+            {/* Student Levels Chart — full width, matches WelcomePage treatment */}
+            <div>
+              <StudentLevelsChart
+                levelType={levelType}
+                setLevelType={setLevelType}
+                chartData={chartData}
+                loading={combinedLevelsLoading}
+                error={combinedLevelsError}
+                onRefresh={handleRefreshLevels}
+                onDownload={() => console.log("Export student levels for project")}
+                downloadLoading={false}
+                isSuperAdmin={isAdminOrSuperAdmin}
+                organizationId={organizationId}
+                projectId={projectId}
+                demographicsData={demographicsData}
+                demographicsLoading={demographicsLoading}
+                demographicsError={demographicsError}
+              />
+            </div>
+
+            {/* Key Barriers + Program Impact — side by side, matches WelcomePage */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
                 <KeyBarriers
                   organizationId={organizationId}
                   loading={barrierLoading}
@@ -372,29 +407,7 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
                   onFetchData={refetchBarriers}
                 />
               </div>
-              <div className="lg:col-span-2">
-                <StudentLevelsChart
-                  levelType={levelType}
-                  setLevelType={setLevelType}
-                  chartData={chartData}
-                  loading={combinedLevelsLoading}
-                  error={combinedLevelsError}
-                  onRefresh={handleRefreshLevels}
-                  onDownload={() => console.log("Export student levels for project")}
-                  downloadLoading={false}
-                  isSuperAdmin={isAdminOrSuperAdmin}
-                  organizationId={organizationId}
-                  projectId={projectId}
-                />
-              </div>
-            </div>
-
-            {/* Weekly Engagement + Program Impact */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <WeeklyEngagementChart organizationId={organizationId} />
-              </div>
-              <div className="lg:col-span-1">
+              <div>
                 <ProgramImpact
                   organizationId={organizationId}
                   loading={impactLoading}
@@ -405,8 +418,13 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
               </div>
             </div>
 
+            {/* Weekly Engagement — full width */}
+            <div>
+              <WeeklyEngagementChart organizationId={organizationId} />
+            </div>
+
             {/* Assessment Health */}
-            <div className="grid grid-cols-1">
+            <div>
               <AssessmentHealth
                 organizationId={organizationId}
                 loading={healthLoading}
@@ -417,7 +435,7 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
             </div>
 
             {/* Attendance Overview */}
-            <div className="grid grid-cols-1">
+            <div>
               <AttendanceOverview
                 organizationId={organizationId}
                 loading={attendanceLoading}
@@ -426,11 +444,15 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
                 onFetchData={refetchAttendance}
               />
             </div>
-            <DurationStats
-            organizationId={organizationId}
-            projectId={projectId}
-            scope="project"
-          />
+
+            {/* Duration Statistics */}
+            <div>
+              <DurationStats
+                organizationId={organizationId}
+                projectId={projectId}
+                scope="project"
+              />
+            </div>
           </div>
         )}
       </div>
@@ -474,6 +496,7 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
           } else {
             fetchNumeracyLevels();
           }
+          fetchDemographicsLevels();
           refetchBarriers();
           refetchHealth();
           refetchAttendance();

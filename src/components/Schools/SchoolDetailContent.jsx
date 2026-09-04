@@ -17,6 +17,7 @@ import { useAttendanceOverview } from "@/hooks/stats/useAttendanceOverview"
 import { useAssessmentHealth } from "@/hooks/stats/useAssessmentHealth"
 import { useStudentLevels } from "@/hooks/stats/useStudentLevels"
 import { useNumeracyLevels } from "@/hooks/stats/useNumeracyLevels"
+import { useDemographicsLevels } from "@/hooks/stats/Usedemographicslevels"
 import { useSelector } from "react-redux"
 import DurationStats from "../Welcome/DurationStats"
 
@@ -59,6 +60,18 @@ export default function SchoolDetailContent({
     error: numeracyError,
     fetchData: fetchNumeracyLevels
   } = useNumeracyLevels({
+    organizationId,
+    projectId,
+    schoolId: school?.id
+  })
+
+  // Demographics (grade / age / gender cross-tab) — scoped to this school
+  const {
+    data: demographicsData,
+    loading: demographicsLoading,
+    error: demographicsError,
+    fetchData: fetchDemographicsLevels
+  } = useDemographicsLevels({
     organizationId,
     projectId,
     schoolId: school?.id
@@ -157,6 +170,7 @@ export default function SchoolDetailContent({
       } else {
         await fetchNumeracyLevels()
       }
+      await fetchDemographicsLevels()
       await refetchBarriers()
       await refetchHealth()
       await refetchAttendance()
@@ -177,6 +191,7 @@ export default function SchoolDetailContent({
       } else {
         await fetchNumeracyLevels()
       }
+      await fetchDemographicsLevels()
       await refetchBarriers()
       await refetchHealth()
       await refetchAttendance()
@@ -290,9 +305,30 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
       {/* Stats Cards */}
       <SchoolDetailStats school={school} />
 
-      {/* Key Barriers + Student Levels Chart */}
-      <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1">
+      {/* Student Levels Chart — full width, matches WelcomePage treatment */}
+      <div className="mt-8">
+        <StudentLevelsChart
+          levelType={levelType}
+          setLevelType={setLevelType}
+          chartData={chartData}
+          loading={combinedLevelsLoading}
+          error={combinedLevelsError}
+          onRefresh={handleRefresh}
+          onDownload={() => console.log("Export school student levels")} // placeholder
+          downloadLoading={false}
+          isSuperAdmin={isSuperAdmin}
+          organizationId={organizationId}
+          projectId={projectId}
+          schoolId={school?.id}
+          demographicsData={demographicsData}
+          demographicsLoading={demographicsLoading}
+          demographicsError={demographicsError}
+        />
+      </div>
+
+      {/* Key Barriers + Program Impact — side by side, matches WelcomePage */}
+      <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div>
           <KeyBarriers
             organizationId={organizationId}
             loading={barrierLoading}
@@ -303,30 +339,7 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
             onFetchData={refetchBarriers}
           />
         </div>
-        <div className="lg:col-span-2">
-          <StudentLevelsChart
-            levelType={levelType}
-            setLevelType={setLevelType}
-            chartData={chartData}
-            loading={combinedLevelsLoading}
-            error={combinedLevelsError}
-            onRefresh={handleRefresh}
-            onDownload={() => console.log("Export school student levels")} // placeholder
-            downloadLoading={false}
-            isSuperAdmin={isSuperAdmin}
-            organizationId={organizationId}
-            projectId={projectId}
-            schoolId={school?.id} 
-          />
-        </div>
-      </div>
-
-      {/* Weekly Engagement + Program Impact */}
-      <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <WeeklyEngagementChart organizationId={organizationId} />
-        </div>
-        <div className="lg:col-span-1">
+        <div>
           <ProgramImpact
             organizationId={organizationId}
             loading={impactLoading}
@@ -335,6 +348,11 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
             onFetchData={refetchImpact}
           />
         </div>
+      </div>
+
+      {/* Weekly Engagement — full width */}
+      <div className="mt-8">
+        <WeeklyEngagementChart organizationId={organizationId} />
       </div>
 
       {/* Assessment Health */}
@@ -358,12 +376,16 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
           onFetchData={refetchAttendance}
         />
       </div>
-      <DurationStats
-        organizationId={organizationId}
-        projectId={projectId}
-        schoolId={school?.id}
-        scope="school"
-      />
+
+      {/* Duration Statistics */}
+      <div className="mt-8">
+        <DurationStats
+          organizationId={organizationId}
+          projectId={projectId}
+          schoolId={school?.id}
+          scope="school"
+        />
+      </div>
 
       {/* Student Upload Modal */}
       <StudentUploadModal

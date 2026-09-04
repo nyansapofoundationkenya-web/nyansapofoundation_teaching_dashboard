@@ -5,8 +5,8 @@ import { getStorage } from "firebase/storage";
 import { getAI, getGenerativeModel } from "firebase/ai";
 import { getAnalytics, isSupported } from "firebase/analytics"; // ADD THIS
 
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_API_KEY, 
+const firebaseRawConfig = {
+  apiKey: process.env.NEXT_PUBLIC_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_PROJECT_ID,
   storageBucket: process.env.NEXT_PUBLIC_STORAGE_BUCKET,
@@ -14,6 +14,22 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_APP_ID,
   measurementId: process.env.NEXT_PUBLIC_MEASUREMENT_ID,
 };
+
+const firebaseConfig = Object.fromEntries(
+  Object.entries(firebaseRawConfig).map(([key, value]) => [
+    key,
+    typeof value === "string" ? value.trim() : value,
+  ])
+);
+
+const missingKeys = ["apiKey", "projectId", "appId"].filter(
+  (key) => !firebaseConfig[key]
+);
+if (missingKeys.length) {
+  throw new Error(
+    `Missing required Firebase config values: ${missingKeys.join(", ")}`
+  );
+}
 
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();

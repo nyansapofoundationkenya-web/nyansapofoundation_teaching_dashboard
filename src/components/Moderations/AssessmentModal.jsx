@@ -6,8 +6,16 @@ import { doc, setDoc, getDoc, collection, getDocs, query, where } from "firebase
 import { v4 as uuidv4 } from "uuid";
 import { useAssessment } from "@/hooks/useAssessment";
 import { db } from "@/firebase/config";
+
 import AssessmentNameStep from "./assessments/AssessmentNameStep";
-import AssessmentConfigStep from "./assessments/AssessmentConfigStep";
+import AssessmentProjectStep from "./assessments/AssessmentProjectStep";
+import AssessmentLevelStep from "./assessments/AssessmentLevelStep";
+import AssessmentSchoolsStep from "./assessments/AssessmentSchoolsStep";
+import AssessmentTypeContentStep from "./assessments/AssessmentTypeContentStep";
+import AssessmentScheduleStep from "./assessments/AssessmentScheduleStep";
+import AssessmentReviewStep from "./assessments/AssessmentReviewStep";
+import { TOTAL_STEPS } from "./assessments/stepsConfig";
+import { computeEndDate } from "./assessments/scheduleUtils";
 
 export default function AssessmentModal({ organizationId, onClose }) {
   const {
@@ -30,6 +38,10 @@ export default function AssessmentModal({ organizationId, onClose }) {
     level: "Baseline",
     assessmentNumber: null,
     to_be_done: new Date().toISOString().split("T")[0],
+    // Schedule (new)
+    durationMode: "days", // "days" | "date"
+    duration_days: "",
+    end_date: "",
   });
   const [selectAllSchools, setSelectAllSchools] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,7 +54,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
   const [maxAssessmentNumber, setMaxAssessmentNumber] = useState(0);
   const [step, setStep] = useState(1);
   const [noContentAvailable, setNoContentAvailable] = useState(false);
-  const [createWithoutStudents, setCreateWithoutStudents] = useState(false); // NEW
+  const [createWithoutStudents, setCreateWithoutStudents] = useState(false);
 
   // ── Letter / word selection state (max 5 each) ────────────────
   const [selectedLetters, setSelectedLetters] = useState([]);
@@ -234,24 +246,40 @@ export default function AssessmentModal({ organizationId, onClose }) {
     }
   }, [formData.projectId, fetchSchools, clearStudents]);
 
-  // ── Validation ─────────────────────────────────────────────────
-  const canCreateAssessments = () => {
-    if (step === 1) return formData.assessmentName.trim().length > 0;
-    if (noContentAvailable || !currentAssessment || availableAssessmentNumbers.length === 0) return false;
-    if (!formData.projectId) return false;
-    if (formData.schoolIds.length === 0) return false;
-    if (!formData.to_be_done) return false;
-    if (studentsLoading) return false;
-
-    // For Literacy: only require a selection when there are more than 5 items
-    if (formData.type === "Literacy") {
-      const lettersNeedPicking = (currentAssessment.letters?.length ?? 0) > 5;
-      const wordsNeedPicking = (currentAssessment.words?.length ?? 0) > 5;
-      if (lettersNeedPicking && selectedLetters.length === 0) return false;
-      if (wordsNeedPicking && selectedWords.length === 0) return false;
+  // ── Per-step validation ──────────────────────────────────────
+  // Step map: 1 Name, 2 Project, 3 Level, 4 Schools, 5 Type/Content, 6 Schedule, 7 Review
+  const canProceed = () => {
+    switch (step) {
+      case 1:
+        return formData.assessmentName.trim().length > 0;
+      case 2:
+        return !!formData.projectId;
+      case 3:
+        return !!formData.level;
+      case 4:
+        return formData.schoolIds.length > 0 && !studentsLoading;
+      case 5: {
+        if (noContentAvailable || !currentAssessment || availableAssessmentNumbers.length === 0)
+          return false;
+        if (formData.type === "Literacy") {
+          const lettersNeedPicking = (currentAssessment.letters?.length ?? 0) > 5;
+          const wordsNeedPicking = (currentAssessment.words?.length ?? 0) > 5;
+          if (lettersNeedPicking && selectedLetters.length === 0) return false;
+          if (wordsNeedPicking && selectedWords.length === 0) return false;
+        }
+        return true;
+      }
+      case 6: {
+        if (!formData.to_be_done) return false;
+        if (formData.durationMode === "days" && !formData.duration_days) return false;
+        if (formData.durationMode === "date" && !formData.end_date) return false;
+        return true;
+      }
+      case 7:
+        return true;
+      default:
+        return false;
     }
-
-    return true;
   };
 
   // ── School toggle ─────────────────────────────────────────────
@@ -322,7 +350,23 @@ export default function AssessmentModal({ organizationId, onClose }) {
       };
     }
 
-    return { ...currentAssessment };
+    // ── Numeracy ───────────────────────────────────────────────
+    // FIX: wordProblems.answer was historically saved as a string while every
+    // other problem type (additions/subtractions/multiplications/divisions)
+    // saves answer as a number. Normalize here so all problem types are
+    // consistent in the assessment_content doc we write, regardless of what
+    // type is stored in the source numeracy template doc.
+    const content = { ...currentAssessment };
+    if (Array.isArray(content.wordProblems)) {
+      content.wordProblems = content.wordProblems.map((wp) => ({
+        ...wp,
+        answer:
+          typeof wp.answer === "string" && wp.answer.trim() !== "" && !isNaN(wp.answer)
+            ? Number(wp.answer)
+            : wp.answer,
+      }));
+    }
+    return content;
   };
 
   // ── Duplicate check ───────────────────────────────────────────
@@ -357,46 +401,54 @@ export default function AssessmentModal({ organizationId, onClose }) {
     return duplicateSchools;
   };
 
-  // ── Submit handler ────────────────────────────────────────────
+  // ── Step navigation ───────────────────────────────────────────
+  const goNext = () => {
+    if (!canProceed()) {
+      if (step === 1) setError("Please enter an assessment name.");
+      else if (step === 2) setError("Please select a project.");
+      else if (step === 3) setError("Please select an assessment level.");
+      else if (step === 4) {
+        setError(
+          studentsLoading
+            ? "Please wait while students are loading..."
+            : "Please select at least one school."
+        );
+      } else if (step === 5) {
+        if (noContentAvailable) {
+          setError("No assessment content available. Please contact your administrator.");
+        } else if (!currentAssessment) {
+          setError("Please select valid assessment content.");
+        } else if (formData.type === "Literacy") {
+          if ((currentAssessment.letters?.length ?? 0) > 5 && selectedLetters.length === 0) {
+            setError("Please select at least 1 letter (up to 5).");
+          } else if ((currentAssessment.words?.length ?? 0) > 5 && selectedWords.length === 0) {
+            setError("Please select at least 1 word (up to 5).");
+          } else {
+            setError("Please fill in all required fields.");
+          }
+        } else {
+          setError("Please fill in all required fields.");
+        }
+      } else if (step === 6) {
+        setError("Please set a start date and a duration or end date.");
+      }
+      return;
+    }
+    setError("");
+    setStep((s) => Math.min(s + 1, TOTAL_STEPS));
+  };
+
+  const goBack = () => {
+    setError("");
+    setStep((s) => Math.max(s - 1, 1));
+  };
+
+  // ── Submit handler (only fires on the final Review step) ─────
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Step 1 → Step 2
-    if (step === 1) {
-      if (formData.assessmentName.trim().length === 0) {
-        setError("Please enter an assessment name.");
-        return;
-      }
-      setStep(2);
-      setError("");
-      return;
-    }
-
-    // Step 2: validate
-    if (!canCreateAssessments()) {
-      if (noContentAvailable) {
-        setError("No assessment content available. Please contact your administrator.");
-        return;
-      }
-      if (!currentAssessment) {
-        setError("Please select valid assessment content.");
-        return;
-      }
-      if (studentsLoading) {
-        setError("Please wait while students are loading...");
-        return;
-      }
-      if (formData.type === "Literacy") {
-        if ((currentAssessment.letters?.length ?? 0) > 5 && selectedLetters.length === 0) {
-          setError("Please select at least 1 letter (up to 5).");
-          return;
-        }
-        if ((currentAssessment.words?.length ?? 0) > 5 && selectedWords.length === 0) {
-          setError("Please select at least 1 word (up to 5).");
-          return;
-        }
-      }
-      setError("Please fill in all required fields.");
+    if (step < TOTAL_STEPS) {
+      goNext();
       return;
     }
 
@@ -448,6 +500,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
       // ── Build the content document once (shared across schools) ─
       const assessmentContent = buildAssessmentContent();
       const currentDate = new Date().toISOString().split("T")[0];
+      const targetEndDate = computeEndDate(formData);
       const createdAssessments = [];
       const emptySchools = [];
       const creationPromises = [];
@@ -463,7 +516,6 @@ export default function AssessmentModal({ organizationId, onClose }) {
         let assignedStudents = [];
 
         if (createWithoutStudents) {
-          // Explicitly create empty assessment – no students
           assignedStudents = [];
           emptySchools.push(school.name);
         } else {
@@ -485,6 +537,7 @@ export default function AssessmentModal({ organizationId, onClose }) {
 
         const assessmentId = uuidv4();
         const assessmentName = generateAssessmentName(school.name);
+        const assessmentLanguage = currentAssessment?.language || "english";
 
         const assessmentData = {
           created_at: new Date().toISOString(),
@@ -496,8 +549,9 @@ export default function AssessmentModal({ organizationId, onClose }) {
           school_id: schoolId,
           type: formData.type,
           level: formData.level,
-          assessmentNumber: formData.assessmentNumber,
+          assessmentNumber: 100,
           to_be_done: formData.to_be_done,
+          end_date: targetEndDate || null,
           created_date: currentDate,
           assigned_students: assignedStudents,
           status: "created",
@@ -506,10 +560,8 @@ export default function AssessmentModal({ organizationId, onClose }) {
           calculation_type: currentAssessment?.name
             ? currentAssessment.name.toLowerCase()
             : "",
+          language: assessmentLanguage,
           has_students: assignedStudents.length > 0,
-          ...(currentAssessment?.language
-            ? { language: currentAssessment.language }
-            : {}),
         };
 
         createdAssessments.push(school.name);
@@ -519,8 +571,11 @@ export default function AssessmentModal({ organizationId, onClose }) {
           assessmentData
         )
           .then(async () => {
-            // ── Save content to subcollection ───────────────────
-            const contentId = uuidv4();
+            const contentId = "100";
+            const finalContent = {
+              ...assessmentContent,
+              assessmentNumber: 100,
+            };
             await setDoc(
               doc(db, "assessments", assessmentId, "assessment_content", contentId),
               {
@@ -528,14 +583,14 @@ export default function AssessmentModal({ organizationId, onClose }) {
                 assessment_id: assessmentId,
                 created_at: new Date().toISOString(),
                 type: formData.type,
-                assessmentNumber: formData.assessmentNumber,
-                ...assessmentContent,
+                assessmentNumber: 100,
+                ...finalContent,
               }
             );
 
-            // ── Save student results (only if there are students) ─
             if (assignedStudents.length > 0) {
               const resultsPromises = assignedStudents.map((student) => {
+                const assessmentLanguage = currentAssessment?.language || "english";
                 const resultId = `${assessmentId}_${student.id}`;
                 return setDoc(
                   doc(db, "assessments", assessmentId, "assessments-results", resultId),
@@ -550,14 +605,13 @@ export default function AssessmentModal({ organizationId, onClose }) {
                     competence_level: 0,
                     assessment_level: formData.level,
                     to_be_done: formData.to_be_done,
+                    end_date: targetEndDate || null,
                     created_at: new Date().toISOString(),
                     status: "pending",
                     calculation_type: currentAssessment?.name
                       ? currentAssessment.name.toLowerCase()
                       : "",
-                    ...(currentAssessment?.language
-                      ? { language: currentAssessment.language }
-                      : {}),
+                    language: assessmentLanguage,
                   }
                 );
               });
@@ -605,14 +659,104 @@ export default function AssessmentModal({ organizationId, onClose }) {
     }
   };
 
+  const renderStep = () => {
+    switch (step) {
+      case 1:
+        return (
+          <AssessmentNameStep formData={formData} setFormData={setFormData} step={step} />
+        );
+      case 2:
+        return (
+          <AssessmentProjectStep
+            formData={formData}
+            setFormData={setFormData}
+            projects={projects}
+            step={step}
+          />
+        );
+      case 3:
+        return (
+          <AssessmentLevelStep
+            formData={formData}
+            handleLevelChange={handleLevelChange}
+            step={step}
+          />
+        );
+      case 4:
+        return (
+          <AssessmentSchoolsStep
+            formData={formData}
+            schools={schools}
+            students={students}
+            studentsLoading={studentsLoading}
+            toggleSchool={toggleSchool}
+            selectAllSchools={selectAllSchools}
+            setSelectAllSchools={setSelectAllSchools}
+            createWithoutStudents={createWithoutStudents}
+            setCreateWithoutStudents={setCreateWithoutStudents}
+            step={step}
+          />
+        );
+      case 5:
+        return (
+          <AssessmentTypeContentStep
+            formData={formData}
+            setFormData={setFormData}
+            currentAssessment={currentAssessment}
+            loadingAssessment={loadingAssessment}
+            noContentAvailable={noContentAvailable}
+            availableAssessmentNumbers={availableAssessmentNumbers}
+            minAssessmentNumber={minAssessmentNumber}
+            maxAssessmentNumber={maxAssessmentNumber}
+            nextAssessment={nextAssessment}
+            prevAssessment={prevAssessment}
+            selectedLetters={selectedLetters}
+            selectedWords={selectedWords}
+            toggleLetter={toggleLetter}
+            toggleWord={toggleWord}
+            step={step}
+          />
+        );
+      case 6:
+        return (
+          <AssessmentScheduleStep formData={formData} setFormData={setFormData} step={step} />
+        );
+      case 7:
+        return (
+          <AssessmentReviewStep
+            formData={formData}
+            projects={projects}
+            schools={schools}
+            students={students}
+            createWithoutStudents={createWithoutStudents}
+            selectedLetters={selectedLetters}
+            selectedWords={selectedWords}
+            step={step}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  const stepTitles = {
+    1: "Name Your Assessment",
+    2: "Select Project",
+    3: "Assessment Level",
+    4: "Select Schools",
+    5: "Assessment Content",
+    6: "Schedule",
+    7: "Review & Create",
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black bg-opacity-50">
-      <div className="bg-background-light rounded-2xl shadow-xl w-full max-w-4xl flex flex-col h-[calc(100%-2rem)] sm:h-[95vh] max-h-screen border border-gray-600 mx-4 sm:mx-0">
+      <div className="bg-background-light rounded-2xl shadow-xl w-full max-w-4xl flex flex-col h-[calc(100%-2rem)] sm:h-[95vh] max-h-screen border border-gray-600 mx-4 sm:mx-0 relative">
 
         {/* Header */}
         <div className="flex-shrink-0 p-6 border-b border-gray-600">
           <h2 className="text-xl font-semibold text-foreground">
-            {step === 1 ? "Name Your Assessment" : "Configure Assessment"}
+            {stepTitles[step]}
           </h2>
           <button
             onClick={onClose}
@@ -634,116 +778,60 @@ export default function AssessmentModal({ organizationId, onClose }) {
               </div>
             )}
 
-            {step === 1 ? (
-              <AssessmentNameStep
-                formData={formData}
-                setFormData={setFormData}
-                setStep={setStep}
-              />
-            ) : (
-              <AssessmentConfigStep
-                formData={formData}
-                setFormData={setFormData}
-                organizationId={organizationId}
-                projects={projects}
-                schools={schools}
-                students={students}
-                studentsLoading={studentsLoading}
-                fetchSchools={fetchSchools}
-                clearStudents={clearStudents}
-                setStudentsLoading={setStudentsLoading}
-                currentAssessment={currentAssessment}
-                loadingAssessment={loadingAssessment}
-                noContentAvailable={noContentAvailable}
-                availableAssessmentNumbers={availableAssessmentNumbers}
-                minAssessmentNumber={minAssessmentNumber}
-                maxAssessmentNumber={maxAssessmentNumber}
-                setStep={setStep}
-                toggleSchool={toggleSchool}
-                selectAllSchools={selectAllSchools}
-                setSelectAllSchools={setSelectAllSchools}
-                handleLevelChange={handleLevelChange}
-                nextAssessment={nextAssessment}
-                prevAssessment={prevAssessment}
-                selectedLetters={selectedLetters}
-                selectedWords={selectedWords}
-                toggleLetter={toggleLetter}
-                toggleWord={toggleWord}
-                // NEW props for empty assessment toggle
-                createWithoutStudents={createWithoutStudents}
-                setCreateWithoutStudents={setCreateWithoutStudents}
-              />
-            )}
+            {renderStep()}
           </form>
         </div>
 
         {/* Footer */}
         <div className="flex-shrink-0 flex justify-end space-x-4 p-6 border-t border-gray-600 bg-background-light">
           {step === 1 ? (
-            <>
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={isSubmitting}
-                className="px-8 py-3 text-gray-300 bg-background-lighter rounded-xl hover:bg-background transition-all border border-gray-600 hover:border-gray-500 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isSubmitting || formData.assessmentName.trim().length === 0}
-                onClick={() => {
-                  if (formData.assessmentName.trim().length === 0) {
-                    setError("Please enter an assessment name.");
-                    return;
-                  }
-                  setStep(2);
-                  setError("");
-                }}
-                className="px-8 py-3 bg-primary-2 hover:bg-blue-400 text-white font-semibold rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="px-8 py-3 text-gray-300 bg-background-lighter rounded-xl hover:bg-background transition-all border border-gray-600 hover:border-gray-500 disabled:opacity-50"
+            >
+              Cancel
+            </button>
           ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                disabled={isSubmitting}
-                className="px-8 py-3 text-gray-300 bg-background-lighter rounded-xl hover:bg-background transition-all border border-gray-600 hover:border-gray-500 disabled:opacity-50"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={isSubmitting || !canCreateAssessments()}
-                className="px-8 py-3 bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold rounded-xl disabled:opacity-50 transition-all shadow-md disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {isSubmitting ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5 text-primary-1" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                    </svg>
-                    Creating...
-                  </>
-                ) : studentsLoading ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5 text-primary-1" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                    </svg>
-                    Loading Students...
-                  </>
-                ) : noContentAvailable || !currentAssessment ? (
-                  "No Content Available"
-                ) : (
-                  "Create Assessments"
-                )}
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={goBack}
+              disabled={isSubmitting}
+              className="px-8 py-3 text-gray-300 bg-background-lighter rounded-xl hover:bg-background transition-all border border-gray-600 hover:border-gray-500 disabled:opacity-50"
+            >
+              Back
+            </button>
+          )}
+
+          {step < TOTAL_STEPS ? (
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={goNext}
+              className="px-8 py-3 bg-primary-2 hover:bg-blue-400 text-white font-semibold rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="px-8 py-3 bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold rounded-xl disabled:opacity-50 transition-all shadow-md disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-primary-1" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Creating...
+                </>
+              ) : (
+                "Create Assessments"
+              )}
+            </button>
           )}
         </div>
       </div>

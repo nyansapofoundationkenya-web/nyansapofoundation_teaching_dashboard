@@ -433,6 +433,18 @@ export function useSchools(organizationId) {
         total_students: increment(newStudents.length),
         lastUpdated: new Date().toISOString(),
       })
+      // Organization
+      const orgRef = doc(
+        db,
+        "organization",
+        organizationId
+      );
+
+      batch.update(orgRef, {
+        total_students: increment(newStudents.length),
+        lastUpdated: new Date().toISOString(),
+      });
+
 
       await batch.commit()
 

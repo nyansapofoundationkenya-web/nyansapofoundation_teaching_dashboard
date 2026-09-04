@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Edit3, Trash2, CheckCircle2, XCircle, Flag, Check, ChevronDown, Loader2 } from "lucide-react";
+import { Edit3, Trash2, CheckCircle2, XCircle, Flag, Check, ChevronDown, Loader2, RotateCw } from "lucide-react";
 
 const FLAG_REASONS = [
   { id: "audio_quality",          label: "Audio Quality Issues",      description: "Recording was too noisy, clipped, or too quiet to hear clearly" },
@@ -31,6 +31,9 @@ export default function ModerationActions({
   savingFlagReasons,
   hasMadeDecision = false,
   currentPassedStatus,
+  isSuperAdmin = false,       // NEW
+  onRetranscribe,             // NEW
+  retranscribing = false,     // NEW
 }) {
   const [selectedReasons, setSelectedReasons] = useState(existingFlagReasons);
   const [reasonsPanelOpen, setReasonsPanelOpen] = useState(false);
@@ -178,6 +181,42 @@ export default function ModerationActions({
             </div>
           )}
         </div>
+      )}
+
+      {/* Re-transcribe (super admin only, unmoderated only) */}
+      {isSuperAdmin && (
+        <button
+          onClick={onRetranscribe}
+          disabled={retranscribing || editMode}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            background: 'rgba(155,89,182,0.1)',
+            border: '1px solid rgba(155,89,182,0.3)',
+            color: '#9b59b6',
+          }}
+          onMouseEnter={e => {
+            if (!retranscribing && !editMode) {
+              e.currentTarget.style.background = 'rgba(155,89,182,0.18)';
+              e.currentTarget.style.borderColor = 'rgba(155,89,182,0.5)';
+            }
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'rgba(155,89,182,0.1)';
+            e.currentTarget.style.borderColor = 'rgba(155,89,182,0.3)';
+          }}
+        >
+          {retranscribing ? (
+            <>
+              <Loader2 size={13} className="animate-spin" />
+              Re-transcribing…
+            </>
+          ) : (
+            <>
+              <RotateCw size={13} />
+              Send to model again
+            </>
+          )}
+        </button>
       )}
 
       {/* Action buttons */}
