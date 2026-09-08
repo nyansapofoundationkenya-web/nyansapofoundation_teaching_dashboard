@@ -34,6 +34,7 @@ export default function AudioModerationContent({
   const [moderationHistory, setModerationHistory]   = useState([]);
   const [savingFlagReasons, setSavingFlagReasons]   = useState(false);
   const [retranscribing, setRetranscribing]         = useState(false); // NEW
+  const [assessmentLanguage, setAssessmentLanguage] = useState("english"); // NEW — from assessments/{assessmentId}.language
 
   const backUrl = `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}`;
   const { saveFlagReasons, incrementResolved } = useFlagReasons(assessmentId, studentId);
@@ -88,6 +89,11 @@ export default function AudioModerationContent({
           const assignedStudents = data.assigned_students || [];
           const student          = assignedStudents.find(s => s.id === studentId);
           setStudentName(student ? `${student.first_name} ${student.last_name}` : "Student Not Found");
+
+          // NEW — the assessment's language lives on this doc (e.g. "swahili"),
+          // not on the results doc. Default to "english" if it's missing.
+          const lang = (data.language || "english").toString().trim().toLowerCase();
+          setAssessmentLanguage(lang || "english");
         } else {
           setStudentName("Assessment Not Found");
         }
@@ -262,6 +268,13 @@ export default function AudioModerationContent({
   // entry_key field needed, the array position from the current snapshot is
   // the identifier the server uses to find the record.
   //
+  // Language is not stored per-result — it lives on the parent assessment
+  // doc (assessments/{assessmentId}.language, e.g. "swahili") and was
+  // captured into `assessmentLanguage` state during the initial fetch. We
+  // pass it straight through to the API so the server can route to the
+  // right transcription backend; the API itself also defaults to
+  // "english" if this were ever missing.
+  //
   // IMPORTANT: this endpoint can legitimately take a while (Gradio cold
   // starts, rate-limit backoff, long paragraph/story audio). If the
   // platform kills the function before it responds, the client gets back
@@ -289,6 +302,7 @@ export default function AudioModerationContent({
           assessmentId,
           studentId,
           globalIndex: currentResult.globalIndex,
+          language: assessmentLanguage,
         }),
       });
 
@@ -613,6 +627,9 @@ export default function AudioModerationContent({
           </div>
           <div className="px-3 py-1.5 bg-primary-3/20 text-primary-3 rounded-lg">
             Item: <span className="font-semibold">{currentLocalIndex + 1} of {sectionResults.length}</span>
+          </div>
+          <div className="px-3 py-1.5 bg-gray-500/20 text-gray-300 rounded-lg">
+            Language: <span className="font-semibold capitalize">{assessmentLanguage}</span>
           </div>
           <div className={`px-3 py-1.5 rounded-lg ${
             isModerated ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"

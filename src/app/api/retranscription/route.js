@@ -13,7 +13,13 @@ const USERS_COLLECTION = "user";
 const ROLE_FIELD = "role";
 // ────────────────────────────────────────────────────────────────────────
 
-const GRADIO_SPACE = "Nyansapoaike/nyansapo_stt"; // English model, matches transcribe_audio.py
+// English now goes through a plain REST endpoint (FastAPI/uvicorn on Azure
+// Container Apps) instead of a Gradio Space.
+const ENGLISH_API_URL = process.env.ENGLISH_API_URL;
+
+// Swahili/Kiswahili still goes through a Gradio Space.
+const GRADIO_SPACE_SWAHILI = "Nyansapoaike/swahili_fabai";
+
 const HF_TOKEN = process.env.HF_TOKEN;
 const STORAGE_BUCKET = process.env.STORAGE_BUCKET; // same bucket used by the storage trigger
 
@@ -29,16 +35,30 @@ export const maxDuration = 300; // seconds
 // clean JSON error instead of getting hard-killed mid-response.
 const TIME_BUDGET_MS = 270_000; // 270s, 30s of margin under maxDuration
 
-let gradioClientPromise = null;
-function getGradioClient() {
-  // Cache the connection across warm invocations, same idea as the
-  // module-level _gradio_client cache in the Python version.
-  if (!gradioClientPromise) {
-    gradioClientPromise = GradioClient.connect(GRADIO_SPACE, {
-      hf_token: HF_TOKEN,
-    });
+// Supported languages and how request values map onto them.
+const SUPPORTED_LANGUAGES = ["english", "swahili"];
+const DEFAULT_LANGUAGE = "english";
+
+function normalizeLanguage(raw) {
+  const val = String(raw ?? "").trim().toLowerCase();
+  if (!val) return DEFAULT_LANGUAGE;
+  if (val === "swahili" || val === "kiswahili" || val === "sw") return "swahili";
+  if (val === "english" || val === "en") return "english";
+  // Unknown value — fall back to default rather than reject outright.
+  return DEFAULT_LANGUAGE;
+}
+
+// Gradio clients are only needed for Swahili now, but keep this cache
+// keyed by space name in case more languages move to Gradio Spaces later.
+const gradioClientPromises = new Map();
+function getGradioClient(space) {
+  if (!gradioClientPromises.has(space)) {
+    gradioClientPromises.set(
+      space,
+      GradioClient.connect(space, { hf_token: HF_TOKEN })
+    );
   }
-  return gradioClientPromise;
+  return gradioClientPromises.get(space);
 }
 
 function jsonError(message, status) {
@@ -64,15 +84,59 @@ async function isSuperAdmin(uid) {
   return snap.data()?.[ROLE_FIELD] === "super_admin";
 }
 
+// ── Single-attempt transcription, per language ─────────────────────────
+
+async function transcribeEnglish(audioBlob, filename) {
+  const form = new FormData();
+  form.append("file", audioBlob, filename);
+
+  const res = await fetch(ENGLISH_API_URL, {
+    method: "POST",
+    headers: { accept: "application/json" },
+    body: form,
+  });
+
+  if (!res.ok) {
+    // Keep the status code in the message so the retry loop's
+    // rate-limit/timeout sniffing (which matches on message text) still
+    // works for this endpoint.
+    const bodyText = await res.text().catch(() => "");
+    throw new Error(`English API request failed with status ${res.status}: ${bodyText}`);
+  }
+
+  const json = await res.json();
+  const text = typeof json?.text === "string" ? json.text.trim() : "";
+  return text;
+}
+
+async function transcribeSwahili(audioBlob) {
+  const client = await getGradioClient(GRADIO_SPACE_SWAHILI);
+  const result = await client.predict("/transcribe", {
+    audio_path: audioBlob,
+  });
+
+  const raw = Array.isArray(result?.data) ? result.data[0] : result?.data;
+  const transcription = typeof raw === "string" ? raw.trim() : "";
+  return transcription;
+}
+
+async function transcribeOnce(language, audioBlob, filename) {
+  if (language === "swahili") {
+    return transcribeSwahili(audioBlob);
+  }
+  // Default / "english"
+  return transcribeEnglish(audioBlob, filename);
+}
+
 // Simple retry wrapper, mirroring the retry/backoff behaviour of
 // _transcribe_with_gradio in the Python version — but now time-budgeted so
 // it can never run long enough to get killed by the platform's own
 // function timeout (which would return a non-JSON error page and break
-// the client's res.json() call).
-async function transcribeWithRetry(audioBlob, assessmentType) {
+// the client's res.json() call). Language-aware: routes each attempt to
+// the correct backend (English REST API vs Swahili Gradio Space).
+async function transcribeWithRetry(audioBlob, assessmentType, language, filename) {
   const isLongAudio = ["paragraph", "story"].includes(assessmentType);
   const maxAttempts = isLongAudio ? 4 : 3;
-  const client = await getGradioClient();
 
   const startedAt = Date.now();
   const timeLeft = () => TIME_BUDGET_MS - (Date.now() - startedAt);
@@ -83,39 +147,33 @@ async function transcribeWithRetry(audioBlob, assessmentType) {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (timeLeft() <= 0) {
       timedOut = true;
-      console.warn(`[GRADIO] Time budget exhausted before attempt ${attempt + 1}`);
+      console.warn(`[TRANSCRIBE] Time budget exhausted before attempt ${attempt + 1}`);
       break;
     }
 
     try {
-      console.log(`[GRADIO] Attempt ${attempt + 1}/${maxAttempts}`);
-      const result = await client.predict("/transcribe", {
-        audio_path: audioBlob,
-      });
-
-      // result.data is typically an array of outputs
-      const raw = Array.isArray(result?.data) ? result.data[0] : result?.data;
-      const transcription = typeof raw === "string" ? raw.trim() : "";
+      console.log(`[TRANSCRIBE] lang=${language} attempt ${attempt + 1}/${maxAttempts}`);
+      const transcription = await transcribeOnce(language, audioBlob, filename);
 
       if (transcription) {
-        console.log(`[GRADIO] Success: "${transcription.slice(0, 200)}"`);
+        console.log(`[TRANSCRIBE] Success: "${transcription.slice(0, 200)}"`);
         return { transcript: transcription, timedOut: false };
       }
 
-      console.warn(`[GRADIO] Empty result on attempt ${attempt + 1}`);
+      console.warn(`[TRANSCRIBE] Empty result on attempt ${attempt + 1}`);
     } catch (err) {
       lastError = err;
       const msg = String(err?.message || err);
       let wait;
       if (msg.includes("429") || msg.toLowerCase().includes("rate limit")) {
         wait = 60_000 * (attempt + 1);
-        console.warn(`[GRADIO] Rate-limited, wanted to wait ${wait}ms`);
+        console.warn(`[TRANSCRIBE] Rate-limited, wanted to wait ${wait}ms`);
       } else if (/timeout|timed out/i.test(msg)) {
         wait = 30_000 * (attempt + 1);
-        console.warn(`[GRADIO] Timeout, wanted to wait ${wait}ms`);
+        console.warn(`[TRANSCRIBE] Timeout, wanted to wait ${wait}ms`);
       } else {
         wait = 2 ** attempt * 1000;
-        console.error(`[GRADIO] Error (wanted wait=${wait}ms):`, err);
+        console.error(`[TRANSCRIBE] Error (wanted wait=${wait}ms):`, err);
       }
 
       // Never schedule a wait that would blow the remaining budget.
@@ -141,7 +199,7 @@ async function transcribeWithRetry(audioBlob, assessmentType) {
     }
   }
 
-  if (lastError) console.error("[GRADIO] All attempts failed:", lastError);
+  if (lastError) console.error("[TRANSCRIBE] All attempts failed:", lastError);
   return { transcript: null, timedOut };
 }
 
@@ -163,10 +221,15 @@ export async function POST(req) {
   } catch {
     return jsonError("Invalid JSON body", 400);
   }
-  const { assessmentId, studentId, globalIndex } = body || {};
+  const { assessmentId, studentId, globalIndex, language: rawLanguage } = body || {};
   if (!assessmentId || !studentId || globalIndex === undefined || globalIndex === null) {
     return jsonError("Missing assessmentId, studentId, or globalIndex", 400);
   }
+
+  // Language is optional and defaults to English. Any unrecognized value
+  // also falls back to English rather than erroring, since this is just
+  // routing which backend model to hit.
+  const language = normalizeLanguage(rawLanguage);
 
   // ── 3. Look up the entry ────────────────────────────────────────
   // Uses the same "globalIndex into reading_results" concept the client
@@ -220,16 +283,24 @@ export async function POST(req) {
     }
     const arrayBuffer = await audioRes.arrayBuffer();
     audioBuffer = Buffer.from(arrayBuffer);
-    console.log(`[RETRANSCRIBE] uid=${uid} | globalIndex=${globalIndex} | ${audioBuffer.length} bytes`);
+    console.log(
+      `[RETRANSCRIBE] uid=${uid} | globalIndex=${globalIndex} | lang=${language} | ${audioBuffer.length} bytes`
+    );
   } catch (err) {
     console.error("[RETRANSCRIBE] Download failed:", err);
     return jsonError("Failed to download audio file", 500);
   }
 
-  // ── 6. Re-transcribe (English only) ──────────────────────────────
+  // ── 6. Re-transcribe (language-routed) ────────────────────────────
   try {
     const audioBlob = new Blob([audioBuffer], { type: "audio/wav" });
-    const { transcript, timedOut } = await transcribeWithRetry(audioBlob, assessmentType);
+    const filename = `${assessmentId}_${studentId}_${globalIndex}.wav`;
+    const { transcript, timedOut } = await transcribeWithRetry(
+      audioBlob,
+      assessmentType,
+      language,
+      filename
+    );
 
     if (!transcript) {
       if (timedOut) {
@@ -243,7 +314,7 @@ export async function POST(req) {
       return jsonError("Transcription failed — model returned no result", 502);
     }
 
-    return NextResponse.json({ transcript });
+    return NextResponse.json({ transcript, language });
   } catch (err) {
     console.error("[RETRANSCRIBE] Failed:", err);
     return jsonError("Re-transcription failed", 500);
