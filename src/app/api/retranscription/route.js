@@ -261,9 +261,19 @@ export async function POST(req) {
 
   const meta = record.metadata || {};
 
-  // ── 4. Refuse if already moderated ──────────────────────────────
-  if (meta.modeltranscriptionverified === true) {
-    return jsonError("This item has already been moderated", 409);
+  // ── 4. Refuse only if this item already has a transcript ─────────
+  // This used to block ANY moderated item outright. That's no longer
+  // correct: an item can be modeltranscriptionverified === true while
+  // metadata.transcript is still empty (a moderator can judge pass/fail
+  // straight from the audio, without a transcript ever existing), and the
+  // client's bulk "retranscribe missing" action specifically targets
+  // those. What we still want to guard against is silently overwriting a
+  // transcript a human has already reviewed and relied on — moderated or
+  // not — so the check now keys off the transcript itself rather than
+  // moderation status.
+  const existingTranscript = (meta.transcript || "").trim();
+  if (existingTranscript !== "") {
+    return jsonError("This item already has a transcript", 409);
   }
 
   const audioUrl = meta.audio_url;

@@ -2,8 +2,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSelector } from "react-redux";
-import { getAuth } from "firebase/auth";
 import { db, storage } from "@/firebase/config";
 import { doc, getDoc, updateDoc, collection, getDocs } from "firebase/firestore";
 import { ref, deleteObject } from "firebase/storage";
@@ -30,18 +28,13 @@ export default function AudioModerationContent({
   const [loading, setLoading]                       = useState(true);
   const [error, setError]                           = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm]   = useState(false);
-  const [isDeleting, setIsDeleting]                 = useState(false); // NEW — guards against double-delete
+  const [isDeleting, setIsDeleting]                 = useState(false); // guards against double-delete
   const [moderationHistory, setModerationHistory]   = useState([]);
   const [savingFlagReasons, setSavingFlagReasons]   = useState(false);
-  const [retranscribing, setRetranscribing]         = useState(false); // NEW
-  const [assessmentLanguage, setAssessmentLanguage] = useState("english"); // NEW — from assessments/{assessmentId}.language
+  const [assessmentLanguage, setAssessmentLanguage] = useState("english"); // from assessments/{assessmentId}.language
 
   const backUrl = `/dashboard/${organizationId}/moderations/${assessmentId}/students/${studentId}`;
   const { saveFlagReasons, incrementResolved } = useFlagReasons(assessmentId, studentId);
-
-  // NEW — super admin check
-  const { user: currentUser } = useSelector((state) => state.auth);
-  const isSuperAdmin = currentUser?.role === "super_admin";
 
   const groupResultsByType = (results) => {
     const groups = { letter: [], word: [], paragraph: [], story: [] };
@@ -90,7 +83,7 @@ export default function AudioModerationContent({
           const student          = assignedStudents.find(s => s.id === studentId);
           setStudentName(student ? `${student.first_name} ${student.last_name}` : "Student Not Found");
 
-          // NEW — the assessment's language lives on this doc (e.g. "swahili"),
+          // the assessment's language lives on this doc (e.g. "swahili"),
           // not on the results doc. Default to "english" if it's missing.
           const lang = (data.language || "english").toString().trim().toLowerCase();
           setAssessmentLanguage(lang || "english");
@@ -260,93 +253,6 @@ export default function AudioModerationContent({
       setError(`Failed to save flag reasons: ${err.message}`);
     } finally {
       setSavingFlagReasons(false);
-    }
-  };
-
-  // ── Re-transcribe (super admin only, unmoderated only) ─────────────────────
-  // Uses the same globalIndex concept as updateAssessmentResult — no separate
-  // entry_key field needed, the array position from the current snapshot is
-  // the identifier the server uses to find the record.
-  //
-  // Language is not stored per-result — it lives on the parent assessment
-  // doc (assessments/{assessmentId}.language, e.g. "swahili") and was
-  // captured into `assessmentLanguage` state during the initial fetch. We
-  // pass it straight through to the API so the server can route to the
-  // right transcription backend; the API itself also defaults to
-  // "english" if this were ever missing.
-  //
-  // IMPORTANT: this endpoint can legitimately take a while (Gradio cold
-  // starts, rate-limit backoff, long paragraph/story audio). If the
-  // platform kills the function before it responds, the client gets back
-  // an HTML/plain-text error page instead of JSON — so we always read the
-  // body as text first and parse defensively, rather than calling
-  // res.json() directly and blowing up with a SyntaxError.
-  const handleRetranscribe = async () => {
-    const sectionResults = groupedResults[currentSection] || [];
-    const currentResult  = sectionResults[currentLocalIndex];
-    if (!currentResult) return;
-
-    setRetranscribing(true);
-    setError(null);
-    try {
-      const auth  = getAuth();
-      const token = await auth.currentUser.getIdToken();
-
-      const res = await fetch("/api/retranscription", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          assessmentId,
-          studentId,
-          globalIndex: currentResult.globalIndex,
-          language: assessmentLanguage,
-        }),
-      });
-
-      const rawText = await res.text();
-      let data;
-      try {
-        data = rawText ? JSON.parse(rawText) : {};
-      } catch {
-        // Not JSON — most likely a platform-level timeout/error page
-        // (e.g. a 504 from the hosting proxy) rather than our route
-        // actually responding.
-        if (res.status === 504) {
-          throw new Error(
-            "Re-transcription timed out. The model may be slow to respond right now — please try again."
-          );
-        }
-        throw new Error(
-          `Re-transcription failed (HTTP ${res.status}): ${rawText.slice(0, 200) || "no response body"}`
-        );
-      }
-
-      if (!res.ok) {
-        throw new Error(data.error || `Re-transcription failed (HTTP ${res.status})`);
-      }
-      if (!data.transcript) {
-        throw new Error("Re-transcription succeeded but returned no transcript");
-      }
-
-      // Reuse the existing update path — only touches metadata.transcript
-      await updateAssessmentResult({ transcript: data.transcript });
-      setEditedTranscript(data.transcript);
-
-      setModerationHistory(prev => [{
-        section: currentSection,
-        index: currentLocalIndex + 1,
-        action: "retranscribed",
-        timestamp: new Date().toISOString(),
-      }, ...prev.slice(0, 9)]);
-
-    } catch (err) {
-      console.error("Error retranscribing:", err);
-      setError(`Failed to re-transcribe: ${err.message}`);
-    } finally {
-      setRetranscribing(false);
     }
   };
 
@@ -706,9 +612,6 @@ export default function AudioModerationContent({
                       savingFlagReasons={savingFlagReasons}
                       hasMadeDecision={hasMadeDecision}
                       currentPassedStatus={currentResult?.metadata?.passed}
-                      isSuperAdmin={isSuperAdmin}
-                      onRetranscribe={handleRetranscribe}
-                      retranscribing={retranscribing}
                     />
                   </>
                 )}
