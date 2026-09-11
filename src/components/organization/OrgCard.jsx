@@ -5,6 +5,7 @@ import {
   Users, School, FolderKanban, GraduationCap,
   Calendar, ChevronRight, Building2, Trash2, FlaskConical,
 } from "lucide-react";
+import { getOrganizationType } from "@/utils/OrgUtils";
 
 /**
  * Single organization card.
@@ -22,9 +23,12 @@ export default function OrgCard({
   onDelete,
   canDelete,
   isSuperAdmin,
+  onClassificationChange,
   featured = false,
 }) {
   const [hovered, setHovered] = useState(false);
+  const [editingClassification, setEditingClassification] = useState(false);
+  const [savingClassification, setSavingClassification] = useState(false);
 
   const stats = [
     { icon: Users, label: "Teachers", value: org.total_teachers || 0, color: "#f7cc1c" },
@@ -36,6 +40,18 @@ export default function OrgCard({
   const handleDeleteClick = (e) => {
     e.stopPropagation();
     if (onDelete) onDelete();
+  };
+
+  const handleClassificationSelect = async (e) => {
+    e.stopPropagation();
+    const nextType = e.target.value;
+    setSavingClassification(true);
+    try {
+      await onClassificationChange(org.id, nextType);
+      setEditingClassification(false);
+    } finally {
+      setSavingClassification(false);
+    }
   };
 
   const cardBorder = isSandbox
@@ -95,6 +111,34 @@ export default function OrgCard({
       <h3 className={`font-bold text-foreground mb-1 truncate pr-16 ${featured ? "text-lg" : "text-base"}`}>
         {org.name}
       </h3>
+
+      {isSuperAdmin && (
+        <div className="mb-3" onClick={(e) => e.stopPropagation()}>
+          {editingClassification ? (
+            <select
+              autoFocus
+              value={getOrganizationType(org)}
+              onChange={handleClassificationSelect}
+              disabled={savingClassification}
+              className="w-full rounded-lg border border-primary-3/50 bg-background-lighter px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary-3 disabled:opacity-50"
+              aria-label={`Classification for ${org.name}`}
+            >
+              <option value="partner">Partner</option>
+              <option value="testing">Testing</option>
+              <option value="sandbox">Sandbox</option>
+            </select>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEditingClassification(true)}
+              className="text-xs text-gray-400 hover:text-primary-3 transition-colors"
+            >
+              Type: <span className="font-semibold capitalize">{getOrganizationType(org)}</span>
+              <span className="ml-1 underline">Edit</span>
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-1.5 mb-4">
         <Calendar size={11} className="text-gray-500" />

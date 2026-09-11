@@ -2,7 +2,26 @@
 // Shared helpers for organization views (standard + super admin)
 // ---------------------------------------------------------------------------
 
-export const isSandboxOrg = (org) => /[-\s]sandbox$/i.test(org.name?.trim());
+export const ORGANIZATION_TYPES = {
+  PARTNER: "partner",
+  TESTING: "testing",
+  SANDBOX: "sandbox",
+};
+
+export const getOrganizationType = (org) => {
+  if (org?.isSandbox || org?.organizationType === ORGANIZATION_TYPES.SANDBOX) {
+    return ORGANIZATION_TYPES.SANDBOX;
+  }
+  if (org?.isfortesting === true) return ORGANIZATION_TYPES.TESTING;
+  if (org?.ispartner === true) return ORGANIZATION_TYPES.PARTNER;
+  return org?.organizationType === ORGANIZATION_TYPES.TESTING
+    ? ORGANIZATION_TYPES.TESTING
+    : ORGANIZATION_TYPES.PARTNER;
+};
+
+export const isSandboxOrg = (org) =>
+  getOrganizationType(org) === ORGANIZATION_TYPES.SANDBOX ||
+  /[-\s]sandbox$/i.test(org?.name?.trim());
 
 export const validateOrganizationName = (name) => {
   const trimmedName = name.trim();

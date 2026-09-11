@@ -12,6 +12,8 @@ import { isSandboxOrg, canDeleteOrganization, formatDate } from "@/utils/OrgUtil
 export default function SuperAdminOrganizationsView({
   currentUser,
   realOrgs,
+  partnerOrgs,
+  testingOrgs,
   sandboxOrgs,
   filteredOrganizations,
   activeTab,
@@ -22,6 +24,8 @@ export default function SuperAdminOrganizationsView({
   error,
   onOrganizationClick,
   onAddClick,
+  onBackfillFlags,
+  backfillingFlags,
   onDeleteRequest,
   onProfileClick,
   onLogoutClick,
@@ -30,7 +34,15 @@ export default function SuperAdminOrganizationsView({
   onNavigateMapAssessments,
   onNavigateSystemLogs,
   onNavigateSettings,
+  onClassificationChange,
 }) {
+  const sectionLabel = activeTab === "sandboxes"
+    ? "Sandbox"
+    : activeTab === "testing" ? "Testing" : "Partner";
+  const sectionCount = activeTab === "sandboxes"
+    ? sandboxOrgs.length
+    : activeTab === "testing" ? testingOrgs.length : partnerOrgs.length;
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Sticky header */}
@@ -136,11 +148,11 @@ export default function SuperAdminOrganizationsView({
             <div className="flex items-center gap-2 mb-3">
               <Building2 size={16} className="text-primary-3" />
               <h2 className="text-lg font-bold text-foreground">
-                Manage {realOrgs.length} Active Organization{realOrgs.length !== 1 ? "s" : ""}
+                Manage {sectionCount} {sectionLabel} Organization{sectionCount !== 1 ? "s" : ""}
               </h2>
             </div>
             <p className="text-sm text-gray-300 max-w-2xl mb-5">
-              Monitor student reach and platform activity across every participating organization.
+              Totals below include only the organizations in the {sectionLabel.toLowerCase()} section.
             </p>
             <button
               onClick={onAddClick}
@@ -175,7 +187,8 @@ export default function SuperAdminOrganizationsView({
             <OrgListControls
               activeTab={activeTab}
               onTabChange={onTabChange}
-              realCount={realOrgs.length}
+              partnerCount={partnerOrgs.length}
+              testingCount={testingOrgs.length}
               sandboxCount={sandboxOrgs.length}
               searchQuery={searchQuery}
               onSearchChange={onSearchChange}
@@ -194,6 +207,7 @@ export default function SuperAdminOrganizationsView({
               canDeleteOrganization={canDeleteOrganization}
               isSuperAdmin
               isSandboxOrg={isSandboxOrg}
+              onClassificationChange={onClassificationChange}
             />
           </div>
         </div>

@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import {
   collection, getDocs, doc, getDoc,
-  addDoc, serverTimestamp, deleteDoc, query, where
+  addDoc, serverTimestamp, deleteDoc, updateDoc, writeBatch
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useSelector } from "react-redux";
@@ -103,7 +103,11 @@ export function useOrganizations() {
     }
   }, [currentUser, role]);
 
-  const handleAddOrganization = useCallback(async (orgName, createSandbox = false) => {
+  const handleAddOrganization = useCallback(async (
+    orgName,
+    organizationType = "partner",
+    createSandbox = false
+  ) => {
     if (!orgName) throw new Error("Organization name is required");
 
     // Client-side validation
@@ -151,6 +155,10 @@ export function useOrganizations() {
 
       const newOrg = {
         name: trimmedName,
+        organizationType,
+        ispartner: organizationType === "partner",
+        isfortesting: organizationType === "testing",
+        isSandbox: false,
         createdAt: serverTimestamp(),
         total_projects: 0,
         total_teachers: 0,
@@ -163,7 +171,7 @@ export function useOrganizations() {
 
       setOrganizations((prev) => [...prev, { id: mainOrgId, ...newOrg }]);
 
-      if (createSandbox) {
+      if (organizationType === "partner" && createSandbox) {
         // Sanitize sandbox name
         const sandboxName = `${trimmedName}-sandbox`;
 
@@ -177,6 +185,9 @@ export function useOrganizations() {
             name: sandboxName,
             createdAt: serverTimestamp(),
             isSandbox: true,
+            ispartner: false,
+            isfortesting: false,
+            organizationType: "sandbox",
             parentOrganization: mainOrgId,
             total_projects: 0,
             total_teachers: 0,
@@ -196,6 +207,97 @@ export function useOrganizations() {
       setLoading(false);
     }
   }, []);
+
+  const handleBackfillOrganizationFlags = useCallback(async () => {
+    if (role !== "super_admin") {
+      throw new Error("Only super administrators can update organization classifications");
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const snapshot = await getDocs(collection(db, "organization"));
+      const batch = writeBatch(db);
+
+      snapshot.docs.forEach((organizationDoc) => {
+        const data = organizationDoc.data();
+        const isSandbox =
+          data.isSandbox === true ||
+          data.organizationType === "sandbox" ||
+          /[-\s]sandbox$/i.test(data.name?.trim() || "");
+        const isTesting = !isSandbox && (
+          data.isfortesting === true || data.organizationType === "testing"
+        );
+
+        batch.update(organizationDoc.ref, {
+          isSandbox,
+          ispartner: !isSandbox && !isTesting,
+          isfortesting: isTesting,
+        });
+      });
+
+      if (snapshot.docs.length) await batch.commit();
+
+      const updatedOrganizations = organizations.map((organization) => {
+        const isSandbox =
+          organization.isSandbox === true ||
+          organization.organizationType === "sandbox" ||
+          /[-\s]sandbox$/i.test(organization.name?.trim() || "");
+        const isTesting = !isSandbox && (
+          organization.isfortesting === true || organization.organizationType === "testing"
+        );
+        return {
+          ...organization,
+          isSandbox,
+          ispartner: !isSandbox && !isTesting,
+          isfortesting: isTesting,
+        };
+      });
+      setOrganizations(updatedOrganizations);
+      return snapshot.docs.length;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [organizations, role]);
+
+  const handleUpdateOrganizationClassification = useCallback(async (orgId, organizationType) => {
+    if (role !== "super_admin") {
+      throw new Error("Only super administrators can update organization classifications");
+    }
+    if (!orgId) throw new Error("Organization ID is required");
+    if (!["partner", "testing", "sandbox"].includes(organizationType)) {
+      throw new Error("Invalid organization classification");
+    }
+
+    const isSandbox = organizationType === "sandbox";
+    const updates = {
+      organizationType,
+      isSandbox,
+      ispartner: organizationType === "partner",
+      isfortesting: organizationType === "testing",
+    };
+
+    setLoading(true);
+    setError(null);
+    try {
+      await updateDoc(doc(db, "organization", orgId), updates);
+      setOrganizations((prev) =>
+        prev.map((organization) =>
+          organization.id === orgId ? { ...organization, ...updates } : organization
+        )
+      );
+      return updates;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [role]);
 
   const handleDeleteOrganization = useCallback(async (orgId) => {
     if (!orgId) throw new Error("Organization ID is required");
@@ -251,6 +353,8 @@ export function useOrganizations() {
     handleFetchOrganizations,
     handleFetchOrganizationById,
     handleAddOrganization,
+    handleBackfillOrganizationFlags,
+    handleUpdateOrganizationClassification,
     handleDeleteOrganization,
   };
 }

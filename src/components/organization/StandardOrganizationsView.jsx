@@ -10,6 +10,8 @@ export default function StandardOrganizationsView({
   currentUser,
   userLoading,
   realOrgs,
+  partnerOrgs,
+  testingOrgs,
   sandboxOrgs,
   filteredOrganizations,
   activeTab,
@@ -88,7 +90,8 @@ export default function StandardOrganizationsView({
           <OrgListControls
             activeTab={activeTab}
             onTabChange={onTabChange}
-            realCount={realOrgs.length}
+            partnerCount={partnerOrgs.length}
+            testingCount={testingOrgs.length}
             sandboxCount={sandboxOrgs.length}
             searchQuery={searchQuery}
             onSearchChange={onSearchChange}

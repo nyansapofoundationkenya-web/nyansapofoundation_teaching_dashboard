@@ -5,7 +5,8 @@ import { Search, Building2, FlaskConical } from "lucide-react";
 export default function OrgListControls({
   activeTab,
   onTabChange,
-  realCount,
+  partnerCount,
+  testingCount,
   sandboxCount,
   searchQuery,
   onSearchChange,
@@ -15,19 +16,35 @@ export default function OrgListControls({
     <div className="mb-4">
       <div className="flex items-center gap-2 mb-4">
         <button
-          onClick={() => onTabChange("organizations")}
+          onClick={() => onTabChange("partner")}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-            activeTab === "organizations"
+            activeTab === "partner"
               ? "bg-primary-3 text-primary-1 shadow"
               : "bg-background-light text-gray-400 hover:text-foreground"
           }`}
         >
           <Building2 size={14} />
-          Organizations
+          Partners
           <span className={`text-xs px-1.5 py-0.5 rounded-md font-bold ${
-            activeTab === "organizations" ? "bg-primary-1/20 text-primary-1" : "bg-background-lighter text-gray-400"
+            activeTab === "partner" ? "bg-primary-1/20 text-primary-1" : "bg-background-lighter text-gray-400"
           }`}>
-            {realCount}
+            {partnerCount}
+          </span>
+        </button>
+
+        <button
+          onClick={() => onTabChange("testing")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            activeTab === "testing"
+              ? "bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow"
+              : "bg-background-light text-gray-400 hover:text-foreground"
+          }`}
+        >
+          Testing
+          <span className={`text-xs px-1.5 py-0.5 rounded-md font-bold ${
+            activeTab === "testing" ? "bg-purple-500/20 text-purple-300" : "bg-background-lighter text-gray-400"
+          }`}>
+            {testingCount}
           </span>
         </button>
 
@@ -67,8 +84,8 @@ export default function OrgListControls({
         }`}>
           <span className={`text-xs font-semibold ${activeTab === "sandboxes" ? "text-blue-400" : "text-primary-3"}`}>
             {resultCount} {resultCount === 1
-              ? (activeTab === "sandboxes" ? "Sandbox" : "Org")
-              : (activeTab === "sandboxes" ? "Sandboxes" : "Orgs")}
+              ? (activeTab === "sandboxes" ? "Sandbox" : activeTab === "testing" ? "Testing org" : "Partner")
+              : (activeTab === "sandboxes" ? "Sandboxes" : activeTab === "testing" ? "Testing orgs" : "Partners")}
           </span>
         </div>
       </div>

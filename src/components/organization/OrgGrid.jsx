@@ -15,6 +15,7 @@ export default function OrgGrid({
   canDeleteOrganization,
   isSuperAdmin,
   isSandboxOrg,
+  onClassificationChange,
   featureFirst = false,
 }) {
   if (isLoading) {
@@ -48,7 +49,9 @@ export default function OrgGrid({
             ? `No ${activeTab} match "${searchQuery}"`
             : activeTab === "sandboxes"
               ? "No sandbox environments available."
-              : "No organizations available for your account."}
+              : activeTab === "testing"
+                ? "No testing organizations available."
+                : "No partner organizations available."}
         </p>
       </div>
     );
@@ -66,6 +69,7 @@ export default function OrgGrid({
           onDelete={isSuperAdmin && canDeleteOrganization(org) ? () => onDeleteRequest(org) : null}
           canDelete={canDeleteOrganization(org)}
           isSuperAdmin={isSuperAdmin}
+          onClassificationChange={onClassificationChange}
           featured={featureFirst && index === 0 && !searchQuery}
         />
       ))}

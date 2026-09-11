@@ -6,6 +6,8 @@ export default function AddOrganizationModal({
   newOrgName,
   onNameChange,
   nameValidation,
+  organizationType,
+  onOrganizationTypeChange,
   createSandbox,
   onToggleSandbox,
   addingOrg,
@@ -54,35 +56,51 @@ export default function AddOrganizationModal({
           </p>
         </div>
 
-        <div
-          onClick={onToggleSandbox}
-          className={`mb-6 p-4 rounded-xl cursor-pointer transition-all border ${
-            createSandbox ? "bg-primary-3/10 border-primary-3/40" : "bg-background-lighter border-gray-600"
-          }`}
-        >
-          <div className="flex items-start gap-3">
-            <div
-              className="shrink-0 mt-0.5 w-5 h-5 rounded-md flex items-center justify-center transition-all"
-              style={{
-                backgroundColor: createSandbox ? "#f7cc1c" : "transparent",
-                border: createSandbox ? "2px solid #f7cc1c" : "2px solid rgba(255,255,255,0.25)",
-              }}
-            >
-              {createSandbox && (
-                <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                  <path d="M1 4L3.5 6.5L9 1" stroke="#142848" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">Create Sandbox Environment</p>
-              <p className="text-xs text-gray-400 mt-1">
-                Also creates a test environment "{newOrgName.trim() || "your-org"}-sandbox" so you can
-                practice assessments before real evaluations.
-              </p>
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-gray-400 mb-2">Organization Type</label>
+          <select
+            value={organizationType}
+            onChange={onOrganizationTypeChange}
+            className="w-full px-4 py-3 bg-background-lighter border border-gray-600 rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-3"
+          >
+            <option value="partner">Partner organization</option>
+            <option value="testing">Testing organization</option>
+          </select>
+          <p className="text-xs text-gray-500 mt-2">
+            Testing organizations do not have sandbox environments.
+          </p>
+        </div>
+
+        {organizationType === "partner" && (
+          <div
+            onClick={onToggleSandbox}
+            className={`mb-6 p-4 rounded-xl cursor-pointer transition-all border ${
+              createSandbox ? "bg-primary-3/10 border-primary-3/40" : "bg-background-lighter border-gray-600"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className="shrink-0 mt-0.5 w-5 h-5 rounded-md flex items-center justify-center transition-all"
+                style={{
+                  backgroundColor: createSandbox ? "#f7cc1c" : "transparent",
+                  border: createSandbox ? "2px solid #f7cc1c" : "2px solid rgba(255,255,255,0.25)",
+                }}
+              >
+                {createSandbox && (
+                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                    <path d="M1 4L3.5 6.5L9 1" stroke="#142848" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Create Sandbox Environment</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Also creates "{newOrgName.trim() || "your-org"}-sandbox" for practice assessments.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="flex justify-end gap-3">
           <button
