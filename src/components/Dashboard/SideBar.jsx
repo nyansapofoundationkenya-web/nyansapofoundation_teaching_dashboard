@@ -102,7 +102,6 @@ const BASE_MENU_DEFS = [
   createMenuItem("Schools", "mapPin", (id) => `/dashboard/${id}/schools`, "schools", MENU_WEIGHTS.SCHOOLS),
   createMenuItem("Assessments", "clipboard", (id) => `/dashboard/${id}/moderations`, "assessments", MENU_WEIGHTS.ASSESSMENTS),
   createMenuItem("Attendance", "checkSquare", (id) => `/dashboard/${id}/attendance`, "attendance", MENU_WEIGHTS.ATTENDANCE),
-  createMenuItem("Instructors", "userCheck", (id) => `/dashboard/${id}/instructors`, "instructors", MENU_WEIGHTS.INSTRUCTORS),
   createMenuItem("Students", "users", (id) => `/dashboard/${id}/admin/students`, "students", MENU_WEIGHTS.STUDENTS),
 ];
 
@@ -112,10 +111,12 @@ const SURVEY_MENU_DEF = createMenuItem(
 
 const SUPER_ADMIN_MENU_DEFS = [
   createMenuItem("Ai Assistant", "messageSquare", (id) => `/dashboard/${id}/ai-assistant`, "ai-assistant", MENU_WEIGHTS.AI_ASSISTANT),
+  createMenuItem("Instructors", "userCheck", (id) => `/dashboard/${id}/instructors`, "instructors", MENU_WEIGHTS.INSTRUCTORS),
 ];
 
 const ADMIN_MENU_DEFS = [
   createMenuItem("Ai Assistant", "messageSquare", (id) => `/dashboard/${id}/ai-assistant`, "ai-assistant", MENU_WEIGHTS.AI_ASSISTANT),
+  createMenuItem("Instructors", "userCheck", (id) => `/dashboard/${id}/instructors`, "instructors", MENU_WEIGHTS.INSTRUCTORS),
 ];
 
 const MANAGER_MENU_DEFS = [];
