@@ -122,7 +122,7 @@ export async function GET(request) {
       schoolId,
       levelType,
       levelsToFilter,
-      periodsToInclude // NEW: pass periods to filter
+      periodsToInclude
     );
     
     if (students.length === 0) {
@@ -182,7 +182,7 @@ export async function GET(request) {
       });
     }
 
-    // Combine all columns (removed Current Level and Last Updated)
+    // Combine all columns
     mainSheet.columns = [...baseColumns, ...assessmentColumns];
 
     // Style header row
@@ -271,16 +271,30 @@ export async function GET(request) {
       fgColor: { argb: '059669' }
     };
 
-    // Auto-fit columns
+    // ──────────────────────────────────────────────────────────────
+    // ✅ FIXED: Auto-fit columns safely (ensures all are visible)
+    // ──────────────────────────────────────────────────────────────
     [mainSheet, summarySheet].forEach(sheet => {
-      sheet.columns.forEach(column => {
-        if (column.values && column.values.length > 1) {
-          const maxLength = Math.max(
-            ...column.values.map(v => v ? v.toString().length : 0)
-          );
-          column.width = Math.min(Math.max(maxLength, 10), 50);
+      const colCount = sheet.columnCount;
+      for (let col = 1; col <= colCount; col++) {
+        const column = sheet.getColumn(col);
+        // Unhide the column (just in case it was hidden)
+        column.hidden = false;
+
+        // Calculate maximum content length
+        let maxLength = 12; // minimum width in characters
+        const values = column.values || {};
+        for (const key in values) {
+          const cellValue = values[key];
+          if (cellValue !== undefined && cellValue !== null) {
+            const len = cellValue.toString().length;
+            if (len > maxLength) maxLength = len;
+          }
         }
-      });
+
+        // Set width with a little padding, cap at 50
+        column.width = Math.min(maxLength + 2, 50);
+      }
     });
 
     // Generate Excel buffer

@@ -7,13 +7,14 @@ import { doc, getDoc } from "firebase/firestore";
 import LiteracyAssessmentResults from "./LiteracyAssessmentResults";
 import NumeracyAssessmentResults from "./NumeracyAssessmentResults";
 
-export default function StudentAssessmentResults({ 
-  assessmentId, 
-  studentId, 
-  organizationId, 
+export default function StudentAssessmentResults({
+  assessmentId,
+  studentId,
+  organizationId,
   assessmentType = "literacy",
+  assessmentLanguage = "english", // NEW — from the parent assessment doc's `language` field
   onFlaggingComplete,
-  onHasAnswersChange, 
+  onHasAnswersChange,
 }) {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -38,7 +39,7 @@ export default function StudentAssessmentResults({
         const data = resultsSnap.data();
         setResults(data);
 
-        // NEW: Determine if there are actual answers and notify parent
+        // Determine if there are actual answers and notify parent
         const hasRealAnswers = hasMeaningfulResults(data, assessmentType);
         onHasAnswersChange?.(hasRealAnswers);
 
@@ -103,6 +104,7 @@ export default function StudentAssessmentResults({
       studentId={studentId}
       organizationId={organizationId}
       results={results}
+      assessmentLanguage={assessmentLanguage}
       onFlaggingComplete={onFlaggingComplete}
     />
   );

@@ -96,7 +96,15 @@ export default function ExportLevelModal({
   }
 
   const totalStudents = students.length
-  const selectedCount = selectedLevels.reduce((sum, level) => sum + (levelCounts[level] || 0), 0)
+
+  // When all levels are selected, we export ALL students (including those with
+  // no baseline / an unrecognized level), so show the true total instead of the
+  // sum of per-level counts (which would miss unclassified students).
+  const allLevelValues = levels.map(l => l.value)
+  const isAllSelected = selectedLevels.length === allLevelValues.length
+  const selectedCount = isAllSelected
+    ? totalStudents
+    : selectedLevels.reduce((sum, level) => sum + (levelCounts[level] || 0), 0)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -198,6 +206,11 @@ export default function ExportLevelModal({
             <p className="text-xs text-gray-400 mt-1">
               Includes: Student ID, Name, Age, Gender, Competency Level, Duration
             </p>
+            {isAllSelected && (
+              <p className="text-xs text-gray-400 mt-1">
+                Students without a recorded level will be exported with &quot;N/A&quot;.
+              </p>
+            )}
           </div>
         </div>
 

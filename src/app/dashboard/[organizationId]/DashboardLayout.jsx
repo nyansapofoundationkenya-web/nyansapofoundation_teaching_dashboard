@@ -3,13 +3,11 @@ import { useState, useEffect } from "react";
 import Sidebar from "@/components/Dashboard/SideBar";
 import Header from "@/components/Dashboard/Header";
 import { FiMenu, FiX } from "react-icons/fi";
+import { TourProvider } from "@/context/TourContext";
+import TourGuideModal from "@/components/Tour/TourGuideModal";
+import JoyrideWrapper from "@/components/Tour/JoyrideWrapper";
 
-const DashboardLayout = ({ 
-  children, 
-  title, 
-  organizationId,
-  currentSection // New prop to pass to Sidebar
-}) => {
+const DashboardLayoutContent = ({ children, title, organizationId, currentSection }) => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
 
@@ -106,8 +104,20 @@ const DashboardLayout = ({
                     {children}
                 </div>
             </div>
+
+            {/* Tour Elements */}
+            <TourGuideModal />
+            <JoyrideWrapper />
         </div>
     );
+};
+
+const DashboardLayout = (props) => {
+  return (
+    <TourProvider>
+      <DashboardLayoutContent {...props} />
+    </TourProvider>
+  );
 };
 
 export default DashboardLayout;

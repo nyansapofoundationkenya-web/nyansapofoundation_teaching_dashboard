@@ -9,7 +9,8 @@ export const BUCKET_FOLDERS = {
 export const PAGE_SIZE = 100;
 
 export const RETRIGGER_URL =
-  process.env.NEXT_PUBLIC_RETRIGGER_FUNCTION_URL || "";
+  (process.env.NEXT_PUBLIC_RETRIGGER_FUNCTION_URL || "").trim();
+
 
 // Matches: audio_{assessmentId}_{studentId}_{round}_{type}_{content...}_{timestamp}.wav
 // The timestamp group is ISO-8601-like: 2024-05-01T13:45:00.000Z

@@ -406,6 +406,67 @@ export function useProjectDetails(organizationId) {
       setLoading(false);
     }
   }, []); // No dependencies since all params are passed in
+  const addSchool = useCallback(async (projectId, schoolData) => {
+    if (!organizationId || !projectId) {
+      setError("Missing organization ID or project ID");
+      return;
+    }
+    if (!schoolData.name || !schoolData.location) {
+      setError("School name and location (county) are required");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Check for duplicate (name + location)
+      const schoolsRef = collection(db, `organization/${organizationId}/projects/${projectId}/schools`);
+      const snapshot = await getDocs(schoolsRef);
+      const existing = snapshot.docs.some(doc => {
+        const data = doc.data();
+        return data.name.trim().toLowerCase() === schoolData.name.trim().toLowerCase() &&
+               data.location.trim().toLowerCase() === schoolData.location.trim().toLowerCase();
+      });
+      if (existing) {
+        setError("A school with this name and location already exists.");
+        return;
+      }
+
+      // Prepare school document
+      const newSchool = {
+        name: schoolData.name.trim(),
+        location: schoolData.location.trim(), // saved as location in DB
+        createdAt: new Date().toISOString(),
+        teachers: [],
+        total_teachers: 0,
+        camps: [],
+        total_camps: 0,
+      };
+      if (schoolData.subcounty && schoolData.subcounty.trim()) {
+        newSchool.subcounty = schoolData.subcounty.trim();
+      }
+
+      // Add school document
+      const schoolRef = doc(collection(db, `organization/${organizationId}/projects/${projectId}/schools`));
+      await setDoc(schoolRef, newSchool);
+
+      // Update project with school UID and increment total_schools
+      const projectRef = doc(db, `organization/${organizationId}/projects`, projectId);
+      await updateDoc(projectRef, {
+        schools: arrayUnion(schoolRef.id),
+        total_schools: increment(1),
+      });
+
+      // Refresh schools list
+      await fetchSchools(projectId);
+
+      return { success: true, schoolId: schoolRef.id };
+    } catch (err) {
+      setError(`Failed to add school: ${err.message}`);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [organizationId, fetchSchools]);
 
   return {
     project,
@@ -416,6 +477,7 @@ export function useProjectDetails(organizationId) {
     fetchSchools,
     fetchCampsByIds,
     addSchoolsByFile,
+    addSchool,   
     createCamp,
     createInstructor,
   };
