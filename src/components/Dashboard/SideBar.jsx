@@ -273,6 +273,7 @@ const Sidebar = ({
             return (
               <button
                 key={index}
+                data-tour={`sidebar-${item.section || item.name.toLowerCase()}`}
                 className={`flex items-center space-x-3 p-4 rounded-2xl transition-all duration-200 ${
                   isActive
                     ? "bg-primary-3 text-primary-1 shadow-lg"

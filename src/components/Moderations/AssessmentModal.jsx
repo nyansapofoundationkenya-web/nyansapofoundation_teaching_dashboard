@@ -778,7 +778,9 @@ export default function AssessmentModal({ organizationId, onClose }) {
               </div>
             )}
 
-            {renderStep()}
+            <div data-tour={step === 1 ? "assessment-name-step" : step === 2 ? "assessment-project-step" : step === 4 ? "assessment-schools-step" : step === 6 ? "assessment-schedule-step" : `assessment-step-${step}`}>
+              {renderStep()}
+            </div>
           </form>
         </div>
 

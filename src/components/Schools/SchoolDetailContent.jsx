@@ -277,6 +277,7 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
         {/* Actions Dropdown */}
         <div className="relative" ref={dropdownRef}>
           <button
+            data-tour="school-actions-dropdown"
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className="flex items-center gap-2 bg-background-light hover:bg-background-lighter text-foreground font-medium px-4 py-2 rounded-xl border border-gray-600 shadow-md hover:shadow-lg transition-all"
           >
@@ -289,6 +290,7 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
               <ul className="py-1">
                 <li>
                   <button
+                    data-tour="school-specific-upload-students"
                     onClick={handleUploadStudents}
                     className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-foreground hover:bg-background-lighter transition-colors rounded-lg mx-1 my-1"
                   >

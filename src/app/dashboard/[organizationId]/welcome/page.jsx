@@ -18,6 +18,7 @@ import {
   Users,
   School,
   GraduationCap,
+  ArrowRightLeft,
 } from "lucide-react"
 import Header from "@/components/Welcome/Header"
 import DashboardLayout from "../DashboardLayout"
@@ -31,6 +32,7 @@ import AssessmentHealth from "@/components/Welcome/AssessmentHealth"
 import AttendanceOverview from "@/components/Welcome/AttendanceOverview"
 import StatsCard from "@/components/ProjectDetails/StatsCard"
 import DurationStats from "@/components/Welcome/DurationStats"
+import TransferDataModal from "@/components/organization/TransferDataModal"
 import { ChartDataTransformer } from "@/lib/studentLevelChartData"
 
 export default function WelcomePage() {
@@ -76,6 +78,7 @@ export default function WelcomePage() {
 
   const [organization, setOrganization] = useState(null)
   const [showGuide, setShowGuide] = useState(false)
+  const [showTransferModal, setShowTransferModal] = useState(false)
   const [generalStats, setGeneralStats] = useState({
     projects: "—",
     schools: "—",
@@ -245,8 +248,17 @@ export default function WelcomePage() {
         <Header organizationName={organization?.name || "Loading..."} />
 
         <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Quick Guide button */}
-          <div className="flex justify-end mb-6">
+          {/* Quick Guide + Transfer buttons */}
+          <div className="flex justify-end mb-6 gap-3">
+            {isSuperAdmin && organization?.sandboxId && (
+              <button
+                onClick={() => setShowTransferModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-background-lighter border border-gray-600 hover:border-gray-500 rounded-xl text-sm font-medium transition-colors shadow-sm"
+              >
+                <ArrowRightLeft className="h-5 w-5 text-primary-2" />
+                Transfer to Sandbox
+              </button>
+            )}
             <button
               onClick={() => setShowGuide(true)}
               className="flex items-center gap-2 px-4 py-2 bg-background-lighter border border-gray-600 hover:border-gray-500 rounded-xl text-sm font-medium transition-colors shadow-sm"
@@ -400,6 +412,13 @@ export default function WelcomePage() {
             </div>
           </div>
         )}
+
+        {/* Transfer to sandbox modal — super admin only, organization must have a linked sandbox */}
+        <TransferDataModal
+          open={showTransferModal}
+          onClose={() => setShowTransferModal(false)}
+          sourceOrg={organization}
+        />
       </div>
     </DashboardLayout>
   )

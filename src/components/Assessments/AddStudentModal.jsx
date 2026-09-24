@@ -275,7 +275,7 @@ export default function AddStudentModal({ assessmentId, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-background-light w-full max-w-lg rounded-2xl shadow-xl border border-gray-600 p-6">
+      <div data-tour="assign-students-modal" className="bg-background-light w-full max-w-lg rounded-2xl shadow-xl border border-gray-600 p-6">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-4">

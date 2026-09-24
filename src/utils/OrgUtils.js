@@ -23,6 +23,12 @@ export const isSandboxOrg = (org) =>
   getOrganizationType(org) === ORGANIZATION_TYPES.SANDBOX ||
   /[-\s]sandbox$/i.test(org?.name?.trim());
 
+// Returns the sandbox org's id for a given main org, or null.
+export const getSandboxId = (org) => org?.sandboxId ?? null;
+
+// Returns the parent org's id for a given sandbox org, or null.
+export const getParentOrganizationId = (sandboxOrg) => sandboxOrg?.organizationId ?? null;
+
 export const validateOrganizationName = (name) => {
   const trimmedName = name.trim();
   if (!trimmedName) return { valid: false, message: "Organization name is required" };

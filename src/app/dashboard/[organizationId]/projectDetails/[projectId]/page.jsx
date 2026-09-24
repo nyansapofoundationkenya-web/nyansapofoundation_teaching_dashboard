@@ -28,6 +28,7 @@ import InstructorModal from "@/components/ui/InstructorModal";
 import MultiSheetUploadModal from "@/components/ui/MultipleSheetUploadModal";
 import StudentLevelsChart from "@/components/Welcome/StudentLevelChart";
 import KeyBarriers from "@/components/Welcome/KeyBarriers";
+import { useTour } from "@/context/TourContext";
 import WeeklyEngagementChart from "@/components/Welcome/WeeklyEngagementChart";
 import ProgramImpact from "@/components/Welcome/ProgramImpact";
 import AssessmentHealth from "@/components/Welcome/AssessmentHealth";
@@ -39,6 +40,7 @@ import DurationStats from "@/components/Welcome/DurationStats";
 export default function ProjectDetails() {
   const { organizationId, projectId } = useParams();
   const router = useRouter();
+  const { isTourRunning, activeTour } = useTour();
 
   // Auth & Role
   const { user: currentUser, loading: userLoading } = useSelector(
@@ -283,11 +285,19 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
       <div className="p-4 space-y-6 overflow-auto">
         {/* Action buttons – admin/superadmin only – aligned to right */}
         {!userLoading && isAdminOrSuperAdmin && (
-          <div className="flex justify-end" ref={dropdownRef}>
+          <div className="flex justify-end items-center gap-3" ref={dropdownRef}>
+            {isTourRunning && (activeTour === "add-school-project" || activeTour === "add-multi-school-students") && !dropdownOpen && !isSchoolModalOpen && !isUploadModalOpen && (
+              <div className="flex items-center gap-2 px-3.5 py-2 bg-yellow-400 text-slate-950 font-bold rounded-xl animate-bounce shadow-xl border-2 border-yellow-300 z-50 text-xs">
+                <span className="text-base">👉</span>
+                <span>CLICK ACTIONS TO CONTINUE</span>
+              </div>
+            )}
+
             <div className="relative">
               <button
+                data-tour="project-actions-dropdown"
                 onClick={() => setDropdownOpen((p) => !p)}
-                className="flex items-center justify-center px-3 py-2 bg-primary-3 text-primary-1 rounded-xl hover:bg-yellow-400 text-base transition-colors font-medium"
+                className="flex items-center justify-center px-3 py-2 bg-primary-3 text-primary-1 rounded-xl hover:bg-yellow-400 text-base transition-colors font-medium shadow-md"
               >
                 <span>Actions</span>
                 <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
@@ -298,6 +308,7 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
                   <ul className="py-1 text-sm text-foreground">
                     <li>
                       <button
+                        data-tour="add-school-action"
                         onClick={() => {
                           setIsSchoolModalOpen(true);
                           setDropdownOpen(false);
@@ -310,6 +321,7 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
                     </li>
                     <li>
                       <button
+                        data-tour="bulk-upload-multi-schools"
                         onClick={() => {
                           setIsUploadModalOpen(true);
                           setDropdownOpen(false);

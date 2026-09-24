@@ -34,10 +34,33 @@ if (missingKeys.length) {
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
+const kiswahiliRawConfig = {
+  apiKey: process.env.NEXT_PUBLIC_KISWAHILI_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_KISWAHILI_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_KISWAHILI_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_KISWAHILI_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_KISWAHILI_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_KISWAHILI_APP_ID,
+};
+
+const kiswahiliConfig = Object.fromEntries(
+  Object.entries(kiswahiliRawConfig).map(([key, value]) => [
+    key,
+    typeof value === "string" ? value.trim() : value,
+  ])
+);
+
+const kiswahiliApp = Object.values(kiswahiliConfig).every(Boolean)
+  ? getApps().find((existingApp) => existingApp.name === "kiswahili-destination") ||
+    initializeApp(kiswahiliConfig, "kiswahili-destination")
+  : null;
+
 // Initialize services
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const kiswahiliAuth = kiswahiliApp ? getAuth(kiswahiliApp) : null;
+const kiswahiliDb = kiswahiliApp ? getFirestore(kiswahiliApp) : null;
 
 // Initialize Firebase AI
 const ai = getAI(app);
@@ -58,7 +81,17 @@ if (typeof window !== "undefined") {
 // console.log("   Project:", firebaseConfig.projectId);
 // console.log("   Model: gemini-2.5-flash");
 
-export { auth, db, storage, app, ai, model, analytics };
+export {
+  auth,
+  db,
+  storage,
+  app,
+  ai,
+  model,
+  analytics,
+  kiswahiliAuth,
+  kiswahiliDb,
+};
 
 // Test function
 export async function testConnectionWithNewKey() {

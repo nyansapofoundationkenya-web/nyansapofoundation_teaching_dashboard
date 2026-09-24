@@ -159,6 +159,7 @@ export function useOrganizations() {
         ispartner: organizationType === "partner",
         isfortesting: organizationType === "testing",
         isSandbox: false,
+        sandboxId: null, // populated below if a sandbox is created alongside this org
         createdAt: serverTimestamp(),
         total_projects: 0,
         total_teachers: 0,
@@ -170,6 +171,8 @@ export function useOrganizations() {
       const mainOrgId = docRef.id;
 
       setOrganizations((prev) => [...prev, { id: mainOrgId, ...newOrg }]);
+
+      let sandboxId = null;
 
       if (organizationType === "partner" && createSandbox) {
         // Sanitize sandbox name
@@ -188,18 +191,26 @@ export function useOrganizations() {
             ispartner: false,
             isfortesting: false,
             organizationType: "sandbox",
-            parentOrganization: mainOrgId,
+            organizationId: mainOrgId, // relational link back to the main org
             total_projects: 0,
             total_teachers: 0,
             total_schools: 0,
             total_students: 0
           };
           const sandboxRef = await addDoc(orgsRef, sandboxOrg);
-          setOrganizations((prev) => [...prev, { id: sandboxRef.id, ...sandboxOrg }]);
+          sandboxId = sandboxRef.id;
+
+          // Write the reverse pointer onto the main org
+          await updateDoc(docRef, { sandboxId });
+
+          setOrganizations((prev) => [
+            ...prev.map((o) => (o.id === mainOrgId ? { ...o, sandboxId } : o)),
+            { id: sandboxId, ...sandboxOrg },
+          ]);
         }
       }
 
-      return { id: mainOrgId, ...newOrg };
+      return { id: mainOrgId, ...newOrg, sandboxId };
     } catch (err) {
       setError(err.message);
       throw err;
@@ -218,32 +229,77 @@ export function useOrganizations() {
 
     try {
       const snapshot = await getDocs(collection(db, "organization"));
+
+      // Build a name -> id index up front so we can resolve sandbox <-> parent
+      // links for legacy docs that predate the organizationId/sandboxId fields.
+      const byId = new Map();
+      const byLowerName = new Map();
+      snapshot.docs.forEach((d) => {
+        const data = d.data();
+        byId.set(d.id, data);
+        byLowerName.set((data.name || "").trim().toLowerCase(), d.id);
+      });
+
       const batch = writeBatch(db);
+      let writes = 0;
+      const commits = [];
+      const flush = () => {
+        commits.push(batch.commit());
+      };
 
       snapshot.docs.forEach((organizationDoc) => {
         const data = organizationDoc.data();
+        const nameTrimmed = (data.name || "").trim();
         const isSandbox =
           data.isSandbox === true ||
           data.organizationType === "sandbox" ||
-          /[-\s]sandbox$/i.test(data.name?.trim() || "");
+          /[-\s]sandbox$/i.test(nameTrimmed);
         const isTesting = !isSandbox && (
           data.isfortesting === true || data.organizationType === "testing"
         );
 
-        batch.update(organizationDoc.ref, {
+        const updates = {
           isSandbox,
           ispartner: !isSandbox && !isTesting,
           isfortesting: isTesting,
-        });
+        };
+
+        if (isSandbox) {
+          // Resolve organizationId (pointer to parent) if missing
+          if (!data.organizationId) {
+            let parentId = data.parentOrganization || null; // older field name, if present
+            if (!parentId) {
+              const parentName = nameTrimmed.replace(/[-\s]sandbox$/i, "").trim().toLowerCase();
+              parentId = byLowerName.get(parentName) || null;
+            }
+            if (parentId) updates.organizationId = parentId;
+          }
+        } else {
+          // Resolve sandboxId (pointer to child sandbox) if missing
+          if (!data.sandboxId) {
+            const sandboxName = `${nameTrimmed}-sandbox`.toLowerCase();
+            const sandboxId = byLowerName.get(sandboxName) || null;
+            if (sandboxId) updates.sandboxId = sandboxId;
+          }
+        }
+
+        batch.update(organizationDoc.ref, updates);
+        writes += 1;
+        if (writes >= 400) {
+          flush();
+          writes = 0;
+        }
       });
 
-      if (snapshot.docs.length) await batch.commit();
+      if (writes > 0) flush();
+      await Promise.all(commits);
 
       const updatedOrganizations = organizations.map((organization) => {
+        const nameTrimmed = (organization.name || "").trim();
         const isSandbox =
           organization.isSandbox === true ||
           organization.organizationType === "sandbox" ||
-          /[-\s]sandbox$/i.test(organization.name?.trim() || "");
+          /[-\s]sandbox$/i.test(nameTrimmed);
         const isTesting = !isSandbox && (
           organization.isfortesting === true || organization.organizationType === "testing"
         );

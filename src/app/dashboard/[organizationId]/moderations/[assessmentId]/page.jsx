@@ -12,7 +12,8 @@ import AssessmentContentModal from "@/components/Moderations/assessments/Assessm
 import DashboardLayout from "@/app/dashboard/[organizationId]/DashboardLayout";
 import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
-import { ArrowLeft, RotateCw, Clock, FileText } from "lucide-react";
+import { ArrowLeft, RotateCw, Clock, FileText, UploadCloud } from "lucide-react";
+import { exportKiswahiliAssessment } from "@/utils/kiswahiliExport";
 
 const REPROCESS_API_URL = process.env.NEXT_PUBLIC_REPROCESS_API_URL;
 const REPROCESS_SECRET  = process.env.NEXT_PUBLIC_PROCESS_SECRET;
@@ -32,6 +33,8 @@ export default function AssessmentDetailsPage() {
   const [reprocessMessage, setReprocessMessage] = useState(null);
   const [showDurationModal, setShowDurationModal] = useState(false);
   const [showContentModal, setShowContentModal] = useState(false);
+  const [isExportingKiswahili, setIsExportingKiswahili] = useState(false);
+  const [kiswahiliExportMessage, setKiswahiliExportMessage] = useState(null);
 
   const backUrl = `/dashboard/${organizationId}/moderations`;
 
@@ -71,6 +74,8 @@ export default function AssessmentDetailsPage() {
   const assessmentTypeRaw = assessment?.type || "literacy";
   const assessmentType =
     assessmentTypeRaw.toLowerCase() === "numeracy" ? "numeracy" : "literacy";
+  const isSwahiliAssessment =
+    String(assessment?.language || "").trim().toLowerCase() === "swahili";
   const displayAssessmentType =
     assessmentType === "numeracy" ? "Numeracy" : "Literacy";
 
@@ -135,6 +140,37 @@ export default function AssessmentDetailsPage() {
       setReprocessMessage({ type: "error", text: `Error: ${err.message}` });
     } finally {
       setIsReprocessing(false);
+    }
+  };
+
+  const handleKiswahiliExport = async () => {
+    if (isExportingKiswahili) return;
+
+    if (
+      !confirm(
+        "Export all available Swahili transcripts and audio URLs to the Kiswahili Firebase project?"
+      )
+    ) {
+      return;
+    }
+
+    setIsExportingKiswahili(true);
+    setKiswahiliExportMessage(null);
+
+    try {
+      const result = await exportKiswahiliAssessment({ assessment, assessmentId });
+      setKiswahiliExportMessage({
+        type: "success",
+        text: `Exported ${result.exported} record(s) from ${result.students} student result(s). ${result.skipped} item(s) skipped because transcript or audio URL was missing.`,
+      });
+    } catch (err) {
+      console.error("Kiswahili export error:", err);
+      setKiswahiliExportMessage({
+        type: "error",
+        text: err.message || "Failed to export Kiswahili data.",
+      });
+    } finally {
+      setIsExportingKiswahili(false);
     }
   };
 
@@ -252,6 +288,22 @@ export default function AssessmentDetailsPage() {
                 </button>
               )}
 
+              {userRole === "super_admin" && assessmentType === "literacy" &&
+                isSwahiliAssessment && (
+                <button
+                  onClick={handleKiswahiliExport}
+                  disabled={isExportingKiswahili}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 ${
+                    isExportingKiswahili
+                      ? "bg-gray-600 cursor-not-allowed opacity-50"
+                      : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg hover:shadow-xl"
+                  }`}
+                >
+                  <UploadCloud size={18} />
+                  {isExportingKiswahili ? "Exporting..." : "Export Kiswahili Data"}
+                </button>
+              )}
+
               <GradeFilter
                 selectedGrade={gradeFilter}
                 onGradeChange={handleGradeFilterChange}
@@ -274,6 +326,17 @@ export default function AssessmentDetailsPage() {
               }`}
             >
               {reprocessMessage.text}
+            </div>
+          )}
+          {kiswahiliExportMessage && (
+            <div
+              className={`mt-4 p-3 rounded-xl text-sm ${
+                kiswahiliExportMessage.type === "success"
+                  ? "bg-green-500/20 text-green-300 border border-green-500/30"
+                  : "bg-red-500/20 text-red-300 border border-red-500/30"
+              }`}
+            >
+              {kiswahiliExportMessage.text}
             </div>
           )}
         </div>

@@ -146,6 +146,7 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
             <button
               type="submit"
               form={entryMode === "file" ? "school-modal-form" : "manual-school-form"}
+              data-tour="school-modal-submit"
               className="text-sm px-3 py-1.5 bg-primary-3 hover:bg-primary-3/90 text-primary-1 font-semibold rounded-xl shadow-md hover:shadow-lg"
               disabled={loading}
             >
@@ -157,6 +158,7 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
         {/* Toggle between modes */}
         <div className="flex gap-2 mb-4 bg-background-lighter p-1 rounded-xl border border-gray-600">
           <button
+            data-tour="upload-school-toggle"
             onClick={() => setEntryMode("file")}
             className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition ${
               entryMode === "file"
@@ -168,6 +170,7 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
             Upload File
           </button>
           <button
+            data-tour="add-single-school-toggle"
             onClick={() => setEntryMode("manual")}
             className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition ${
               entryMode === "manual"
@@ -193,6 +196,7 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
 
             <div className="text-left flex gap-2 flex-wrap">
               <button
+                data-tour="download-school-template"
                 type="button"
                 onClick={() => handleDownloadTemplate("excel")}
                 className="flex items-center text-sm px-3 py-1.5 bg-primary-3 hover:bg-primary-3/90 text-primary-1 font-semibold rounded-xl shadow-md"
@@ -230,6 +234,7 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
 
             {/* Drag & drop area */}
             <div
+              data-tour="school-drop-area"
               className={`relative text-left border-2 rounded-xl p-6 flex items-center justify-center transition-all cursor-pointer ${
                 isDragging 
                   ? 'border-primary-3 bg-primary-3/10' 
@@ -294,6 +299,7 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
                   School Name <span className="text-red-400">*</span>
                 </label>
                 <input
+                  data-tour="school-name-field"
                   id="school-name"
                   type="text"
                   name="name"
@@ -310,6 +316,7 @@ export default function SchoolModal({ isOpen, onClose, organizationId, projectId
                   County <span className="text-red-400">*</span>
                 </label>
                 <input
+                  data-tour="school-county-field"
                   id="school-county"
                   type="text"
                   name="county"
