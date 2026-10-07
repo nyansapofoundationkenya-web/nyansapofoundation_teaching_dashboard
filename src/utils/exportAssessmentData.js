@@ -22,8 +22,11 @@ const COLLECTIONS = {
   drawings: "drawings",
 };
 
-const normalizeLanguage = (assessment) =>
-  String(assessment?.language || "").trim().toLowerCase();
+// Missing / empty language → English (default).
+const normalizeLanguage = (assessment) => {
+  const raw = String(assessment?.language || "").trim().toLowerCase();
+  return raw || "english";
+};
 
 const normalizeType = (assessment) =>
   String(assessment?.type || "literacy").trim().toLowerCase();
@@ -242,11 +245,7 @@ function collectDrawingsRecords({
 }
 
 // ── KISWAHILI ────────────────────────────────────────────────────────────
-function collectKiswahiliRecords({
-  assessmentId,
-  resultsSnapshot,
-  baseMeta,
-}) {
+function collectKiswahiliRecords({ assessmentId, resultsSnapshot, baseMeta }) {
   const records = [];
   let skipped = 0;
 
@@ -306,8 +305,8 @@ export async function exportAssessmentData({
   }
 
   const cleanGroup = String(group).trim();
-  const language = normalizeLanguage(assessment);
-  const type = normalizeType(assessment);
+  const language = normalizeLanguage(assessment); // defaults to "english"
+  const type = normalizeType(assessment); // defaults to "literacy"
 
   // Read the source results from the app's own Firestore
   const resultsSnapshot = await getDocs(
@@ -424,6 +423,12 @@ export async function exportAssessmentData({
   if (migratedByName) assessmentUpdate.transferredByName = migratedByName;
   assessmentUpdate.transferGroups = arrayUnion(cleanGroup);
   assessmentUpdate.lastTransferGroup = cleanGroup;
+
+  // Self-heal: persist "english" if the assessment had no language field,
+  // so future transfers don't trip the same check.
+  if (!assessment?.language) {
+    assessmentUpdate.language = "english";
+  }
 
   await updateDoc(doc(db, "assessments", assessmentId), assessmentUpdate);
 
