@@ -38,7 +38,9 @@ export async function exportStudentsToExcel(students, assessmentId, selectedLeve
       };
     });
 
-    // Apply level filter - if selectedLevels is provided and not empty, filter by those levels
+    // Apply level filter - if selectedLevels is provided and not empty, filter by those levels.
+    // When selectedLevels is null (i.e. "All Students" was chosen), we keep every student,
+    // including those with no baseline / an unrecognized level.
     let filteredStudents = students;
     if (selectedLevels && selectedLevels.length > 0) {
       filteredStudents = students.filter(s => {
@@ -62,13 +64,17 @@ export async function exportStudentsToExcel(students, assessmentId, selectedLeve
         ? `${Math.floor(durationMs / 60000)}m ${Math.floor((durationMs % 60000) / 1000)}s`
         : "N/A";
 
+      // Students with no recorded baseline/level are exported with "N/A"
+      // instead of a blank cell, so they still show up clearly in the sheet.
+      const competencyLevel = s.baseline && s.baseline.trim() !== "" ? s.baseline : "N/A";
+
       return {
         "#": i + 1,
         "Student ID": s.id || s.studentId || "",
         "Full Name": s.name || `${s.first_name || ""} ${s.last_name || ""}`.trim() || "",
         Age: s.age || "",
         Gender: s.gender || s.sex || "",
-        "Competency Level": s.baseline || "",
+        "Competency Level": competencyLevel,
         "Duration": durationFormatted,
         "Duration (ms)": durationMs,
       };

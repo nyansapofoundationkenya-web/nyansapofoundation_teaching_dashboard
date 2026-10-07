@@ -2,16 +2,20 @@
 "use client"
 import { useState } from "react"
 import { useSelector } from "react-redux"
-import { Bell, User } from "lucide-react"
+import { Bell, User, Compass } from "lucide-react"
 import UserProfileModal from "@/components/Dashboard/UserProfileModal"
 import NotificationModal from "@/components/Dashboard/NotificationModal"
 import { useParams } from "next/navigation"
+import { useTour } from "@/context/TourContext"
 
 const Header = ({ title }) => {
   const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false)
   const { organizationId } = useParams();
+  const { openGuideModal } = useTour();
+  const canAccessGuidedTour =
+    currentUser?.role !== "school_head" && currentUser?.role !== "teacher";
 
   // Function to handle user profile updates
   const handleUpdateProfile = async (updatedData) => {
@@ -24,6 +28,19 @@ const Header = ({ title }) => {
         <h1 className="text-xl font-bold text-foreground">{title}</h1>
 
         <div className="flex items-center gap-3">
+          {/* Guided Tour Launcher */}
+          {canAccessGuidedTour && (
+            <button
+              data-tour="guided-tour-btn"
+              onClick={openGuideModal}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary-3/15 border border-primary-3/30 text-primary-3 hover:bg-primary-3 hover:text-primary-1 transition-all duration-200 text-xs font-semibold shadow-sm"
+              title="Take a Guided Tour"
+            >
+              <Compass className="w-4 h-4 animate-spin-slow" />
+              <span className="hidden sm:inline">Guided Tour</span>
+            </button>
+          )}
+
           {/* Notification Bell */}
           <button 
             onClick={() => setIsNotificationModalOpen(true)}

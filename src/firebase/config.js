@@ -5,8 +5,8 @@ import { getStorage } from "firebase/storage";
 import { getAI, getGenerativeModel } from "firebase/ai";
 import { getAnalytics, isSupported } from "firebase/analytics"; // ADD THIS
 
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_API_KEY, 
+const firebaseRawConfig = {
+  apiKey: process.env.NEXT_PUBLIC_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_PROJECT_ID,
   storageBucket: process.env.NEXT_PUBLIC_STORAGE_BUCKET,
@@ -15,13 +15,52 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_MEASUREMENT_ID,
 };
 
+const firebaseConfig = Object.fromEntries(
+  Object.entries(firebaseRawConfig).map(([key, value]) => [
+    key,
+    typeof value === "string" ? value.trim() : value,
+  ])
+);
+
+const missingKeys = ["apiKey", "projectId", "appId"].filter(
+  (key) => !firebaseConfig[key]
+);
+if (missingKeys.length) {
+  throw new Error(
+    `Missing required Firebase config values: ${missingKeys.join(", ")}`
+  );
+}
+
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+
+const kiswahiliRawConfig = {
+  apiKey: process.env.NEXT_PUBLIC_KISWAHILI_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_KISWAHILI_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_KISWAHILI_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_KISWAHILI_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_KISWAHILI_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_KISWAHILI_APP_ID,
+};
+
+const kiswahiliConfig = Object.fromEntries(
+  Object.entries(kiswahiliRawConfig).map(([key, value]) => [
+    key,
+    typeof value === "string" ? value.trim() : value,
+  ])
+);
+
+const kiswahiliApp = Object.values(kiswahiliConfig).every(Boolean)
+  ? getApps().find((existingApp) => existingApp.name === "kiswahili-destination") ||
+    initializeApp(kiswahiliConfig, "kiswahili-destination")
+  : null;
 
 // Initialize services
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const kiswahiliAuth = kiswahiliApp ? getAuth(kiswahiliApp) : null;
+const kiswahiliDb = kiswahiliApp ? getFirestore(kiswahiliApp) : null;
 
 // Initialize Firebase AI
 const ai = getAI(app);
@@ -42,7 +81,17 @@ if (typeof window !== "undefined") {
 // console.log("   Project:", firebaseConfig.projectId);
 // console.log("   Model: gemini-2.5-flash");
 
-export { auth, db, storage, app, ai, model, analytics };
+export {
+  auth,
+  db,
+  storage,
+  app,
+  ai,
+  model,
+  analytics,
+  kiswahiliAuth,
+  kiswahiliDb,
+};
 
 // Test function
 export async function testConnectionWithNewKey() {

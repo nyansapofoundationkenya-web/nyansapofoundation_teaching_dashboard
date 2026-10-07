@@ -13,7 +13,7 @@ export default function Signup() {
             <Logo />
           </div>
           <h1 className="text-xl font-semibold text-foreground mb-2">
-            Welcome to Nyansapo Teaching
+            Welcome to Nao Assessments
           </h1>
           <p className="text-gray-300 text-sm">
             Create your Organization account

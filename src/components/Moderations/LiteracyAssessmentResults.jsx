@@ -4,24 +4,94 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
-import { Flag } from "lucide-react";
+import { Flag, RotateCw, Loader2 } from "lucide-react";
+import { getAuth } from "firebase/auth";
+import { db } from "@/firebase/config";
+import { doc, updateDoc } from "firebase/firestore";
 import { getColoredWords } from "@/utils/wordComparison";
 import { useFlagItem } from "@/hooks/useFlagItem";
+
+// Types that get auto-graded once a transcript comes back: the target
+// `content` is looked up as a contiguous token run anywhere in the
+// transcript (so "the cat", "cat cat", and "kat cat" all count as a
+// correct attempt for "cat"). Paragraph/story are scored by word-diff
+// accuracy shown inline in the UI, not a pass/fail boolean, so they're
+// excluded — retranscribing them only ever updates metadata.transcript.
+const AUTO_GRADED_TYPES = ["letter", "word"];
+
+// Tokenizes a string into lowercase Unicode letter/number runs, so
+// punctuation and spacing differences don't matter ("Cat", "cat.",
+// " the  cat " all yield clean tokens). Using \p{L}\p{N} rather than
+// [a-z0-9] keeps this working on Swahili transcripts with characters
+// outside plain ASCII.
+const tokenizeForComparison = (str) => {
+  if (!str) return [];
+  return str.toString().toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+};
+
+// Returns true/false for letter/word items, or undefined for anything else
+// (including when there's no target content to compare against) — callers
+// should only write `passed` into metadata when this returns a boolean.
+//
+// Instead of requiring the WHOLE transcript to equal the target (which
+// broke on self-corrections and extra words), this checks whether the
+// target appears anywhere as a contiguous run of tokens in the transcript.
+// That handles:
+//   cat  vs "the cat"     → ["the","cat"] contains ["cat"] ✓
+//   cat  vs "cat cat"     → contains ["cat"] ✓
+//   cat  vs "kat cat"     → self-corrected, contains ["cat"] ✓
+//   ship vs "sheep ship"  → self-corrected, contains ["ship"] ✓
+//   a    vs "a a"         → contains ["a"] ✓
+//   cat  vs "kat" only    → no correct attempt anywhere → fails ✓
+const determinePassedFromTranscript = (type, content, transcript) => {
+  const normalizedType = (type || "").toLowerCase();
+  if (!AUTO_GRADED_TYPES.includes(normalizedType)) return undefined;
+
+  const targetTokens = tokenizeForComparison(content);
+  if (targetTokens.length === 0) return undefined;
+
+  const transcriptTokens = tokenizeForComparison(transcript);
+  if (transcriptTokens.length === 0) return false;
+
+  // Slide a window the size of the target across the transcript tokens
+  // looking for a contiguous match. For single-token targets (the common
+  // case for letters/words) this is effectively a membership check.
+  const targetLen = targetTokens.length;
+  for (let i = 0; i + targetLen <= transcriptTokens.length; i++) {
+    let match = true;
+    for (let j = 0; j < targetLen; j++) {
+      if (transcriptTokens[i + j] !== targetTokens[j]) {
+        match = false;
+        break;
+      }
+    }
+    if (match) return true;
+  }
+  return false;
+};
 
 export default function LiteracyAssessmentResults({
   assessmentId,
   studentId,
   organizationId,
   results: initialResults,
-  onFlaggingComplete, // ← new: called when autoFlagAll finishes
+  assessmentLanguage = "english", // passed down from assessments/{assessmentId}.language
+  onFlaggingComplete, // called when autoFlagAll finishes
 }) {
   const [results, setResults]   = useState(null);
   const autoFlaggedRef          = useRef(false);
   const router                  = useRouter();
   const { user: currentUser }   = useSelector((state) => state.auth);
   const userRole                = currentUser?.role;
+  const isSuperAdmin            = userRole === "super_admin";
 
   const { flagLiteracyReadingItem } = useFlagItem(assessmentId, studentId, "literacy");
+
+  // ── Bulk retranscription state ──────────────────────────────────────────
+  const [retranscribing, setRetranscribing]             = useState(false);
+  const [retranscribeProgress, setRetranscribeProgress] = useState({ done: 0, total: 0 });
+  const [retranscribeSummary, setRetranscribeSummary]   = useState(null);
+  // retranscribeSummary shape: { success, failed, failures, gradedPassed, gradedFailed }
 
   useEffect(() => {
     if (!initialResults || autoFlaggedRef.current) return;
@@ -59,6 +129,129 @@ export default function LiteracyAssessmentResults({
       } catch (err) {
         console.error(`Auto-flag failed for reading_results[${i}]:`, err);
       }
+    }
+  };
+
+  // ── Bulk retranscribe ──────────────────────────────────────────────────
+  // Eligible item = has an audio_url AND metadata.transcript is missing or
+  // empty. NOT restricted to unmoderated items — some rounds were moderated
+  // (pass/fail decided by ear) before a transcript ever existed, and those
+  // need backfilling too.
+  //
+  // For letter/word items, once a transcript comes back the target `content`
+  // is looked up as a contiguous token run anywhere in the transcript (so
+  // "the cat", "cat cat", and "kat cat" all count as a correct attempt for
+  // "cat"), and metadata.passed is written in the SAME update as the
+  // transcript. Paragraph/story items only ever get metadata.transcript
+  // touched — they're scored by word-diff accuracy in the UI, not a
+  // boolean, so passed is left as-is for those.
+  //
+  // Items are sent to /api/retranscription ONE AT A TIME — the backend can
+  // hit Gradio cold starts / rate limits, and concurrent requests are the
+  // most likely way to make that worse. Firestore is updated after EVERY
+  // successful item using a local `workingResults` array (not React state,
+  // which updates async and could be stale mid-loop), so an interrupted
+  // batch or a single failed item never loses earlier progress.
+  const readingResultsForActions = results?.literacy_results?.reading_results || [];
+
+  const missingTranscriptItems = readingResultsForActions
+    .map((item, idx) => ({ item, idx }))
+    .filter(({ item }) => {
+      const hasTranscript = !!(item?.metadata?.transcript && item.metadata.transcript.trim() !== "");
+      const hasAudio      = !!item?.metadata?.audio_url;
+      return hasAudio && !hasTranscript;
+    });
+
+  const handleBulkRetranscribe = async () => {
+    if (retranscribing || missingTranscriptItems.length === 0) return;
+
+    setRetranscribing(true);
+    setRetranscribeSummary(null);
+
+    const targets = missingTranscriptItems;
+    const total   = targets.length;
+    let successCount = 0;
+    let gradedPassed  = 0;
+    let gradedFailed  = 0;
+    const failures  = [];
+
+    let workingResults = [...readingResultsForActions];
+
+    try {
+      const auth  = getAuth();
+      const token = await auth.currentUser.getIdToken();
+      const docRef = doc(
+        db, "assessments", assessmentId, "assessments-results", `${assessmentId}_${studentId}`
+      );
+
+      for (let i = 0; i < targets.length; i++) {
+        const { idx, item } = targets[i];
+        setRetranscribeProgress({ done: i, total });
+
+        try {
+          const res = await fetch("/api/retranscription", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              assessmentId,
+              studentId,
+              globalIndex: idx,
+              language: assessmentLanguage,
+            }),
+          });
+
+          // Read as text first — a platform-level timeout returns an
+          // HTML/plain-text error page, not JSON, and res.json() would
+          // throw a SyntaxError instead of the actual error we want.
+          const rawText = await res.text();
+          let data;
+          try {
+            data = rawText ? JSON.parse(rawText) : {};
+          } catch {
+            throw new Error(
+              res.status === 504
+                ? "Timed out — model may be slow right now"
+                : `HTTP ${res.status}`
+            );
+          }
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          if (!data.transcript) throw new Error("No transcript returned");
+
+          const itemType = (item?.metadata?.type || item?.type || "").toLowerCase();
+          const passed = determinePassedFromTranscript(itemType, item?.content, data.transcript);
+          if (passed === true) gradedPassed++;
+          if (passed === false) gradedFailed++;
+
+          workingResults = [...workingResults];
+          workingResults[idx] = {
+            ...workingResults[idx],
+            metadata: {
+              ...workingResults[idx].metadata,
+              transcript: data.transcript,
+              ...(passed !== undefined ? { passed } : {}),
+            },
+          };
+
+          await updateDoc(docRef, { "literacy_results.reading_results": workingResults });
+
+          setResults(prev => ({
+            ...prev,
+            literacy_results: { ...prev.literacy_results, reading_results: workingResults },
+          }));
+
+          successCount++;
+        } catch (err) {
+          console.error(`Retranscription failed for reading_results[${idx}]:`, err);
+          failures.push({ idx, label: item?.content, error: err.message });
+        }
+      }
+    } finally {
+      setRetranscribeProgress({ done: total, total });
+      setRetranscribeSummary({ success: successCount, failed: failures.length, failures, gradedPassed, gradedFailed });
+      setRetranscribing(false);
     }
   };
 
@@ -105,6 +298,76 @@ export default function LiteracyAssessmentResults({
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-6 text-foreground">Literacy Assessment</h1>
+
+      {/* ── Bulk Retranscribe (super admin only) ─────────────────────────── */}
+      {isSuperAdmin && (
+        <div
+          className="mb-6 rounded-xl border p-4"
+          style={{ background: 'rgba(90,162,206,0.06)', borderColor: 'rgba(90,162,206,0.25)' }}
+        >
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--primary-2)' }}>Missing Transcripts</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {missingTranscriptItems.length > 0
+                  ? `${missingTranscriptItems.length} item${missingTranscriptItems.length > 1 ? 's' : ''} have audio but no transcript yet (includes already-moderated items). Letters/words will be auto-graded against the target text.`
+                  : "All items with audio already have a transcript."}
+              </p>
+            </div>
+            <button
+              onClick={handleBulkRetranscribe}
+              disabled={retranscribing || missingTranscriptItems.length === 0}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: 'rgba(90,162,206,0.15)', border: '1px solid rgba(90,162,206,0.4)', color: 'var(--primary-2)' }}
+              onMouseEnter={e => {
+                if (!retranscribing && missingTranscriptItems.length > 0) {
+                  e.currentTarget.style.background = 'rgba(90,162,206,0.22)';
+                  e.currentTarget.style.borderColor = 'rgba(90,162,206,0.6)';
+                }
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'rgba(90,162,206,0.15)';
+                e.currentTarget.style.borderColor = 'rgba(90,162,206,0.4)';
+              }}
+            >
+              {retranscribing ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Retranscribing {retranscribeProgress.done}/{retranscribeProgress.total}…
+                </>
+              ) : (
+                <>
+                  <RotateCw size={14} />
+                  Retranscribe Missing ({missingTranscriptItems.length})
+                </>
+              )}
+            </button>
+          </div>
+
+          {retranscribeSummary && (
+            <div className="mt-3 text-xs space-y-1">
+              <div style={{ color: retranscribeSummary.failed > 0 ? 'var(--secondary-1)' : 'var(--secondary-2)' }}>
+                Done: {retranscribeSummary.success} succeeded
+                {retranscribeSummary.failed > 0 && `, ${retranscribeSummary.failed} failed`}.
+              </div>
+              {(retranscribeSummary.gradedPassed > 0 || retranscribeSummary.gradedFailed > 0) && (
+                <div className="text-gray-400">
+                  Auto-graded letters/words: <span style={{ color: 'var(--secondary-2)' }}>{retranscribeSummary.gradedPassed} passed</span>
+                  {", "}
+                  <span style={{ color: '#ef4444' }}>{retranscribeSummary.gradedFailed} failed</span>
+                </div>
+              )}
+              {retranscribeSummary.failed > 0 && (
+                <ul className="mt-1 list-disc list-inside text-gray-400">
+                  {retranscribeSummary.failures.map((f, i) => (
+                    <li key={i}>Item #{f.idx + 1}: {f.error}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Letter Results ───────────────────────────────────────────────── */}
       <div className="mb-8">

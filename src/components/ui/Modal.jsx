@@ -3,6 +3,8 @@
 import Select from "react-select";
 import { useState, useEffect } from "react";
 
+import { useTour } from "@/context/TourContext";
+
 export default function Modal({
   isOpen,
   onClose,
@@ -14,6 +16,7 @@ export default function Modal({
   const [formState, setFormState] = useState({});
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false); // ← prevents double-submit
+  const { isTourRunning } = useTour();
 
   useEffect(() => {
     setFormState({});
@@ -161,6 +164,7 @@ export default function Modal({
             <button
               type="submit"
               form="modal-form"
+              data-tour="modal-submit-btn"
               disabled={isSubmitting}
               className="text-sm px-4 py-2 bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
             >
@@ -197,6 +201,13 @@ export default function Modal({
 
         {/* Form */}
         <form id="modal-form" onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Active Tour Instruction Banner */}
+          {isTourRunning && (
+            <div className="flex items-center gap-2 bg-yellow-400/20 border border-yellow-400/40 text-yellow-300 rounded-xl p-3 text-xs font-bold animate-pulse">
+              <span className="text-base">👇</span>
+              <span>FILL OUT THE FIELDS BELOW AND CLICK SUBMIT TO COMPLETE</span>
+            </div>
+          )}
 
           {/* Submit-level error (e.g. duplicate project name from the hook) */}
           {submitError && (
@@ -206,7 +217,7 @@ export default function Modal({
           )}
 
           {fields.map(({ name, label, type, required, placeholder, options }) => (
-            <div key={name} className="text-left">
+            <div key={name} className="text-left" data-tour={`modal-field-${name}`}>
               <label className="text-sm font-medium block mb-2 text-foreground">
                 {label} {required && <span className="text-red-400">*</span>}
               </label>

@@ -150,6 +150,7 @@ export default function SchoolsList({ organizationId }) {
             </button>
             
             <button
+              data-tour="school-filter-toggle"
               onClick={() => setShowFilters(!showFilters)}
               className="flex items-center justify-center px-4 py-2 border border-gray-500 rounded-xl hover:bg-background-lighter transition-colors sm:w-auto w-full font-medium text-foreground shadow-md hover:shadow-lg"
             >
@@ -181,6 +182,7 @@ export default function SchoolsList({ organizationId }) {
                 Filter by Project
               </label>
               <select
+                data-tour="school-filter-project"
                 value={projectFilter}
                 onChange={(e) => handleProjectFilterChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-2 bg-background-light text-foreground font-medium shadow-md"

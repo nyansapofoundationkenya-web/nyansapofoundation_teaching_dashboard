@@ -1,7 +1,9 @@
-// @/components/AssessmentNameStep.jsx
+// @/components/assessments/AssessmentNameStep.jsx
 "use client";
 
-export default function AssessmentNameStep({ formData, setFormData, setStep }) {
+import StepProgress from "./StepProgress";
+
+export default function AssessmentNameStep({ formData, setFormData, step }) {
   const MAX_LENGTH = 20;
 
   const handleNameChange = (e) => {
@@ -19,17 +21,7 @@ export default function AssessmentNameStep({ formData, setFormData, setStep }) {
   return (
     <div className="space-y-6">
       <div className="mb-6">
-        <div className="flex items-center justify-center mb-8">
-          <div className="flex items-center space-x-4">
-            <div className="w-8 h-8 rounded-full bg-primary-2 flex items-center justify-center">
-              <span className="text-white font-semibold">1</span>
-            </div>
-            <div className="h-1 w-20 bg-primary-2"></div>
-            <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center">
-              <span className="text-gray-400 font-semibold">2</span>
-            </div>
-          </div>
-        </div>
+        <StepProgress step={step} />
 
         <h3 className="text-xl font-semibold text-foreground mb-2 text-center">
           Name Your Assessment

@@ -60,13 +60,13 @@ export default function ModerationActions({
             </div>
             <span className="text-sm font-semibold" style={{ color: 'var(--secondary-2)' }}>Moderation Complete</span>
           </div>
-          
+
           {/* Reopen Moderation Button */}
           <button
             onClick={onReopenModeration}
             className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-            style={{ 
-              background: 'rgba(255,255,255,0.07)', 
+            style={{
+              background: 'rgba(255,255,255,0.07)',
               border: '1px solid rgba(255,255,255,0.12)',
               color: 'rgba(255,255,255,0.7)'
             }}

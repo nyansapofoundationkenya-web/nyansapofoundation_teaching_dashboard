@@ -826,6 +826,7 @@ export default function StudentDetailsPage() {
                   studentId={studentId}
                   organizationId={organizationId}
                   assessmentType={assessmentType}
+                  assessmentLanguage={(assessment?.language || "english").toString().trim().toLowerCase()}
                   onFlaggingComplete={handleFlaggingComplete}
                   onHasAnswersChange={setHasAnswers}
                 />
