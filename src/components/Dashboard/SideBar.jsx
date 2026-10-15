@@ -2,13 +2,13 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
-import { 
-  FiHome, 
-  FiBarChart2, 
-  FiFolder, 
-  FiMapPin, 
-  FiHeadphones, 
-  FiUserCheck, 
+import {
+  FiHome,
+  FiBarChart2,
+  FiFolder,
+  FiMapPin,
+  FiHeadphones,
+  FiUserCheck,
   FiUsers,
   FiLogOut,
   FiClipboard,
@@ -96,19 +96,25 @@ const ICONS = {
   messageSquare: <FiMessageSquare size={20} />,
 };
 
+// ─── "Always visible" base items ─────────────────────────────
 const BASE_MENU_DEFS = [
   createMenuItem("Home", "home", (id) => `/dashboard/${id}/welcome`, "home", MENU_WEIGHTS.HOME),
   createMenuItem("Projects", "folder", (id) => `/dashboard/${id}/projects`, "projects", MENU_WEIGHTS.PROJECTS),
   createMenuItem("Schools", "mapPin", (id) => `/dashboard/${id}/schools`, "schools", MENU_WEIGHTS.SCHOOLS),
   createMenuItem("Assessments", "clipboard", (id) => `/dashboard/${id}/moderations`, "assessments", MENU_WEIGHTS.ASSESSMENTS),
-  createMenuItem("Attendance", "checkSquare", (id) => `/dashboard/${id}/attendance`, "attendance", MENU_WEIGHTS.ATTENDANCE),
   createMenuItem("Students", "users", (id) => `/dashboard/${id}/admin/students`, "students", MENU_WEIGHTS.STUDENTS),
 ];
 
+// ─── Conditional items (gated by per-org flags) ──────────────
 const SURVEY_MENU_DEF = createMenuItem(
   "Survey", "fileText", (id) => `/dashboard/${id}/household`, "survey", MENU_WEIGHTS.SURVEY
 );
 
+const ATTENDANCE_MENU_DEF = createMenuItem(
+  "Attendance", "checkSquare", (id) => `/dashboard/${id}/attendance`, "attendance", MENU_WEIGHTS.ATTENDANCE
+);
+
+// ─── Role-specific items (still always shown for that role) ──
 const SUPER_ADMIN_MENU_DEFS = [
   createMenuItem("Ai Assistant", "messageSquare", (id) => `/dashboard/${id}/ai-assistant`, "ai-assistant", MENU_WEIGHTS.AI_ASSISTANT),
   createMenuItem("Instructors", "userCheck", (id) => `/dashboard/${id}/instructors`, "instructors", MENU_WEIGHTS.INSTRUCTORS),
@@ -125,11 +131,15 @@ const TEACHER_MENU_DEFS = [];
 
 const sortByWeight = (items) => [...items].sort((a, b) => a.weight - b.weight);
 
+// Small helper — treat true / "true" / 1 as truthy so legacy string values
+// in Firestore don't silently hide a menu item.
+const truthy = (v) => v === true || v === "true" || v === 1;
+
 // ─────────────────────────────────────────────────────────────
 // SIDEBAR
 // ─────────────────────────────────────────────────────────────
-const Sidebar = ({ 
-  initialTitle, 
+const Sidebar = ({
+  initialTitle,
   organizationId,
   currentSection,
 }) => {
@@ -159,15 +169,18 @@ const Sidebar = ({
     }
   };
 
-  // ── Assemble menu based on role (memoized — only recomputes when role/survey flag changes) ──
+  // ── Assemble menu based on role + per-org feature flags ──────
+  // Survey and Attendance are both driven purely by the org doc.
   const menuDefs = useMemo(() => {
     if (!currentUser) return sortByWeight(BASE_MENU_DEFS);
 
     const userRole = currentUser.role;
-    const hasSurveyPermission = currentUser.survey === true;
+    const orgTakesSurveys = truthy(organization?.takesSurveys);
+    const orgTakesAttendance = truthy(organization?.takesAttendance);
 
     let items = [...BASE_MENU_DEFS];
 
+    // Role additions
     switch (userRole) {
       case "super_admin":
         items = [...items, ...SUPER_ADMIN_MENU_DEFS];
@@ -188,14 +201,22 @@ const Sidebar = ({
         break;
     }
 
-    if (hasSurveyPermission) {
+    // ── Per-org gating ─────────────────────────────────────────
+    if (orgTakesAttendance) {
+      items.push(ATTENDANCE_MENU_DEF);
+    }
+    if (orgTakesSurveys) {
       items.push(SURVEY_MENU_DEF);
     }
 
     return sortByWeight(items);
-  }, [currentUser?.role, currentUser?.survey]);
+  }, [
+    currentUser?.role,
+    organization?.takesSurveys,
+    organization?.takesAttendance,
+  ]);
 
-  // ── Resolve path/icon per render (cheap — just string/JSX lookup, no state) ──
+  // ── Resolve path/icon per render ─────────────────────────────
   const menuItems = useMemo(
     () =>
       menuDefs.map((def) => ({
