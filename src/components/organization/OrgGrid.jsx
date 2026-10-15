@@ -16,6 +16,7 @@ export default function OrgGrid({
   isSuperAdmin,
   isSandboxOrg,
   onClassificationChange,
+  onFeatureChange,          // --- NEW ---
   featureFirst = false,
 }) {
   if (isLoading) {
@@ -70,6 +71,7 @@ export default function OrgGrid({
           canDelete={canDeleteOrganization(org)}
           isSuperAdmin={isSuperAdmin}
           onClassificationChange={onClassificationChange}
+          onFeatureChange={onFeatureChange}     // --- NEW ---
           featured={featureFirst && index === 0 && !searchQuery}
         />
       ))}

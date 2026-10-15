@@ -29,12 +29,13 @@ export default function SuperAdminOrganizationsView({
   onDeleteRequest,
   onProfileClick,
   onLogoutClick,
-  ecosystemStats, // { teachers, schools, students, projects }
+  ecosystemStats,
   onNavigateUsers,
   onNavigateMapAssessments,
   onNavigateSystemLogs,
   onNavigateSettings,
   onClassificationChange,
+  onFeatureChange,          // --- NEW ---
 }) {
   const sectionLabel = activeTab === "sandboxes"
     ? "Sandbox"
@@ -208,6 +209,7 @@ export default function SuperAdminOrganizationsView({
               isSuperAdmin
               isSandboxOrg={isSandboxOrg}
               onClassificationChange={onClassificationChange}
+              onFeatureChange={onFeatureChange}      // --- NEW ---
             />
           </div>
         </div>

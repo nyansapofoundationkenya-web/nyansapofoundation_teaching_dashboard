@@ -19,14 +19,6 @@ import {
   sumOrgStat,
 } from "@/utils/OrgUtils";
 
-// ---------------------------------------------------------------------------
-// Orchestrator
-// ---------------------------------------------------------------------------
-// This component owns all data-fetching, mutation, and modal state. It has no
-// opinion on layout - it just decides, based on role, which presentational
-// view (Standard vs Super Admin) receives that state and callbacks.
-// ---------------------------------------------------------------------------
-
 export default function OrganizationPage({
   onOrganizationSelect = () => {},
   onAddOrganization = () => {},
@@ -42,19 +34,25 @@ export default function OrganizationPage({
     handleAddOrganization,
     handleBackfillOrganizationFlags,
     handleUpdateOrganizationClassification,
+    handleUpdateOrganizationFeatures,  // --- NEW ---
     handleDeleteOrganization,
   } = useOrganizations();
 
   const { user: currentUser, loading: userLoading } = useSelector((state) => state.auth);
 
   // UI state
-  const [activeTab, setActiveTab] = useState("partner"); // "partner" | "testing" | "sandboxes"
+  const [activeTab, setActiveTab] = useState("partner");
   const [showAddModal, setShowAddModal] = useState(false);
   const [newOrgName, setNewOrgName] = useState("");
   const [addingOrg, setAddingOrg] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
   const [createSandbox, setCreateSandbox] = useState(false);
   const [organizationType, setOrganizationType] = useState("partner");
+
+  // --- NEW: survey + attendance flags ---
+  const [takesSurveys, setTakesSurveys] = useState(false);
+  const [takesAttendance, setTakesAttendance] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [orgToDelete, setOrgToDelete] = useState(null);
@@ -62,7 +60,6 @@ export default function OrganizationPage({
   const [backfillingFlags, setBackfillingFlags] = useState(false);
   const [nameValidation, setNameValidation] = useState({ valid: true, message: "" });
 
-  // Fetch on mount
   useEffect(() => {
     if (currentUser?.uid && !dataFetched) {
       handleFetchOrganizations().catch((err) => console.error("Fetch Organizations Error:", err));
@@ -70,12 +67,9 @@ export default function OrganizationPage({
     }
   }, [currentUser?.uid, dataFetched, handleFetchOrganizations]);
 
-  // Filter to orgs this user can see
   const getFilteredOrganizations = useCallback(() => {
     if (!currentUser || !Array.isArray(organizations) || !organizations.length) return [];
-    if (currentUser.role === "super_admin") {
-      return organizations.filter(Boolean);
-    }
+    if (currentUser.role === "super_admin") return organizations.filter(Boolean);
     const userOrganizations = currentUser.organizations || [];
     return organizations.filter(
       (org) => org && userOrganizations.some((userOrg) => userOrg?.id === org?.id)
@@ -84,7 +78,6 @@ export default function OrganizationPage({
 
   const baseOrganizations = getFilteredOrganizations();
 
-  // Split into real orgs vs sandboxes
   const realOrgs = useMemo(() => baseOrganizations.filter((o) => !isSandboxOrg(o)), [baseOrganizations]);
   const partnerOrgs = useMemo(
     () => baseOrganizations.filter((o) => getOrganizationType(o) === "partner"),
@@ -96,11 +89,9 @@ export default function OrganizationPage({
   );
   const sandboxOrgs = useMemo(() => baseOrganizations.filter((o) => isSandboxOrg(o)), [baseOrganizations]);
 
-  // Apply search + sort to whichever tab is active
   const filteredOrganizations = useMemo(() => {
-    const source = activeTab === "sandboxes"
-      ? sandboxOrgs
-      : activeTab === "testing" ? testingOrgs : partnerOrgs;
+    const source =
+      activeTab === "sandboxes" ? sandboxOrgs : activeTab === "testing" ? testingOrgs : partnerOrgs;
     let filtered = [...source].filter(Boolean);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -114,25 +105,23 @@ export default function OrganizationPage({
     return filtered;
   }, [activeTab, partnerOrgs, testingOrgs, sandboxOrgs, searchQuery]);
 
-  // Totals should reflect the section currently being viewed.
   const organizationsForStats = useMemo(() => {
     if (activeTab === "sandboxes") return sandboxOrgs;
     if (activeTab === "testing") return testingOrgs;
     return partnerOrgs;
   }, [activeTab, partnerOrgs, testingOrgs, sandboxOrgs]);
 
-  const ecosystemStats = useMemo(() => ({
-    teachers: sumOrgStat(organizationsForStats, "total_teachers"),
-    schools: sumOrgStat(organizationsForStats, "total_schools"),
-    students: sumOrgStat(organizationsForStats, "total_students"),
-    projects: sumOrgStat(organizationsForStats, "total_projects"),
-  }), [organizationsForStats]);
+  const ecosystemStats = useMemo(
+    () => ({
+      teachers: sumOrgStat(organizationsForStats, "total_teachers"),
+      schools: sumOrgStat(organizationsForStats, "total_schools"),
+      students: sumOrgStat(organizationsForStats, "total_students"),
+      projects: sumOrgStat(organizationsForStats, "total_projects"),
+    }),
+    [organizationsForStats]
+  );
 
   const isSuperAdmin = currentUser?.role === "super_admin";
-
-  // ---------------------------------------------------------------------------
-  // Handlers
-  // ---------------------------------------------------------------------------
 
   const handleOrgNameChange = (e) => {
     const sanitized = sanitizeOrgName(e.target.value);
@@ -140,9 +129,22 @@ export default function OrganizationPage({
     setNameValidation(validateOrganizationName(sanitized));
   };
 
+  // --- NEW: single source of truth for resetting the add form ---
+  const resetAddForm = () => {
+    setNewOrgName("");
+    setCreateSandbox(false);
+    setOrganizationType("partner");
+    setTakesSurveys(false);
+    setTakesAttendance(false);
+    setNameValidation({ valid: true, message: "" });
+  };
+
   const handleAddOrg = async () => {
     const validation = validateOrganizationName(newOrgName);
-    if (!validation.valid) { alert(validation.message); return; }
+    if (!validation.valid) {
+      alert(validation.message);
+      return;
+    }
 
     const trimmedName = newOrgName.trim();
     const existingOrg = organizations.find(
@@ -155,14 +157,21 @@ export default function OrganizationPage({
 
     try {
       setAddingOrg(true);
-      await handleAddOrganization(trimmedName, organizationType, createSandbox);
-      onAddOrganization(trimmedName, organizationType, createSandbox);
-      setNewOrgName("");
-      setCreateSandbox(false);
-      setOrganizationType("partner");
+
+      // --- NEW: pass the two feature flags ---
+      await handleAddOrganization(trimmedName, organizationType, createSandbox, {
+        takesSurveys,
+        takesAttendance,
+      });
+
+      onAddOrganization(trimmedName, organizationType, createSandbox, {
+        takesSurveys,
+        takesAttendance,
+      });
+
+      resetAddForm();
       setShowAddModal(false);
       setDataFetched(false);
-      setNameValidation({ valid: true, message: "" });
     } catch (err) {
       console.error("Error adding organization:", err);
       alert(err.message || "Failed to add organization. Please try again.");
@@ -173,7 +182,10 @@ export default function OrganizationPage({
 
   const handleDeleteOrg = async () => {
     if (!orgToDelete) return;
-    if (!isSuperAdmin) { alert("Only super administrators can delete organizations"); return; }
+    if (!isSuperAdmin) {
+      alert("Only super administrators can delete organizations");
+      return;
+    }
     if (!canDeleteOrganization(orgToDelete)) {
       alert("Cannot delete organization with existing projects, teachers, schools, or students");
       return;
@@ -217,6 +229,16 @@ export default function OrganizationPage({
     }
   };
 
+  // --- NEW: super-admin edits the two feature flags from the card ---
+  const handleFeatureChange = async (orgId, nextFlags) => {
+    try {
+      await handleUpdateOrganizationFeatures(orgId, nextFlags);
+    } catch (err) {
+      console.error("Error updating organization features:", err);
+      alert(err.message || "Failed to update organization features.");
+    }
+  };
+
   const handleOrganizationClick = (organization) => {
     onOrganizationSelect(organization);
     router.push(`/dashboard/${organization.id}/welcome`);
@@ -237,8 +259,6 @@ export default function OrganizationPage({
     setSearchQuery("");
   };
 
-  // Placeholder navigation targets for the super admin action grid.
-  // Update these routes to match wherever these admin pages actually live.
   const handleNavigateUsers = () => router.push("/dashboard/admin/users");
   const handleNavigateMapAssessments = () => router.push("/dashboard/admin/map_assessments");
   const handleNavigateSystemLogs = () => router.push("/dashboard/admin/audio-library");
@@ -246,10 +266,6 @@ export default function OrganizationPage({
   const handleSupportClick = () => router.push("/dashboard/support");
 
   const isLoading = (loading || userLoading) && !dataFetched;
-
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
 
   const sharedProps = {
     realOrgs,
@@ -284,6 +300,7 @@ export default function OrganizationPage({
           onNavigateSystemLogs={handleNavigateSystemLogs}
           onNavigateSettings={handleNavigateSettings}
           onClassificationChange={handleClassificationChange}
+          onFeatureChange={handleFeatureChange}   // --- NEW ---
         />
       ) : (
         <StandardOrganizationsView
@@ -305,10 +322,7 @@ export default function OrganizationPage({
         open={showAddModal}
         onClose={() => {
           setShowAddModal(false);
-          setNewOrgName("");
-          setCreateSandbox(false);
-          setOrganizationType("partner");
-          setNameValidation({ valid: true, message: "" });
+          resetAddForm();
         }}
         newOrgName={newOrgName}
         onNameChange={handleOrgNameChange}
@@ -320,6 +334,10 @@ export default function OrganizationPage({
         }}
         createSandbox={createSandbox}
         onToggleSandbox={() => setCreateSandbox((prev) => !prev)}
+        takesSurveys={takesSurveys}
+        onToggleSurveys={() => setTakesSurveys((prev) => !prev)}
+        takesAttendance={takesAttendance}
+        onToggleAttendance={() => setTakesAttendance((prev) => !prev)}
         addingOrg={addingOrg}
         onSubmit={handleAddOrg}
       />

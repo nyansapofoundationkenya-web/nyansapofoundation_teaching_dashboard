@@ -4,17 +4,27 @@ import { useState } from "react";
 import {
   Users, School, FolderKanban, GraduationCap,
   Calendar, ChevronRight, Building2, Trash2, FlaskConical,
+  ClipboardList, UserCheck,
 } from "lucide-react";
 import { getOrganizationType } from "@/utils/OrgUtils";
 
-/**
- * Single organization card.
- * Used by both StandardOrganizationsView and SuperAdminOrganizationsView so
- * the visual language of "an org" stays identical no matter who's looking.
- *
- * @param {boolean} featured - renders a wider "hero" variant (used for the
- *   first card in the standard view, mirroring the bento-style mockup).
- */
+// Classification → visual treatment map. Keep this in one place so the chip,
+// the popover, and any future badge all agree on colors.
+const TYPE_STYLES = {
+  partner: {
+    label: "Partner",
+    idle: "bg-primary-3/15 text-primary-3 border-primary-3/30 hover:bg-primary-3/25",
+  },
+  testing: {
+    label: "Testing",
+    idle: "bg-purple-500/15 text-purple-300 border-purple-500/30 hover:bg-purple-500/25",
+  },
+  sandbox: {
+    label: "Sandbox",
+    idle: "bg-blue-500/15 text-blue-300 border-blue-500/30 hover:bg-blue-500/25",
+  },
+};
+
 export default function OrgCard({
   org,
   isSandbox,
@@ -24,11 +34,12 @@ export default function OrgCard({
   canDelete,
   isSuperAdmin,
   onClassificationChange,
+  onFeatureChange,
   featured = false,
 }) {
   const [hovered, setHovered] = useState(false);
-  const [editingClassification, setEditingClassification] = useState(false);
-  const [savingClassification, setSavingClassification] = useState(false);
+  const [openMenu, setOpenMenu] = useState(null); // "type" | null
+  const [saving, setSaving] = useState(false);
 
   const stats = [
     { icon: Users, label: "Teachers", value: org.total_teachers || 0, color: "#f7cc1c" },
@@ -37,20 +48,36 @@ export default function OrgCard({
     { icon: FolderKanban, label: "Projects", value: org.total_projects || 0, color: "#e67e22" },
   ];
 
+  const currentType = getOrganizationType(org);           // "partner" | "testing" | "sandbox"
+  const typeStyle = TYPE_STYLES[currentType] ?? TYPE_STYLES.partner;
+  const takesSurveys = Boolean(org.takesSurveys);
+  const takesAttendance = Boolean(org.takesAttendance);
+
   const handleDeleteClick = (e) => {
     e.stopPropagation();
     if (onDelete) onDelete();
   };
 
-  const handleClassificationSelect = async (e) => {
+  const handleTypeSelect = async (e, nextType) => {
     e.stopPropagation();
-    const nextType = e.target.value;
-    setSavingClassification(true);
+    if (nextType === currentType) { setOpenMenu(null); return; }
+    setSaving(true);
     try {
       await onClassificationChange(org.id, nextType);
-      setEditingClassification(false);
+      setOpenMenu(null);
     } finally {
-      setSavingClassification(false);
+      setSaving(false);
+    }
+  };
+
+  const handleToggleFeature = async (e, key) => {
+    e.stopPropagation();
+    if (!onFeatureChange) return;
+    setSaving(true);
+    try {
+      await onFeatureChange(org.id, { [key]: !org[key] });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -80,6 +107,7 @@ export default function OrgCard({
         </span>
       )}
 
+      {/* Icon + delete/arrow */}
       <div className="flex items-start justify-between mb-3">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${iconBg} ${featured ? "w-12 h-12" : ""}`}>
           <IconComponent size={featured ? 20 : 18} className={iconColor} />
@@ -108,44 +136,104 @@ export default function OrgCard({
         </div>
       </div>
 
-      <h3 className={`font-bold text-foreground mb-1 truncate pr-16 ${featured ? "text-lg" : "text-base"}`}>
+      {/* Name */}
+      <h3 className={`font-bold text-foreground mb-2 truncate pr-16 ${featured ? "text-lg" : "text-base"}`}>
         {org.name}
       </h3>
 
-      {isSuperAdmin && (
-        <div className="mb-3" onClick={(e) => e.stopPropagation()}>
-          {editingClassification ? (
-            <select
-              autoFocus
-              value={getOrganizationType(org)}
-              onChange={handleClassificationSelect}
-              disabled={savingClassification}
-              className="w-full rounded-lg border border-primary-3/50 bg-background-lighter px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary-3 disabled:opacity-50"
-              aria-label={`Classification for ${org.name}`}
-            >
-              <option value="partner">Partner</option>
-              <option value="testing">Testing</option>
-              <option value="sandbox">Sandbox</option>
-            </select>
-          ) : (
+      {/* ── Chip row: classification + feature toggles ──────────────────── */}
+      {isSuperAdmin ? (
+        <div
+          className="flex flex-wrap items-center gap-1.5 mb-3"
+          onClick={(e) => e.stopPropagation()}   // don't trigger card nav when clicking chips
+        >
+          {/* Classification chip + popover */}
+          <div className="relative">
             <button
               type="button"
-              onClick={() => setEditingClassification(true)}
-              className="text-xs text-gray-400 hover:text-primary-3 transition-colors"
+              onClick={(e) => { e.stopPropagation(); setOpenMenu(openMenu === "type" ? null : "type"); }}
+              disabled={saving}
+              className={`inline-flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold border transition-colors ${typeStyle.idle} ${saving ? "opacity-60" : ""}`}
+              title="Change classification"
             >
-              Type: <span className="font-semibold capitalize">{getOrganizationType(org)}</span>
-              <span className="ml-1 underline">Edit</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" />
+              {typeStyle.label}
+              <ChevronRight size={10} className="rotate-90 opacity-70" />
             </button>
-          )}
+
+            {openMenu === "type" && (
+              <div className="absolute left-0 top-full mt-1 z-30 w-32 rounded-lg border border-background-lighter bg-background-light shadow-xl p-1">
+                {Object.entries(TYPE_STYLES).map(([value, s]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={(e) => handleTypeSelect(e, value)}
+                    disabled={saving}
+                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[11px] font-medium transition-colors ${
+                      value === currentType
+                        ? "bg-background-lighter text-foreground"
+                        : "text-gray-300 hover:bg-background-lighter hover:text-foreground"
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${s.idle.split(" ")[1]}`} />
+                    {s.label}
+                    {value === currentType && <span className="ml-auto text-[10px] text-gray-500">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Survey toggle chip */}
+          <FeatureChip
+            icon={ClipboardList}
+            label="Surveys"
+            active={takesSurveys}
+            activeClass="bg-emerald-500/15 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25"
+            onClick={(e) => handleToggleFeature(e, "takesSurveys")}
+            disabled={saving}
+            title={takesSurveys ? "Takes surveys — click to disable" : "Does not take surveys — click to enable"}
+          />
+
+          {/* Attendance toggle chip */}
+          <FeatureChip
+            icon={UserCheck}
+            label="Attendance"
+            active={takesAttendance}
+            activeClass="bg-sky-500/15 text-sky-300 border-sky-500/40 hover:bg-sky-500/25"
+            onClick={(e) => handleToggleFeature(e, "takesAttendance")}
+            disabled={saving}
+            title={takesAttendance ? "Takes attendance — click to disable" : "Does not take attendance — click to enable"}
+          />
         </div>
+      ) : (
+        // Non-super-admin: read-only badges, only shown when on
+        (takesSurveys || takesAttendance) && (
+          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+            {takesSurveys && (
+              <span className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                <ClipboardList size={10} />
+                Surveys
+              </span>
+            )}
+            {takesAttendance && (
+              <span className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                <UserCheck size={10} />
+                Attendance
+              </span>
+            )}
+          </div>
+        )
       )}
 
+      {/* Date */}
       <div className="flex items-center gap-1.5 mb-4">
         <Calendar size={11} className="text-gray-500" />
         <span className="text-xs text-gray-400">{formatDate(org.createdAt)}</span>
       </div>
 
-      <div className={`grid grid-cols-4 gap-1 pt-3 mt-auto border-t border-background-lighter`}>
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-1 pt-3 mt-auto border-t border-background-lighter">
         {stats.map(({ icon: Icon, label, value, color }) => (
           <div key={label} className="flex flex-col items-center text-center gap-0.5">
             <Icon size={13} style={{ color }} />
@@ -156,7 +244,7 @@ export default function OrgCard({
       </div>
 
       {featured && (
-        <div className={`mt-4 flex justify-end`}>
+        <div className="mt-4 flex justify-end">
           <span className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
             hovered ? "bg-primary-3 text-primary-1" : "bg-primary-3/10 text-primary-3"
           }`}>
@@ -165,5 +253,25 @@ export default function OrgCard({
         </div>
       )}
     </div>
+  );
+}
+
+// ── Small reusable feature toggle chip ─────────────────────────────
+function FeatureChip({ icon: Icon, label, active, activeClass, onClick, disabled, title }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={`inline-flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-semibold border transition-colors ${
+        active
+          ? activeClass
+          : "bg-background-lighter text-gray-400 border-gray-600 hover:text-foreground hover:border-gray-500"
+      } ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
+    >
+      <Icon size={10} className={active ? "" : "opacity-60"} />
+      {label}
+    </button>
   );
 }

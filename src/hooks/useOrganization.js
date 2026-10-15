@@ -106,7 +106,8 @@ export function useOrganizations() {
   const handleAddOrganization = useCallback(async (
     orgName,
     organizationType = "partner",
-    createSandbox = false
+    createSandbox = false,
+    { takesSurveys = false, takesAttendance = false } = {}   // --- NEW ---
   ) => {
     if (!orgName) throw new Error("Organization name is required");
 
@@ -159,8 +160,13 @@ export function useOrganizations() {
         ispartner: organizationType === "partner",
         isfortesting: organizationType === "testing",
         isSandbox: false,
-        sandboxId: null, // populated below if a sandbox is created alongside this org
+        sandboxId: null,
         createdAt: serverTimestamp(),
+
+        // --- NEW ---
+        takesSurveys: Boolean(takesSurveys),
+        takesAttendance: Boolean(takesAttendance),
+
         total_projects: 0,
         total_teachers: 0,
         total_schools: 0,
@@ -191,7 +197,12 @@ export function useOrganizations() {
             ispartner: false,
             isfortesting: false,
             organizationType: "sandbox",
-            organizationId: mainOrgId, // relational link back to the main org
+            organizationId: mainOrgId,
+
+            // --- NEW: sandbox mirrors parent's feature flags ---
+            takesSurveys: Boolean(takesSurveys),
+            takesAttendance: Boolean(takesAttendance),
+
             total_projects: 0,
             total_teachers: 0,
             total_schools: 0,
@@ -230,8 +241,6 @@ export function useOrganizations() {
     try {
       const snapshot = await getDocs(collection(db, "organization"));
 
-      // Build a name -> id index up front so we can resolve sandbox <-> parent
-      // links for legacy docs that predate the organizationId/sandboxId fields.
       const byId = new Map();
       const byLowerName = new Map();
       snapshot.docs.forEach((d) => {
@@ -262,12 +271,15 @@ export function useOrganizations() {
           isSandbox,
           ispartner: !isSandbox && !isTesting,
           isfortesting: isTesting,
+
+          // --- NEW: default new flags for legacy docs (only if missing) ---
+          ...(typeof data.takesSurveys === "boolean" ? {} : { takesSurveys: false }),
+          ...(typeof data.takesAttendance === "boolean" ? {} : { takesAttendance: false }),
         };
 
         if (isSandbox) {
-          // Resolve organizationId (pointer to parent) if missing
           if (!data.organizationId) {
-            let parentId = data.parentOrganization || null; // older field name, if present
+            let parentId = data.parentOrganization || null;
             if (!parentId) {
               const parentName = nameTrimmed.replace(/[-\s]sandbox$/i, "").trim().toLowerCase();
               parentId = byLowerName.get(parentName) || null;
@@ -275,7 +287,6 @@ export function useOrganizations() {
             if (parentId) updates.organizationId = parentId;
           }
         } else {
-          // Resolve sandboxId (pointer to child sandbox) if missing
           if (!data.sandboxId) {
             const sandboxName = `${nameTrimmed}-sandbox`.toLowerCase();
             const sandboxId = byLowerName.get(sandboxName) || null;
@@ -308,6 +319,12 @@ export function useOrganizations() {
           isSandbox,
           ispartner: !isSandbox && !isTesting,
           isfortesting: isTesting,
+
+          // --- NEW ---
+          takesSurveys:
+            typeof organization.takesSurveys === "boolean" ? organization.takesSurveys : false,
+          takesAttendance:
+            typeof organization.takesAttendance === "boolean" ? organization.takesAttendance : false,
         };
       });
       setOrganizations(updatedOrganizations);
@@ -355,10 +372,40 @@ export function useOrganizations() {
     }
   }, [role]);
 
+  // --- NEW: super-admin edit of the two feature flags ---
+  const handleUpdateOrganizationFeatures = useCallback(async (
+    orgId,
+    { takesSurveys, takesAttendance } = {}
+  ) => {
+    if (role !== "super_admin") {
+      throw new Error("Only super administrators can update organization features");
+    }
+    if (!orgId) throw new Error("Organization ID is required");
+
+    const updates = {};
+    if (typeof takesSurveys === "boolean") updates.takesSurveys = takesSurveys;
+    if (typeof takesAttendance === "boolean") updates.takesAttendance = takesAttendance;
+    if (Object.keys(updates).length === 0) return {};
+
+    setLoading(true);
+    setError(null);
+    try {
+      await updateDoc(doc(db, "organization", orgId), updates);
+      setOrganizations((prev) =>
+        prev.map((org) => (org.id === orgId ? { ...org, ...updates } : org))
+      );
+      return updates;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [role]);
+
   const handleDeleteOrganization = useCallback(async (orgId) => {
     if (!orgId) throw new Error("Organization ID is required");
 
-    // Check if user is super_admin
     if (role !== "super_admin") {
       throw new Error("Only super administrators can delete organizations");
     }
@@ -367,7 +414,6 @@ export function useOrganizations() {
     setError(null);
 
     try {
-      // Get the organization to check if it's empty
       const orgRef = doc(db, "organization", orgId);
       const orgSnap = await getDoc(orgRef);
 
@@ -377,7 +423,6 @@ export function useOrganizations() {
 
       const orgData = orgSnap.data();
 
-      // Verify organization has no associated data
       if (
         (orgData.total_projects && orgData.total_projects > 0) ||
         (orgData.total_teachers && orgData.total_teachers > 0) ||
@@ -387,10 +432,7 @@ export function useOrganizations() {
         throw new Error("Cannot delete organization with existing projects, teachers, schools, or students");
       }
 
-      // Delete the organization
       await deleteDoc(orgRef);
-
-      // Remove from local state
       setOrganizations((prev) => prev.filter((org) => org.id !== orgId));
 
       return true;
@@ -411,6 +453,7 @@ export function useOrganizations() {
     handleAddOrganization,
     handleBackfillOrganizationFlags,
     handleUpdateOrganizationClassification,
+    handleUpdateOrganizationFeatures,   // --- NEW ---
     handleDeleteOrganization,
   };
 }
