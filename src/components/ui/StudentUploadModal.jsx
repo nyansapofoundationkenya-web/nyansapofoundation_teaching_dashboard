@@ -191,14 +191,14 @@ export default function StudentUploadModal({ isOpen, onClose, organizationId, pr
                 <Download className="w-4 h-4 mr-2" />
                 Excel Template
               </button>
-              <button
+              {/* <button
                 type="button"
                 onClick={() => downloadTemplate('csv')}
                 className="flex items-center text-sm px-3 py-1.5 bg-primary-2 hover:bg-primary-2/90 text-foreground font-semibold rounded-xl shadow-md"
               >
                 <Download className="w-4 h-4 mr-2" />
                 CSV Template
-              </button>
+              </button> */}
             </div>
             <button
               type="button"

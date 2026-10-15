@@ -10,9 +10,12 @@ import ProjectList from "@/components/Projects/ProjectList";
 import Modal from "@/components/ui/Modal";
 import { PlusIcon } from "@heroicons/react/24/outline";
 
+import { useTour } from "@/context/TourContext";
+
 export default function OrganizationDashboardPage() {
   const { organizationId } = useParams();
   const { handleFetchOrganizationById } = useOrganizations();
+  const { isTourRunning, activeTour } = useTour();
 
   // ✅ Single hook instance — owns all project state
   const { projects, loading, error, fetchAllProjects, addProjectManager, createProject } =
@@ -98,16 +101,23 @@ export default function OrganizationDashboardPage() {
     >
       <div className="min-h-screen text-foreground flex flex-col gap-4 p-4">
 
-        <div className="flex justify-end items-center pb-2">
-          {isAdminOrSuperAdmin && (
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-primary-3 text-primary-1 rounded-xl hover:bg-yellow-400 transition-colors font-medium shadow-sm"
-            >
-              <PlusIcon className="h-5 w-5" />
-              Create Project
-            </button>
+        <div className="flex justify-end items-center pb-2 gap-3" data-tour="create-project-container">
+          {/* Animated Tour Pointer Badge */}
+          {isTourRunning && activeTour === "add-project" && !isCreateModalOpen && (
+            <div className="flex items-center gap-2 px-3.5 py-2 bg-yellow-400 text-slate-950 font-bold rounded-xl animate-bounce shadow-xl border-2 border-yellow-300 z-50 text-xs">
+              <span className="text-base">👉</span>
+              <span>CLICK HERE TO CREATE PROJECT</span>
+            </div>
           )}
+
+          <button
+            data-tour="create-project-btn"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-3 text-primary-1 rounded-xl hover:bg-yellow-400 transition-all font-medium shadow-md border-2 border-yellow-400 hover:scale-105"
+          >
+            <PlusIcon className="h-5 w-5" />
+            Create Project
+          </button>
         </div>
 
         {/* ✅ Pass projects and loading from the single hook instance */}

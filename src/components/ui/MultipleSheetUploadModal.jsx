@@ -244,6 +244,7 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                 <div className="flex gap-2 flex-wrap">
                   <button
                     type="button"
+                    data-tour="multi-school-download-template"
                     onClick={downloadTemplate}
                     className="flex items-center text-sm px-3 py-1.5 bg-primary-3 hover:bg-primary-3/90 text-primary-1 font-semibold rounded-xl transition-colors shadow-md"
                   >
@@ -297,6 +298,7 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
 
                 {/* Enhanced drag and drop area */}
                 <div
+                  data-tour="multi-school-upload-area"
                   className={`relative border-2 rounded-xl p-8 text-center transition-all cursor-pointer ${
                     isDragging 
                       ? 'border-primary-3 bg-primary-3/10' 
@@ -408,6 +410,7 @@ export default function MultiSheetUploadModal({ isOpen, onClose, organizationId,
                   </button>
                   <button
                     type="submit"
+                    data-tour="multi-school-upload-submit"
                     disabled={loading || !formState.file || !isValidated}
                     className="flex-1 px-3 py-1.5 bg-primary-3 hover:bg-primary-3/90 disabled:bg-gray-600 disabled:cursor-not-allowed text-primary-1 font-semibold rounded-xl transition-colors shadow-md hover:shadow-lg"
                   >

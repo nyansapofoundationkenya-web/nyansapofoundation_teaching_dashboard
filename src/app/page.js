@@ -13,7 +13,7 @@ export default function Login() {
             <Logo />
           </div>
           <h1 className="text-xl font-semibold text-foreground mb-2">
-            Welcome Back to Nyansapo
+            Welcome Back to Nao Assessments
           </h1>
           <p className="text-gray-300 text-sm">
             Your Organization Portal
