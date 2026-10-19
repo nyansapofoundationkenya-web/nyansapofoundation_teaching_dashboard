@@ -6,6 +6,9 @@ import OrgListControls from "./OrgListControls";
 import OrgGrid from "./OrgGrid";
 import { isSandboxOrg, canDeleteOrganization, formatDate } from "@/utils/OrgUtils";
 
+const PLAY_STORE_URL =
+  "https://play.google.com/store/apps/details?id=com.nyansapoai.naoassessment&pcampaignid=web_share";
+
 export default function StandardOrganizationsView({
   currentUser,
   userLoading,
@@ -23,12 +26,10 @@ export default function StandardOrganizationsView({
   onOrganizationClick,
   onProfileClick,
   onLogoutClick,
-  onSupportClick, // new prop – required
+  onSupportClick,
 }) {
-  // Determine if the user has any organizations
   const hasOrganizations = realOrgs.length + sandboxOrgs.length > 0;
 
-  // Build the greeting message
   const userName = userLoading ? "User" : currentUser?.name || "User";
   const greeting = hasOrganizations
     ? `Welcome back, ${userName}.`
@@ -39,12 +40,10 @@ export default function StandardOrganizationsView({
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      {/* Sticky header – only the user name and action buttons */}
       <div className="sticky top-0 z-20 bg-background pt-6 pb-3 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="flex items-center justify-between mb-5">
             <div>
-              {/* Removed the "Welcome back" text – now only the name */}
               <h1 className="text-xl font-bold text-foreground">
                 {userLoading ? (
                   <span className="inline-block w-32 h-5 bg-background-light rounded animate-pulse" />
@@ -72,11 +71,30 @@ export default function StandardOrganizationsView({
             </div>
           </div>
 
-          {/* Hero banner – glass panel with conditional greeting and Support button */}
           <div className="relative overflow-hidden rounded-2xl bg-background-light/80 backdrop-blur-sm border border-background-lighter p-5 mb-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h2 className="text-xl font-bold text-foreground">{greeting}</h2>
               <p className="text-sm text-gray-300 max-w-2xl mt-1">{subtext}</p>
+
+              {!hasOrganizations && (
+                <a
+                  href={PLAY_STORE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 mt-3 px-3 py-2 rounded-xl bg-background-lighter border border-gray-600 text-sm font-semibold text-foreground hover:border-primary-3 hover:text-primary-3 transition-all"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M3.6 2.3c-.3.3-.5.7-.5 1.3v16.8c0 .6.2 1 .5 1.3l.1.1 9.4-9.4v-.2L3.7 2.2l-.1.1zm12.6 6.5L6.4 3.1l7.6 7.6 2.2-1.9zm0 6.4l-2.2-1.9-7.6 7.6 9.8-5.7zm3.9-2.9l-2.7-1.5-2.4 2.1 2.4 2.1 2.7-1.5c.8-.4.8-1.4 0-1.8l-.0.6z" />
+                  </svg>
+                  Download our Android app on Google Play
+                </a>
+              )}
             </div>
             <button
               onClick={onSupportClick}
@@ -100,7 +118,6 @@ export default function StandardOrganizationsView({
         </div>
       </div>
 
-      {/* Scrollable cards */}
       <main className="flex-1 px-6 py-4 overflow-y-auto">
         <div className="max-w-5xl mx-auto">
           <OrgGrid
@@ -116,6 +133,7 @@ export default function StandardOrganizationsView({
             isSuperAdmin={false}
             isSandboxOrg={isSandboxOrg}
             featureFirst
+            playStoreUrl={PLAY_STORE_URL} // ← new prop
           />
         </div>
       </main>
