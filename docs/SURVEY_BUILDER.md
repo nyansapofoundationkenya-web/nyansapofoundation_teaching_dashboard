@@ -107,3 +107,7 @@ snapshot until an administrator publishes a new version.
 The dashboard's Preview route simulates welcome content, answer validation,
 conditional visibility, page routing, progress, and the thank-you/disqualification
 screen. It is a builder preview only and does not write respondent data.
+
+For the mobile respondent flow, published-version loading, question rendering,
+logic, and the response-storage gap, see
+[MOBILE_SURVEY_IMPLEMENTATION.md](./MOBILE_SURVEY_IMPLEMENTATION.md).

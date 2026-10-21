@@ -94,6 +94,15 @@ This folder contains comprehensive documentation for all aspects of the Nyansapo
 
 **Best for**: Quick lookup of all items in the project
 
+### 6. [MOBILE_SURVEY_IMPLEMENTATION.md](MOBILE_SURVEY_IMPLEMENTATION.md)
+**Mobile Survey Implementation**
+- Published survey loading and Firestore paths
+- Question and answer value formats
+- Conditional visibility, routing, and validation
+- Household context and mobile response-storage requirements
+
+**Best for**: Implementing the survey respondent experience in the mobile app
+
 ---
 
 ## 🎯 Getting Started
