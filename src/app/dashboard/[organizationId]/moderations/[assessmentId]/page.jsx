@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import Search from "@/components/Assessments/Search";
@@ -11,18 +11,23 @@ import DurationStatsModal from "@/components/Assessments/DurationStatsModal";
 import AssessmentContentModal from "@/components/Moderations/assessments/AssessmentContentModal";
 import DashboardLayout from "@/app/dashboard/[organizationId]/DashboardLayout";
 import { db } from "@/firebase/config";
-import { doc, getDoc } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import { collection, doc, getDoc, getDocs, updateDoc } from "firebase/firestore";
 import {
   ArrowLeft,
   RotateCw,
+  Loader2,
   Clock,
   FileText,
+  Download,
   UploadCloud,
   CheckCircle2,
   X,
   AlertTriangle,
 } from "lucide-react";
 import { exportAssessmentData } from "@/utils/exportAssessmentData";
+import { determinePassedFromTranscript } from "@/utils/transcriptionUtils";
+import * as XLSX from "xlsx";
 
 const REPROCESS_API_URL = process.env.NEXT_PUBLIC_REPROCESS_API_URL;
 const REPROCESS_SECRET = process.env.NEXT_PUBLIC_PROCESS_SECRET;
@@ -50,12 +55,20 @@ export default function AssessmentDetailsPage() {
   const [showContentModal, setShowContentModal] = useState(false);
   const [isTransferring, setIsTransferring] = useState(false);
   const [transferMessage, setTransferMessage] = useState(null);
+  const [isRetranscribing, setIsRetranscribing] = useState(false);
+  const [retranscribeProgress, setRetranscribeProgress] = useState({ done: 0, total: 0 });
+  const [retranscribeMessage, setRetranscribeMessage] = useState(null);
+  const [missingTranscriptCount, setMissingTranscriptCount] = useState(null);
+  const [isDownloadingTranscripts, setIsDownloadingTranscripts] = useState(false);
 
   // Group-name modal state
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [groupInput, setGroupInput] = useState("");
 
   const backUrl = `/dashboard/${organizationId}/moderations`;
+  const assessmentTypeRaw = assessment?.type || "literacy";
+  const assessmentType =
+    assessmentTypeRaw.toLowerCase() === "numeracy" ? "numeracy" : "literacy";
 
   // Fetch the assessment from Firestore
   useEffect(() => {
@@ -88,10 +101,323 @@ export default function AssessmentDetailsPage() {
   const handleSearchChange = (q) => setSearchQuery(q);
   const handleGradeFilterChange = (g) => setGradeFilter(g);
 
+  const fetchAssessmentResults = useCallback(async () => {
+    const resultsSnapshot = await getDocs(
+      collection(db, "assessments", assessmentId, "assessments-results")
+    );
+    return resultsSnapshot.docs.map((resultDoc) => ({
+      id: resultDoc.id,
+      ref: resultDoc.ref,
+      data: resultDoc.data(),
+    }));
+  }, [assessmentId]);
+
+  useEffect(() => {
+    if (!isSuperAdmin || assessmentType !== "literacy" || !assessment) return;
+
+    let cancelled = false;
+    const loadMissingTranscriptCount = async () => {
+      try {
+        const resultDocs = await fetchAssessmentResults();
+        const count = resultDocs.reduce((total, { data }) => {
+          const readingResults = data?.literacy_results?.reading_results || [];
+          return (
+            total +
+            readingResults.filter((item) => {
+              const transcript = item?.metadata?.transcript;
+              return (
+                !!item?.metadata?.audio_url &&
+                !(typeof transcript === "string" && transcript.trim())
+              );
+            }).length
+          );
+        }, 0);
+        if (!cancelled) setMissingTranscriptCount(count);
+      } catch (err) {
+        console.error("Failed to count missing assessment transcripts:", err);
+        if (!cancelled) {
+          setRetranscribeMessage({
+            type: "error",
+            text: `Failed to check missing transcripts: ${err.message}`,
+          });
+        }
+      }
+    };
+
+    loadMissingTranscriptCount();
+    return () => {
+      cancelled = true;
+    };
+  }, [assessment, assessmentId, assessmentType, fetchAssessmentResults, isSuperAdmin]);
+
+  const handleRetranscribeAssessment = async () => {
+    if (!isSuperAdmin || isRetranscribing || assessmentType !== "literacy") return;
+
+    setIsRetranscribing(true);
+    setRetranscribeMessage(null);
+
+    try {
+      const resultDocs = await fetchAssessmentResults();
+      const targets = resultDocs.flatMap(({ id, data }) => {
+        const readingResults = data?.literacy_results?.reading_results || [];
+        const studentId = data?.student_id || id.slice(`${assessmentId}_`.length);
+
+        return readingResults
+          .map((item, globalIndex) => ({ id, studentId, item, globalIndex }))
+          .filter(({ item }) => {
+            const transcript = item?.metadata?.transcript;
+            return (
+              !!item?.metadata?.audio_url &&
+              !(typeof transcript === "string" && transcript.trim())
+            );
+          });
+      });
+
+      if (targets.length === 0) {
+        setMissingTranscriptCount(0);
+        setRetranscribeMessage({
+          type: "success",
+          text: "All items with audio already have a transcript.",
+        });
+        return;
+      }
+
+      setRetranscribeProgress({ done: 0, total: targets.length });
+      const auth = getAuth();
+      const currentAuthUser = auth.currentUser;
+      if (!currentAuthUser) throw new Error("You must be signed in to retranscribe.");
+      const token = await currentAuthUser.getIdToken();
+      const retranscribedBy =
+        currentUser?.name ||
+        currentUser?.displayName ||
+        currentUser?.email ||
+        currentAuthUser.displayName ||
+        currentAuthUser.email ||
+        currentAuthUser.uid;
+      const resultsById = new Map(resultDocs.map((result) => [result.id, result]));
+      const failures = [];
+      let successCount = 0;
+      let gradedPassed = 0;
+      let gradedFailed = 0;
+
+      for (let i = 0; i < targets.length; i++) {
+        const { id, studentId, item, globalIndex } = targets[i];
+        setRetranscribeProgress({ done: i, total: targets.length });
+
+        try {
+          const response = await fetch("/api/retranscription", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              assessmentId,
+              studentId,
+              globalIndex,
+              language: assessment?.language || "english",
+            }),
+          });
+          const rawText = await response.text();
+          let responseData;
+          try {
+            responseData = rawText ? JSON.parse(rawText) : {};
+          } catch {
+            throw new Error(
+              response.status === 504
+                ? "Timed out — model may be slow right now"
+                : `HTTP ${response.status}`
+            );
+          }
+          if (!response.ok) {
+            throw new Error(responseData.error || `HTTP ${response.status}`);
+          }
+          if (!responseData.transcript) throw new Error("No transcript returned");
+
+          const itemType = (item?.metadata?.type || item?.type || "").toLowerCase();
+          const passed = determinePassedFromTranscript(
+            itemType,
+            item?.content,
+            responseData.transcript
+          );
+          const retranscribedAt =
+            responseData.retranscribedAt || new Date().toISOString();
+          if (passed === true) gradedPassed++;
+          if (passed === false) gradedFailed++;
+
+          const result = resultsById.get(id);
+          const updatedReadingResults = [
+            ...(result.data.literacy_results?.reading_results || []),
+          ];
+          updatedReadingResults[globalIndex] = {
+            ...updatedReadingResults[globalIndex],
+            metadata: {
+              ...updatedReadingResults[globalIndex].metadata,
+              transcript: responseData.transcript,
+              retranscribed_by: retranscribedBy,
+              retranscribed_by_uid:
+                responseData.retranscribedBy || currentAuthUser.uid,
+              retranscribed_at: retranscribedAt,
+              transcription_confidence: responseData.confidence ?? null,
+              transcription_low_confidence:
+                responseData.low_confidence ?? null,
+              transcription_chunks: Array.isArray(responseData.chunks)
+                ? responseData.chunks
+                : [],
+              transcription_stats: responseData.stats ?? null,
+              transcription_model_id: responseData.model_id ?? null,
+              ...(passed !== undefined ? { passed } : {}),
+            },
+          };
+          await updateDoc(result.ref, {
+            "literacy_results.reading_results": updatedReadingResults,
+          });
+          result.data = {
+            ...result.data,
+            literacy_results: {
+              ...result.data.literacy_results,
+              reading_results: updatedReadingResults,
+            },
+          };
+          successCount++;
+        } catch (err) {
+          console.error(`Retranscription failed for reading_results[${globalIndex}]:`, err);
+          failures.push({
+            student: assessment?.assigned_students?.find((student) => student.id === studentId)?.name || studentId,
+            item: item?.content || `Item #${globalIndex + 1}`,
+            error: err.message,
+          });
+        }
+      }
+
+      setRetranscribeMessage({
+        type: failures.length > 0 ? "error" : "success",
+        text: `Done: ${successCount} succeeded${failures.length ? `, ${failures.length} failed` : ""}. Auto-graded letters/words: ${gradedPassed} passed, ${gradedFailed} failed.`,
+        failures,
+      });
+      setMissingTranscriptCount(failures.length);
+    } catch (err) {
+      console.error("Assessment retranscription failed:", err);
+      setRetranscribeMessage({ type: "error", text: err.message || "Failed to retranscribe assessment." });
+    } finally {
+      setRetranscribeProgress((progress) => ({ ...progress, done: progress.total }));
+      setIsRetranscribing(false);
+    }
+  };
+
+  const handleDownloadTranscriptReport = async () => {
+    if (isDownloadingTranscripts) return;
+    setIsDownloadingTranscripts(true);
+
+    try {
+      const resultDocs = await fetchAssessmentResults();
+      const studentsById = new Map(
+        (assessment?.assigned_students || []).map((student) => [student.id, student])
+      );
+      const rows = resultDocs.flatMap(({ id, data }) => {
+        const studentId = data?.student_id || id.slice(`${assessmentId}_`.length);
+        const student = studentsById.get(studentId);
+        const readingResults = data?.literacy_results?.reading_results || [];
+
+        return readingResults.map((item, index) => {
+          const transcript =
+            typeof item?.metadata?.transcript === "string"
+              ? item.metadata.transcript
+              : "";
+          const hasAudio = !!item?.metadata?.audio_url;
+          return {
+            "Student name":
+              student?.name ||
+              data?.student_name ||
+              `${student?.first_name || data?.student_first_name || ""} ${student?.last_name || data?.student_last_name || ""}`.trim(),
+            "Student ID": studentId,
+            Grade: student?.grade ?? data?.student_grade ?? "",
+            "Item number": index + 1,
+            "Item type": item?.metadata?.type || item?.type || "",
+            "Target text": item?.content || "",
+            Transcript: transcript,
+            "Transcript status": transcript.trim()
+              ? "Available"
+              : hasAudio
+              ? "Missing"
+              : "No audio",
+            "Has audio": hasAudio ? "Yes" : "No",
+            "Audio URL": item?.metadata?.audio_url || "",
+            "Moderated": item?.metadata?.modeltranscriptionverified ? "Yes" : "No",
+            "Passed": typeof item?.metadata?.passed === "boolean" ? (item.metadata.passed ? "Yes" : "No") : "",
+            "Retranscribed by": item?.metadata?.retranscribed_by || "",
+            "Retranscribed by user ID": item?.metadata?.retranscribed_by_uid || "",
+            "Retranscribed at": item?.metadata?.retranscribed_at || "",
+            "Confidence": item?.metadata?.transcription_confidence ?? "",
+            "Low confidence": item?.metadata?.transcription_low_confidence ?? "",
+            "Model ID": item?.metadata?.transcription_model_id || "",
+            "Audio duration (seconds)":
+              item?.metadata?.transcription_stats?.audio_duration_seconds ?? "",
+            "Inference time (seconds)":
+              item?.metadata?.transcription_stats?.inference_time_seconds ?? "",
+            "Real-time factor":
+              item?.metadata?.transcription_stats?.real_time_factor ?? "",
+            "Transcript chunks": JSON.stringify(
+              item?.metadata?.transcription_chunks || []
+            ),
+            "Transcription stats": JSON.stringify(
+              item?.metadata?.transcription_stats || {}
+            ),
+          };
+        });
+      });
+
+      const columns = [
+        "Student name",
+        "Student ID",
+        "Grade",
+        "Item number",
+        "Item type",
+        "Target text",
+        "Transcript",
+        "Transcript status",
+        "Has audio",
+        "Audio URL",
+        "Moderated",
+        "Passed",
+        "Retranscribed by",
+        "Retranscribed by user ID",
+        "Retranscribed at",
+        "Confidence",
+        "Low confidence",
+        "Model ID",
+        "Audio duration (seconds)",
+        "Inference time (seconds)",
+        "Real-time factor",
+        "Transcript chunks",
+        "Transcription stats",
+      ];
+      const worksheet = XLSX.utils.json_to_sheet(rows, { header: columns });
+      worksheet["!cols"] = [
+        { wch: 24 }, { wch: 22 }, { wch: 10 }, { wch: 12 }, { wch: 18 },
+        { wch: 28 }, { wch: 42 }, { wch: 20 }, { wch: 12 }, { wch: 48 },
+        { wch: 12 }, { wch: 10 }, { wch: 24 }, { wch: 30 }, { wch: 26 },
+        { wch: 14 }, { wch: 16 }, { wch: 32 }, { wch: 22 }, { wch: 22 },
+        { wch: 18 }, { wch: 60 }, { wch: 60 },
+      ];
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Reading Transcripts");
+      const filename = `${(assessment?.name || "assessment")
+        .replace(/[^a-z0-9-_]+/gi, "_")
+        .replace(/^_+|_+$/g, "")}_transcripts.xlsx`;
+      XLSX.writeFile(workbook, filename);
+    } catch (err) {
+      console.error("Transcript report download failed:", err);
+      setRetranscribeMessage({
+        type: "error",
+        text: `Failed to download transcript report: ${err.message}`,
+      });
+    } finally {
+      setIsDownloadingTranscripts(false);
+    }
+  };
+
   // Assessment type
-  const assessmentTypeRaw = assessment?.type || "literacy";
-  const assessmentType =
-    assessmentTypeRaw.toLowerCase() === "numeracy" ? "numeracy" : "literacy";
   const isSwahiliAssessment =
     String(assessment?.language || "").trim().toLowerCase() === "swahili";
   const displayAssessmentType =
@@ -527,6 +853,76 @@ export default function AssessmentDetailsPage() {
             </div>
           )}
         </div>
+
+        {isSuperAdmin && assessmentType === "literacy" && (
+          <section className="bg-background-light rounded-2xl shadow-lg p-5 border border-gray-600">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">
+                  Assessment transcripts
+                </h2>
+                <p className="text-sm text-gray-400 mt-1">
+                  Retranscribe all missing audio transcripts across this assessment, or download an Excel report of every reading item.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={handleRetranscribeAssessment}
+                  disabled={
+                    isRetranscribing ||
+                    missingTranscriptCount === null ||
+                    missingTranscriptCount === 0
+                  }
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium bg-primary-2/20 hover:bg-primary-2/30 border border-primary-2/40 text-primary-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isRetranscribing ? (
+                    <Loader2 size={17} className="animate-spin" />
+                  ) : (
+                    <RotateCw size={17} />
+                  )}
+                  {isRetranscribing
+                    ? `Retranscribing ${retranscribeProgress.done}/${retranscribeProgress.total}...`
+                    : missingTranscriptCount === null
+                    ? "Checking transcripts..."
+                    : `Retranscribe Missing (${missingTranscriptCount})`}
+                </button>
+                <button
+                  onClick={handleDownloadTranscriptReport}
+                  disabled={isDownloadingTranscripts}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isDownloadingTranscripts ? (
+                    <Loader2 size={17} className="animate-spin" />
+                  ) : (
+                    <Download size={17} />
+                  )}
+                  {isDownloadingTranscripts ? "Preparing Excel..." : "Download Excel"}
+                </button>
+              </div>
+            </div>
+
+            {retranscribeMessage && (
+              <div
+                className={`mt-4 p-3 rounded-xl text-sm ${
+                  retranscribeMessage.type === "success"
+                    ? "bg-green-500/20 text-green-300 border border-green-500/30"
+                    : "bg-red-500/20 text-red-300 border border-red-500/30"
+                }`}
+              >
+                <p>{retranscribeMessage.text}</p>
+                {retranscribeMessage.failures?.length > 0 && (
+                  <ul className="mt-2 list-disc list-inside space-y-1">
+                    {retranscribeMessage.failures.map((failure, index) => (
+                      <li key={`${failure.student}-${failure.item}-${index}`}>
+                        {failure.student} — {failure.item}: {failure.error}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </section>
+        )}
 
         <StudentMetrics
           students={filteredStudents}

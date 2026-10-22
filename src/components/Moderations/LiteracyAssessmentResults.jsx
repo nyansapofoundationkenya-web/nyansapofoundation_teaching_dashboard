@@ -10,65 +10,7 @@ import { db } from "@/firebase/config";
 import { doc, updateDoc } from "firebase/firestore";
 import { getColoredWords } from "@/utils/wordComparison";
 import { useFlagItem } from "@/hooks/useFlagItem";
-
-// Types that get auto-graded once a transcript comes back: the target
-// `content` is looked up as a contiguous token run anywhere in the
-// transcript (so "the cat", "cat cat", and "kat cat" all count as a
-// correct attempt for "cat"). Paragraph/story are scored by word-diff
-// accuracy shown inline in the UI, not a pass/fail boolean, so they're
-// excluded — retranscribing them only ever updates metadata.transcript.
-const AUTO_GRADED_TYPES = ["letter", "word"];
-
-// Tokenizes a string into lowercase Unicode letter/number runs, so
-// punctuation and spacing differences don't matter ("Cat", "cat.",
-// " the  cat " all yield clean tokens). Using \p{L}\p{N} rather than
-// [a-z0-9] keeps this working on Swahili transcripts with characters
-// outside plain ASCII.
-const tokenizeForComparison = (str) => {
-  if (!str) return [];
-  return str.toString().toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
-};
-
-// Returns true/false for letter/word items, or undefined for anything else
-// (including when there's no target content to compare against) — callers
-// should only write `passed` into metadata when this returns a boolean.
-//
-// Instead of requiring the WHOLE transcript to equal the target (which
-// broke on self-corrections and extra words), this checks whether the
-// target appears anywhere as a contiguous run of tokens in the transcript.
-// That handles:
-//   cat  vs "the cat"     → ["the","cat"] contains ["cat"] ✓
-//   cat  vs "cat cat"     → contains ["cat"] ✓
-//   cat  vs "kat cat"     → self-corrected, contains ["cat"] ✓
-//   ship vs "sheep ship"  → self-corrected, contains ["ship"] ✓
-//   a    vs "a a"         → contains ["a"] ✓
-//   cat  vs "kat" only    → no correct attempt anywhere → fails ✓
-const determinePassedFromTranscript = (type, content, transcript) => {
-  const normalizedType = (type || "").toLowerCase();
-  if (!AUTO_GRADED_TYPES.includes(normalizedType)) return undefined;
-
-  const targetTokens = tokenizeForComparison(content);
-  if (targetTokens.length === 0) return undefined;
-
-  const transcriptTokens = tokenizeForComparison(transcript);
-  if (transcriptTokens.length === 0) return false;
-
-  // Slide a window the size of the target across the transcript tokens
-  // looking for a contiguous match. For single-token targets (the common
-  // case for letters/words) this is effectively a membership check.
-  const targetLen = targetTokens.length;
-  for (let i = 0; i + targetLen <= transcriptTokens.length; i++) {
-    let match = true;
-    for (let j = 0; j < targetLen; j++) {
-      if (transcriptTokens[i + j] !== targetTokens[j]) {
-        match = false;
-        break;
-      }
-    }
-    if (match) return true;
-  }
-  return false;
-};
+import { determinePassedFromTranscript } from "@/utils/transcriptionUtils";
 
 export default function LiteracyAssessmentResults({
   assessmentId,
@@ -179,7 +121,16 @@ export default function LiteracyAssessmentResults({
 
     try {
       const auth  = getAuth();
-      const token = await auth.currentUser.getIdToken();
+      const currentAuthUser = auth.currentUser;
+      if (!currentAuthUser) throw new Error("You must be signed in to retranscribe.");
+      const token = await currentAuthUser.getIdToken();
+      const retranscribedBy =
+        currentUser?.name ||
+        currentUser?.displayName ||
+        currentUser?.email ||
+        currentAuthUser.displayName ||
+        currentAuthUser.email ||
+        currentAuthUser.uid;
       const docRef = doc(
         db, "assessments", assessmentId, "assessments-results", `${assessmentId}_${studentId}`
       );
@@ -222,6 +173,8 @@ export default function LiteracyAssessmentResults({
 
           const itemType = (item?.metadata?.type || item?.type || "").toLowerCase();
           const passed = determinePassedFromTranscript(itemType, item?.content, data.transcript);
+          const retranscribedAt =
+            data.retranscribedAt || new Date().toISOString();
           if (passed === true) gradedPassed++;
           if (passed === false) gradedFailed++;
 
@@ -231,6 +184,15 @@ export default function LiteracyAssessmentResults({
             metadata: {
               ...workingResults[idx].metadata,
               transcript: data.transcript,
+              retranscribed_by: retranscribedBy,
+              retranscribed_by_uid:
+                data.retranscribedBy || currentAuthUser.uid,
+              retranscribed_at: retranscribedAt,
+              transcription_confidence: data.confidence ?? null,
+              transcription_low_confidence: data.low_confidence ?? null,
+              transcription_chunks: Array.isArray(data.chunks) ? data.chunks : [],
+              transcription_stats: data.stats ?? null,
+              transcription_model_id: data.model_id ?? null,
               ...(passed !== undefined ? { passed } : {}),
             },
           };
@@ -271,6 +233,32 @@ export default function LiteracyAssessmentResults({
         hour: "numeric", minute: "2-digit", hour12: true,
       });
     } catch { return timeStr; }
+  };
+
+  const RetranscriptionAudit = ({ metadata }) => {
+    if (!metadata?.retranscribed_at) return null;
+    const retranscribedBy =
+      metadata.retranscribed_by || metadata.retranscribed_by_uid || "Unknown user";
+
+    return (
+      <div className="text-[10px] leading-tight text-gray-500 mt-1 break-words">
+        Retranscribed by {retranscribedBy}
+        <br />
+        {formatDoneTime(metadata.retranscribed_at)}
+        {typeof metadata.transcription_confidence === "number" && (
+          <>
+            <br />
+            Model confidence: {(metadata.transcription_confidence * 100).toFixed(1)}%
+          </>
+        )}
+        {metadata.transcription_low_confidence === true && (
+          <>
+            <br />
+            <span className="text-amber-400">Low model confidence</span>
+          </>
+        )}
+      </div>
+    );
   };
 
   const FlagIndicator = ({ flagged }) => {
@@ -396,6 +384,7 @@ export default function LiteracyAssessmentResults({
                     {formatDoneTime(result.metadata.done_time)}
                   </div>
                 )}
+                <RetranscriptionAudit metadata={result?.metadata} />
               </div>
             ))}
           </div>
@@ -431,6 +420,7 @@ export default function LiteracyAssessmentResults({
                     {formatDoneTime(result.metadata.done_time)}
                   </div>
                 )}
+                <RetranscriptionAudit metadata={result?.metadata} />
               </div>
             ))}
           </div>
@@ -461,6 +451,7 @@ export default function LiteracyAssessmentResults({
                     <span className="text-gray-500">Done: {formatDoneTime(result.metadata.done_time)}</span>
                   )}
                 </div>
+                <RetranscriptionAudit metadata={result?.metadata} />
               </div>
             );
           })
@@ -491,6 +482,7 @@ export default function LiteracyAssessmentResults({
                     <span className="text-gray-500">Done: {formatDoneTime(result.metadata.done_time)}</span>
                   )}
                 </div>
+                <RetranscriptionAudit metadata={result?.metadata} />
               </div>
             );
           })

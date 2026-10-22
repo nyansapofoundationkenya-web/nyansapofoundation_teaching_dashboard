@@ -16,6 +16,8 @@ const ROLE_FIELD = "role";
 // English now goes through a plain REST endpoint (FastAPI/uvicorn on Azure
 // Container Apps) instead of a Gradio Space.
 const ENGLISH_API_URL = process.env.ENGLISH_API_URL;
+const ENGLISH_API_KEY =
+  process.env.ENGLISH_API_KEY || process.env.AZURE_SPEECH_KEY;
 
 // Swahili/Kiswahili still goes through a Gradio Space.
 const GRADIO_SPACE_SWAHILI = "Nyansapoaike/swahili_fabai";
@@ -87,16 +89,35 @@ async function isSuperAdmin(uid) {
 // ── Single-attempt transcription, per language ─────────────────────────
 
 async function transcribeEnglish(audioBlob, filename) {
+  if (!ENGLISH_API_URL) {
+    throw new Error("English transcription is not configured: ENGLISH_API_URL is missing.");
+  }
+  if (!ENGLISH_API_KEY) {
+    throw new Error(
+      "English transcription is not configured: set ENGLISH_API_KEY or AZURE_SPEECH_KEY on the server."
+    );
+  }
+
   const form = new FormData();
   form.append("file", audioBlob, filename);
 
   const res = await fetch(ENGLISH_API_URL, {
     method: "POST",
-    headers: { accept: "application/json" },
+    headers: {
+      accept: "application/json",
+      "x-api-key": ENGLISH_API_KEY,
+    },
     body: form,
   });
 
   if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      const error = new Error(
+        "English transcription API authentication failed. Verify the server-side English API key matches the key configured on the transcription service."
+      );
+      error.code = "ENGLISH_API_AUTH";
+      throw error;
+    }
     // Keep the status code in the message so the retry loop's
     // rate-limit/timeout sniffing (which matches on message text) still
     // works for this endpoint.
@@ -106,7 +127,17 @@ async function transcribeEnglish(audioBlob, filename) {
 
   const json = await res.json();
   const text = typeof json?.text === "string" ? json.text.trim() : "";
-  return text;
+  return {
+    text,
+    confidence: typeof json?.confidence === "number" ? json.confidence : null,
+    lowConfidence:
+      typeof json?.low_confidence === "boolean" ? json.low_confidence : null,
+    chunks: Array.isArray(json?.chunks) ? json.chunks : [],
+    stats:
+      json?.stats && typeof json.stats === "object" && !Array.isArray(json.stats)
+        ? json.stats
+        : null,
+  };
 }
 
 async function transcribeSwahili(audioBlob) {
@@ -116,8 +147,8 @@ async function transcribeSwahili(audioBlob) {
   });
 
   const raw = Array.isArray(result?.data) ? result.data[0] : result?.data;
-  const transcription = typeof raw === "string" ? raw.trim() : "";
-  return transcription;
+  const text = typeof raw === "string" ? raw.trim() : "";
+  return { text, confidence: null, lowConfidence: null, chunks: [], stats: null };
 }
 
 async function transcribeOnce(language, audioBlob, filename) {
@@ -155,13 +186,16 @@ async function transcribeWithRetry(audioBlob, assessmentType, language, filename
       console.log(`[TRANSCRIBE] lang=${language} attempt ${attempt + 1}/${maxAttempts}`);
       const transcription = await transcribeOnce(language, audioBlob, filename);
 
-      if (transcription) {
-        console.log(`[TRANSCRIBE] Success: "${transcription.slice(0, 200)}"`);
-        return { transcript: transcription, timedOut: false };
+      if (transcription?.text) {
+        console.log(`[TRANSCRIBE] Success: "${transcription.text.slice(0, 200)}"`);
+        return { ...transcription, timedOut: false };
       }
 
       console.warn(`[TRANSCRIBE] Empty result on attempt ${attempt + 1}`);
     } catch (err) {
+      if (err?.code === "ENGLISH_API_AUTH" || /ENGLISH_API_KEY/.test(err?.message || "")) {
+        throw err;
+      }
       lastError = err;
       const msg = String(err?.message || err);
       let wait;
@@ -305,15 +339,15 @@ export async function POST(req) {
   try {
     const audioBlob = new Blob([audioBuffer], { type: "audio/wav" });
     const filename = `${assessmentId}_${studentId}_${globalIndex}.wav`;
-    const { transcript, timedOut } = await transcribeWithRetry(
+    const transcription = await transcribeWithRetry(
       audioBlob,
       assessmentType,
       language,
       filename
     );
 
-    if (!transcript) {
-      if (timedOut) {
+    if (!transcription?.text) {
+      if (transcription?.timedOut) {
         // 504 lets the client distinguish "model never answered in time"
         // from a hard model/API failure (502).
         return jsonError(
@@ -324,8 +358,25 @@ export async function POST(req) {
       return jsonError("Transcription failed — model returned no result", 502);
     }
 
-    return NextResponse.json({ transcript, language });
+    return NextResponse.json({
+      transcript: transcription.text,
+      language,
+      confidence: transcription.confidence,
+      low_confidence: transcription.lowConfidence,
+      chunks: transcription.chunks,
+      stats: transcription.stats,
+      model_id: transcription.stats?.model_id || null,
+      retranscribedBy: uid,
+      retranscribedAt: new Date().toISOString(),
+    });
   } catch (err) {
+    if (
+      err?.code === "ENGLISH_API_AUTH" ||
+      /ENGLISH_API_KEY|ENGLISH_API_URL/.test(err?.message || "")
+    ) {
+      console.error("[RETRANSCRIBE] English API configuration error:", err.message);
+      return jsonError(err.message, 500);
+    }
     console.error("[RETRANSCRIBE] Failed:", err);
     return jsonError("Re-transcription failed", 500);
   }
