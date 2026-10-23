@@ -20,19 +20,217 @@ appropriate Firestore rules or a trusted backend before it is released.
 
 ## Firestore definition paths
 
-All paths are scoped to the organization:
+All survey-definition paths are scoped to the organization:
+
+```text
+organization/{organizationId}/surveys/{surveyId}                                      # editable survey document
+organization/{organizationId}/surveys/{surveyId}/questions/{questionId}               # editable question document
+organization/{organizationId}/surveys/{surveyId}/versions/{version}                   # immutable published snapshot
+```
+
+These are the only survey-specific document paths currently created by the
+dashboard:
+
+| Path | Created/updated when | Contents | Mobile use |
+| --- | --- | --- | --- |
+| `organization/{organizationId}/surveys/{surveyId}` | Created as a draft; updated while editing and when publishing | Draft survey metadata, settings, welcome/thank-you content, and embedded `pages`; publish pointer such as `publishedVersion` | List/select published surveys and find the current published version. Not the respondent definition. |
+| `organization/{organizationId}/surveys/{surveyId}/questions/{questionId}` | Added, edited, moved, reordered, or removed in the builder | One editable question, including `pageId`, `target_entity`, type/config/options/logic | Not read by the respondent flow. |
+| `organization/{organizationId}/surveys/{surveyId}/versions/{version}` | Written on publish | One immutable, complete survey snapshot with embedded ordered `pages` and `questions` | Fetch this snapshot and render it. |
+
+There is **no `pages` subcollection**: page definitions are embedded in the
+survey draft and copied into each published version. There is currently **no
+`responses` or `submissions` subcollection and no response-writing API** in
+this dashboard implementation. The mobile app and dashboard/backend owners
+still need to agree on response persistence separately. Deleting a survey root
+document currently does not cascade-delete its `questions` or `versions`
+subcollections.
+
+All reads must remain scoped to the organization. The survey and question
+documents are the editable draft. **Do not render these draft documents in the
+respondent flow.** Read the survey's `publishedVersion`, then fetch that
+version from the `versions` subcollection. If the survey is a draft, has no
+published version, or the version document is missing, do not offer it as a
+respondent survey.
+
+### Editable survey document
+
+Path:
 
 ```text
 organization/{organizationId}/surveys/{surveyId}
+```
+
+The Firestore document ID is `surveyId`; the dashboard does not store an `id`
+field in the draft document itself. The builder/list adds the document ID when
+it reads the document. A newly created draft has this shape (server timestamp
+values are represented descriptively):
+
+```json
+{
+  "title": "Household baseline",
+  "description": "Household survey",
+  "slug": "household-baseline",
+  "status": "draft",
+  "version": 0,
+  "template": "blank",
+  "settings": {
+    "access": {
+      "mode": "public",
+      "require_login": false,
+      "allowed_domains": [],
+      "password": null
+    },
+    "limits": {
+      "one_response_per_respondent": false,
+      "max_responses": null,
+      "opens_at": null,
+      "closes_at": null,
+      "time_limit_minutes": null
+    },
+    "behavior": {
+      "allow_save_and_resume": true,
+      "allow_back_navigation": true,
+      "allow_edit_after_submit": false,
+      "show_progress_bar": true,
+      "show_question_numbers": true,
+      "randomize_pages": false
+    },
+    "privacy": {
+      "anonymous": true,
+      "collect_ip": false,
+      "collect_user_agent": false,
+      "data_retention_days": 365
+    },
+    "notifications": {
+      "notify_owner_on_response": false,
+      "send_receipt_to_respondent": false
+    },
+    "appearance": {
+      "theme": "default",
+      "primary_color": "#f7cc1c",
+      "logo_url": null,
+      "language": "en"
+    }
+  },
+  "welcome": {
+    "title": "Household baseline",
+    "body": "Please answer the following questions."
+  },
+  "thank_you": {
+    "title": "Thank you",
+    "body": "Your response has been recorded.",
+    "redirect_url": null
+  },
+  "pages": [
+    {
+      "id": "page_intro",
+      "title": "Page 1",
+      "position": 0
+    }
+  ],
+  "questionOrder": [
+    {
+      "pageId": "page_intro",
+      "questionIds": []
+    }
+  ],
+  "createdBy": "user_001",
+  "createdAt": "<Firestore server timestamp>",
+  "updatedAt": "<Firestore server timestamp>",
+  "publishedAt": null
+}
+```
+
+Builder edits can add `publishedVersion` and `hasUnpublishedChanges`, and can
+change `status`, `version`, `publishedAt`, and `updatedAt`. These are
+root-document metadata; published content lives in the version subcollection.
+`questionOrder` is initialized when the draft is created, but the builder reads
+actual question documents from `questions` and relies on each question's
+`pageId` and `position` for ordering.
+
+### Embedded draft page
+
+Pages are stored in the survey document's `pages` array, not in their own
+collection. The initial page is created with `id`, `title`, and `position`.
+Pages added later by the builder also include `logic`, `randomize_questions`,
+and `questionIds` (an initialized list; the question subcollection and each
+question's `pageId`/`position` are the question source of truth). A later page
+may look like:
+
+```json
+{
+  "id": "page_children",
+  "title": "Children",
+  "position": 1,
+  "logic": null,
+  "randomize_questions": false,
+  "questionIds": []
+}
+```
+
+The published version normalizes each page to `id`, `survey_id`, `title`,
+`description`, `position`, `logic`, and `randomize_questions`, as shown in the
+complete published schema below.
+
+### Editable question document
+
+Path:
+
+```text
 organization/{organizationId}/surveys/{surveyId}/questions/{questionId}
+```
+
+The question document ID is the question's stable ID. Draft question fields use
+camelCase where shown here; publishing converts selected fields to snake_case:
+
+```json
+{
+  "id": "q_child_first_name",
+  "pageId": "page_intro",
+  "position": 0,
+  "type": "short_text",
+  "target_entity": "child",
+  "text": "What is the child's first name?",
+  "description": "",
+  "required": true,
+  "config": {
+    "max_length": 120,
+    "placeholder": ""
+  },
+  "logic": null,
+  "options": [],
+  "createdAt": 1792566000000,
+  "updatedAt": 1792566000000
+}
+```
+
+`target_entity` is `household` or `child`; new questions default to
+`household`. Questions may additionally contain an `updatedAt` Firestore server
+timestamp after an edit. Option objects are embedded in the question's
+`options` array; options are **not** a subcollection. Option shape:
+
+```json
+{
+  "id": "option_other",
+  "label": "Other",
+  "value": "",
+  "position": 1,
+  "is_other": true
+}
+```
+
+### Published version document
+
+Path:
+
+```text
 organization/{organizationId}/surveys/{surveyId}/versions/{version}
 ```
 
-The survey and question documents are the editable draft. **Do not render these
-draft documents in the respondent flow.** Read the survey's `publishedVersion`,
-then fetch that version from the `versions` subcollection. If the survey is a
-draft, has no published version, or the version document is missing, do not
-offer it as a respondent survey.
+`{version}` is the version number as a string document ID (for example, `1` or
+`2`). This is the respondent-facing source of truth. It embeds `settings`,
+`welcome`, `thank_you`, `pages`, and `questions`; there are no nested page or
+question documents under a version. The complete version schema follows below.
 
 ## Complete published survey schema
 
@@ -329,12 +527,9 @@ The builder exposes **Question is about** on each question:
   the child by stable household-child ID, and keep each child's answer separate.
 
 `target_entity` tells the app **whose information the question describes**. It
-does not, by itself, name a Firestore destination or map a question to a student
-document field or assessment field. Until an explicit field-mapping contract is
-added, preserve all answers in the survey response and have the trusted
-integration map approved child details into student records and assessment
-flows. Do not guess mappings from question text or write arbitrary survey
-answers into those collections.
+does not name a storage destination. This dashboard change only publishes the
+household/child marker; the mobile app owns any later association or writes to
+its student and assessment workflows.
 
 Example mobile answer grouping for a household with two children:
 
@@ -346,7 +541,6 @@ Example mobile answer grouping for a household with two children:
   "child_answers": [
     {
       "household_child_id": "child_101",
-      "student_id": "student_abc",
       "answers": {
         "q_child_first_name": "Amina",
         "q_child_language": {
@@ -356,7 +550,6 @@ Example mobile answer grouping for a household with two children:
     },
     {
       "household_child_id": "child_102",
-      "student_id": null,
       "answers": {
         "q_child_first_name": "Baraka",
         "q_child_language": {
@@ -371,40 +564,9 @@ Example mobile answer grouping for a household with two children:
 
 The exact persisted response envelope is still subject to the response contract
 below. `household_child_id` must refer to a stable child record/ID, not a name or
-array index. If the child already has a student record, preserve its student
-document ID (currently exposed in household data as `linkedLearnerId`) and do
-not create a duplicate student. If no student record exists, student creation
-must be an explicit, authorized operation that returns a stable student ID and
-links it back to that household child.
-
-### Existing student and assessment locations
-
-The dashboard currently reads/writes student records under:
-
-```text
-organization/{organizationId}/projects/{projectId}/schools/{schoolId}/students/{studentId}
-```
-
-The codebase's student import uses fields such as `first_name`, `last_name`,
-`grade`, `age`, and `sex`; this is not a complete canonical student schema.
-Coordinate required fields, household linkage, duplicate matching, and
-counter updates with the owners of student registration before creating
-students from a survey.
-
-Assessment definitions and results are separate from survey responses. Existing
-assessment results use the pattern:
-
-```text
-assessments/{assessmentId}/assessments-results/{assessmentId}_{studentId}
-```
-
-Do not write generic household survey answers directly into an assessment
-result document. Assessment results have their own assessment-specific shape.
-Use the established assessment workflow (including an assessment ID, student
-ID, and required result fields), or define a reviewed mapping and trusted
-backend operation that transforms selected child answers into that shape.
-Survey response data should remain traceable to its survey ID and published
-version even when selected data is copied to student or assessment records.
+array index. The mobile app can use that child context when associating answers
+with a student or assessment; those collection schemas and writes are outside
+this dashboard survey definition.
 
 ## Respondent flow
 
@@ -519,7 +681,6 @@ existing dashboard contract):
     },
     "children": {
       "child_101": {
-        "student_id": "student_abc",
         "answers": {
           "q_child_first_name": "Amina"
         }
@@ -536,10 +697,9 @@ Recommended properties of the final contract:
 - Store answers keyed by stable question ID, and choices keyed by stable option
   ID; keep `other_text` alongside the choice answer when present.
 - Keep household answers separate from child answers. Key child answers by a
-  stable household-child ID and include the linked student ID when one exists.
-- Do not treat `target_entity` as a write destination. A future mapping feature
-  should explicitly identify approved student/assessment fields and validate
-  those mappings against their respective schemas.
+  stable household-child ID.
+- Use `target_entity` only to distinguish household-level from child-level
+  questions. It does not configure student or assessment field mappings.
 - Include organization, survey, published version, and the mobile household
   context required to associate the response.
 - Define whether respondent identity is allowed/required based on the survey's
@@ -583,7 +743,7 @@ authorization behavior must be explicitly defined.
 - [ ] Offer only published surveys with a readable published version.
 - [ ] Preserve the selected household ID through launch and submission.
 - [ ] Render household questions once and child questions for each child; bind
-  each child answer set to that child's stable ID and optional student ID.
+  each child answer set to that child's stable ID.
 - [ ] Render all 12 supported types, including layout-only types.
 - [ ] Use question/option IDs in saved answers, never labels as identifiers.
 - [ ] Match conditional question and page visibility and page-routing behavior.
@@ -592,8 +752,9 @@ authorization behavior must be explicitly defined.
   to settings.
 - [ ] Pin the published version for the life of an in-progress response.
 - [ ] Treat missing `target_entity` in schema-version-1 surveys as `household`.
-- [ ] Keep survey answer storage distinct from student-profile and assessment
-  result writes unless a trusted, field-mapped integration is approved.
+- [ ] Use the question's `target_entity` to determine whether answers describe
+  the household or each child; handle any student/assessment integration in
+  the mobile app's own workflow.
 - [ ] Agree and implement the response path/API, security, idempotency, and
   offline retry contract.
 - [ ] Cover each question type, required/optional answers, "other" choices,
