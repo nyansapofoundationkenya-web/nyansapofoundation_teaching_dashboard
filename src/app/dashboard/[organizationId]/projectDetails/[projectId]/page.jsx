@@ -12,6 +12,7 @@ import { useAssessmentHealth } from "@/hooks/stats/useAssessmentHealth";
 import { useStudentLevels } from "@/hooks/stats/useStudentLevels";
 import { useNumeracyLevels } from "@/hooks/stats/useNumeracyLevels";
 import { useDemographicsLevels } from "@/hooks/stats/Usedemographicslevels";
+import { useAttendanceEnabled } from "@/hooks/useAttendanceEnabled";
 import {
   GraduationCap,
   School,
@@ -48,6 +49,11 @@ export default function ProjectDetails() {
   );
   const isAdminOrSuperAdmin =
     currentUser?.role === "admin" || currentUser?.role === "super_admin";
+
+  // Attendance is only shown for organizations with takesAttendance enabled
+  // (same flag that drives the sidebar's Attendance item)
+  const attendanceEnabled = useAttendanceEnabled(organizationId);
+
   // Hooks
   const {
     project,
@@ -446,18 +452,20 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
               />
             </div>
 
-            {/* Attendance Overview */}
-            <div>
-              <AttendanceOverview
-                organizationId={organizationId}
-                loading={attendanceLoading}
-                error={attendanceError}
-                data={attendanceData}
-                onFetchData={refetchAttendance}
-              />
-            </div>
+            {/* Attendance Overview — only for organizations that take attendance */}
+            {attendanceEnabled && (
+              <div>
+                <AttendanceOverview
+                  organizationId={organizationId}
+                  loading={attendanceLoading}
+                  error={attendanceError}
+                  data={attendanceData}
+                  onFetchData={refetchAttendance}
+                />
+              </div>
+            )}
 
-            {/* Duration Statistics */}
+            {/* Duration Statistics — Recalculate button is super-admin only (handled inside the component) */}
             <div>
               <DurationStats
                 organizationId={organizationId}

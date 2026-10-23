@@ -12,6 +12,7 @@ import { useAssessmentHealth } from "@/hooks/stats/useAssessmentHealth"
 import { useStudentLevels } from "@/hooks/stats/useStudentLevels"
 import { useNumeracyLevels } from "@/hooks/stats/useNumeracyLevels"
 import { useDemographicsLevels } from "@/hooks/stats/Usedemographicslevels"
+import { truthy } from "@/hooks/useAttendanceEnabled"
 import {
   Info,
   X,
@@ -163,6 +164,9 @@ export default function WelcomePage() {
 
     fetchOrg()
   }, [organizationId, handleFetchOrganizationById])
+
+  // Same rule the sidebar uses to show the Attendance menu item
+  const attendanceEnabled = truthy(organization?.takesAttendance)
 
   // Prepare chart data based on level type (Overall tab only — Grade/Age/Gender
   // tabs compute their own slice from demographicsData inside the chart component)
@@ -364,17 +368,21 @@ export default function WelcomePage() {
             />
           </div>
 
-          {/* Attendance Overview */}
-          <div className="mb-10">
-            <AttendanceOverview
-              organizationId={organizationId}
-              loading={attendanceLoading}
-              error={attendanceError}
-              data={attendanceData}
-              onFetchData={refetchAttendance}
-            />
-          </div>
-          {/* Duration Statistics */}
+          {/* Attendance Overview — only for organizations that take attendance
+              (same flag that drives the sidebar's Attendance item) */}
+          {attendanceEnabled && (
+            <div className="mb-10">
+              <AttendanceOverview
+                organizationId={organizationId}
+                loading={attendanceLoading}
+                error={attendanceError}
+                data={attendanceData}
+                onFetchData={refetchAttendance}
+              />
+            </div>
+          )}
+
+          {/* Duration Statistics — Recalculate button is super-admin only (handled inside the component) */}
           <div className="mb-10">
             <DurationStats
               organizationId={organizationId}

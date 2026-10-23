@@ -23,7 +23,12 @@ import {
   BookOpen,
 } from "lucide-react"
 import DownloadLevelModal from "./DownloadLevelModal"
-import { ChartDataTransformer, computeInsights } from "@/lib/studentLevelChartData"
+import {
+  ChartDataTransformer,
+  computeInsights,
+  computeBaselineOnlyInsights,
+  detectAvailablePeriods,
+} from "@/lib/studentLevelChartData"
 
 const TABS = [
   { id: "overall", label: "Overall", icon: Info },
@@ -91,13 +96,6 @@ export default function StudentLevelsChart({
 
   const currentBucket = selectedBucket[activeTab]
 
-  const getAllLevels = () => {
-    const levels = levelType === "literacy"
-      ? ['Non-Reader', 'Letter', 'Word', 'Paragraph', 'Story']
-      : ['Beginner', 'Number Recognition', 'Addition', 'Subtraction', 'Multiplication', 'Division']
-    return levels.map(level => ({ level, baseline: 0, midline: 0, endline: 0 }))
-  }
-
   // ── Resolve which dataset actually feeds the chart ─────────────────────────
   const activeChartData = useMemo(() => {
     if (!isDemoTab) {
@@ -110,29 +108,51 @@ export default function StudentLevelsChart({
     return rows && rows.length > 0 ? rows : null
   }, [isDemoTab, chartData, demographicsData, activeTab, currentBucket, levelType])
 
-  const displayData = activeChartData || getAllLevels()
+  // Empty template for the fallback state — uses rawLevel/rank so it looks
+  // identical to the real data path in the chart & any downstream consumers.
+  const emptyTemplateData = useMemo(() => {
+    const levels = levelType === "literacy"
+      ? ["non-reader", "letter", "word", "paragraph", "story"]
+      : ["beginner", "number_recognition", "addition", "subtraction", "multiplication", "division"]
+    return ChartDataTransformer.transformData(
+      { baseline: {}, midline: {}, endline: {} },
+      levelType
+    ).filter(d => levels.includes(d.rawLevel))
+  }, [levelType])
+
+  const displayData = activeChartData || emptyTemplateData
   const hasRealData = Boolean(activeChartData)
 
   const currentLoading = isDemoTab ? demographicsLoading : loading
-  const currentError = isDemoTab ? demographicsError : error
+  const currentError   = isDemoTab ? demographicsError   : error
 
   const scopeLabel = isDemoTab && currentBucket
     ? formatBucketLabel(activeTab, currentBucket)
     : "Overall"
 
+  // Which periods actually have data?
+  const available = useMemo(
+    () => detectAvailablePeriods(activeChartData),
+    [activeChartData]
+  )
+
   const totalStudents = useMemo(() => {
     if (!hasRealData) return 0
-    const endlineTotal = activeChartData.reduce((sum, d) => sum + d.endline, 0)
+    const endlineTotal = activeChartData.reduce((sum, d) => sum + (Number(d.endline) || 0), 0)
     if (endlineTotal > 0) return endlineTotal
-    const midTotal = activeChartData.reduce((sum, d) => sum + d.midline, 0)
+    const midTotal = activeChartData.reduce((sum, d) => sum + (Number(d.midline) || 0), 0)
     if (midTotal > 0) return midTotal
-    return activeChartData.reduce((sum, d) => sum + d.baseline, 0)
+    return activeChartData.reduce((sum, d) => sum + (Number(d.baseline) || 0), 0)
   }, [activeChartData, hasRealData])
 
+  // Decide which insight set to compute based on data availability
   const insights = useMemo(() => {
     if (!hasRealData) return null
-    return computeInsights(activeChartData)
-  }, [activeChartData, hasRealData])
+    if (available.latest === "baseline") {
+      return computeBaselineOnlyInsights(activeChartData, levelType)
+    }
+    return computeInsights(activeChartData, available.latest)
+  }, [activeChartData, hasRealData, available.latest, levelType])
 
   const togglePeriod = (key) => {
     setVisiblePeriods((prev) => ({ ...prev, [key]: !prev[key] }))
@@ -167,7 +187,7 @@ export default function StudentLevelsChart({
     }
   }
 
-  // ── Header ───────────────────────────────────────────────────────────────
+  // ── Header (title left · "Based on X students" + Export right) ─────────────
   const renderHeader = () => (
     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
       <div>
@@ -179,38 +199,56 @@ export default function StudentLevelsChart({
         </p>
       </div>
 
-      {canExport && (
-        <button
-          onClick={handleDownloadClick}
-          disabled={downloadLoading || currentLoading || !hasRealData}
-          className={`
-            px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors
-            ${downloadLoading || currentLoading || !hasRealData
-              ? "bg-gray-700 text-gray-400 cursor-not-allowed opacity-50"
-              : "bg-green-600 hover:bg-green-700 text-white"
-            }
-          `}
-          title={!hasRealData ? "No data to export" : "Export students"}
-        >
-          {downloadLoading ? (
-            <>
-              <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              Downloading...
-            </>
-          ) : (
-            <>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Export Students
-            </>
-          )}
-        </button>
-      )}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+        {/* Prominent "Based on X students assessed" chip, top-right */}
+        <div className="flex items-center gap-3 bg-primary-2/10 border border-primary-2/30 rounded-lg px-4 py-2">
+          <div className="h-9 w-9 rounded-full bg-primary-2/20 flex items-center justify-center shrink-0">
+            <Users className="h-4.5 w-4.5 text-primary-2" />
+          </div>
+          <div className="leading-tight">
+            <p className="text-sm sm:text-base font-semibold text-primary-2 whitespace-nowrap">
+              Based on {hasRealData ? totalStudents.toLocaleString() : "—"} students
+            </p>
+            <p className="text-xs text-gray-400 whitespace-nowrap">
+              {levelType === "literacy" ? "Reading" : "Numeracy"} level distribution
+              {isDemoTab && currentBucket ? ` · ${scopeLabel}` : ""}
+            </p>
+          </div>
+        </div>
+
+        {canExport && (
+          <button
+            onClick={handleDownloadClick}
+            disabled={downloadLoading || currentLoading || !hasRealData}
+            className={`
+              px-4 py-2 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-colors
+              ${downloadLoading || currentLoading || !hasRealData
+                ? "bg-gray-700 text-gray-400 cursor-not-allowed opacity-50"
+                : "bg-green-600 hover:bg-green-700 text-white"
+              }
+            `}
+            title={!hasRealData ? "No data to export" : "Export students"}
+          >
+            {downloadLoading ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Downloading...
+              </>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export Students
+              </>
+            )}
+          </button>
+        )}
+      </div>
     </div>
   )
 
@@ -240,9 +278,9 @@ export default function StudentLevelsChart({
     </div>
   )
 
-  // ── Filter row: bucket dropdown (if demo tab) + subject + assessment toggles + total ──
+  // ── Filter row: bucket dropdown + subject + period toggles ─────────────────
   const renderFilterRow = () => (
-    <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-6">
+    <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-4">
       <div className="flex flex-wrap items-end gap-4">
         {isDemoTab && (
           <div className="flex flex-col gap-1">
@@ -292,52 +330,103 @@ export default function StudentLevelsChart({
           </div>
         </div>
       </div>
-
-      {/* <div className="flex items-center gap-2 bg-primary-2/10 border border-primary-2/30 rounded-lg px-4 py-2 self-start lg:self-auto">
-        <Info className="h-4 w-4 text-primary-2" />
-        <div>
-          <p className="text-xs text-gray-400 leading-none">Total Students</p>
-          <p className="text-lg font-semibold text-primary-2 leading-tight">
-            {hasRealData ? totalStudents.toLocaleString() : "—"}
-          </p>
-        </div>
-      </div> */}
     </div>
   )
 
   // ── Key insights cards ───────────────────────────────────────────────────
   const renderInsights = () => {
     if (!insights) return null
-    const subjectLabel = levelType === "literacy" ? "reading" : "numeracy"
+
+    // ── Case A: only baseline (single period) — distribution insights, no trend claims ──
+    if (available.latest === "baseline") {
+      const cards = [
+        {
+          icon: Users,
+          color: "text-blue-400 bg-blue-500/10",
+          text: `${insights.modal.pct}% of ${scopeLabel} learners are at ${insights.modal.level || insights.modal.label} level.`,
+        },
+        {
+          icon: BookOpen,
+          color: "text-purple-400 bg-purple-500/10",
+          text: levelType === "literacy"
+            ? `${insights.literacy.fluentPct}% are reading at Paragraph or Story level.`
+            : `${insights.numeracy.advancedPct}% are at Multiplication or Division level.`,
+        },
+        {
+          icon: GraduationCap,
+          color: "text-orange-400 bg-orange-500/10",
+          text: levelType === "literacy"
+            ? `${insights.literacy.nonReaderPct}% are still Non-Readers.`
+            : `${insights.numeracy.beginnerPct}% are at Beginner level.`,
+        },
+        {
+          icon: Info,
+          color: "text-yellow-400 bg-yellow-500/10",
+          text: `Trend insights will appear once midline or endline data is recorded.`,
+        },
+      ]
+
+      return (
+        <div className="mt-6 pt-6 border-t border-gray-700">
+          <h3 className="text-sm font-semibold text-gray-300 mb-4">
+            Key Insights for {scopeLabel}
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {cards.map((card, i) => {
+              const Icon = card.icon
+              return (
+                <div key={i} className="bg-background rounded-xl p-4 border border-gray-700 flex items-start gap-3">
+                  <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${card.color}`}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <p className="text-sm text-gray-300">{card.text}</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )
+    }
+
+    // ── Case B: comparative insights (baseline -> midline OR baseline -> endline) ──
+    const compareWord = insights.compareTo === "midline" ? "midline" : "endline"
+    const modalLabel = insights.modal.label
+    const modalGrowth = insights.modal.growth
 
     const cards = [
       {
         icon: Users,
         color: "text-blue-400 bg-blue-500/10",
-        text: `${insights.modal.pct}% of ${scopeLabel} learners are at ${insights.modal.label} level.`
+        text: `${insights.modal.pct}% of ${scopeLabel} learners are at ${modalLabel} level.`,
       },
-      insights.modal.growth && {
-        icon: insights.modal.growth.direction === "decreased" ? TrendingDown : TrendingUp,
-        color: insights.modal.growth.direction === "decreased" ? "text-red-400 bg-red-500/10" : "text-green-400 bg-green-500/10",
-        text: insights.modal.growth.direction === "new"
-          ? `${insights.modal.label}-level learners are newly recorded this period.`
-          : `${insights.modal.label}-level learners ${insights.modal.growth.direction} by ${insights.modal.growth.value}% since baseline.`
+      modalGrowth && {
+        icon: modalGrowth.direction === "decreased" ? TrendingDown : TrendingUp,
+        color: modalGrowth.direction === "decreased"
+          ? "text-red-400 bg-red-500/10"
+          : "text-green-400 bg-green-500/10",
+        text: modalGrowth.direction === "new"
+          ? `${modalLabel}-level learners are newly recorded at ${compareWord}.`
+          : `${modalLabel}-level learners ${modalGrowth.direction} by ${modalGrowth.value}% since baseline.`,
       },
       {
         icon: insights.lowest.direction === "decreased" ? TrendingDown : TrendingUp,
-        color: insights.lowest.direction === "decreased" ? "text-yellow-400 bg-yellow-500/10" : "text-orange-400 bg-orange-500/10",
-        text: `${insights.lowest.label}s ${insights.lowest.direction} from ${insights.lowest.baselinePct}% at baseline to ${insights.lowest.endlinePct}% at endline.`
+        color: insights.lowest.direction === "decreased"
+          ? "text-yellow-400 bg-yellow-500/10"
+          : "text-orange-400 bg-orange-500/10",
+        text: `${insights.lowest.label} learners ${insights.lowest.direction} from ${insights.lowest.baselinePct}% at baseline to ${insights.lowest.endlinePct}% at ${compareWord}.`,
       },
       {
         icon: BookOpen,
         color: "text-purple-400 bg-purple-500/10",
-        text: `${insights.highest.label} levels ${insights.highest.changeWord} from ${insights.highest.baselinePct}% to ${insights.highest.endlinePct}%.`
+        text: `${insights.highest.label} levels ${insights.highest.changeWord} from ${insights.highest.baselinePct}% to ${insights.highest.endlinePct}% at ${compareWord}.`,
       },
     ].filter(Boolean)
 
     return (
       <div className="mt-6 pt-6 border-t border-gray-700">
-        <h3 className="text-sm font-semibold text-gray-300 mb-4">Key Insights for {scopeLabel}</h3>
+        <h3 className="text-sm font-semibold text-gray-300 mb-4">
+          Key Insights for {scopeLabel}
+        </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {cards.map((card, i) => {
             const Icon = card.icon
@@ -351,9 +440,6 @@ export default function StudentLevelsChart({
             )
           })}
         </div>
-        <p className="text-xs text-gray-500 mt-4">
-          Data is based on {insights.total.toLocaleString()} students assessed{isDemoTab && currentBucket ? ` in ${scopeLabel}` : ""}.
-        </p>
       </div>
     )
   }
