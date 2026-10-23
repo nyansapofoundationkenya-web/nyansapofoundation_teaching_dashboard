@@ -220,6 +220,12 @@ export function validateSurveyDefinition(survey, questions) {
     if (!QUESTION_TYPES[question.type]) {
       errors.push(`Question ${index + 1} has an unsupported type.`);
     }
+    if (
+      question.target_entity != null &&
+      !["household", "child"].includes(question.target_entity)
+    ) {
+      errors.push(`Question ${index + 1} has an unsupported target entity.`);
+    }
     if (!pagePositions.has(question.pageId)) {
       errors.push(`Question ${index + 1} is not assigned to a survey page.`);
     }
@@ -350,6 +356,7 @@ export function createPublishedSurveyDefinition({ organizationId, survey, questi
       survey_id: survey.id,
       page_id: question.pageId,
       type: question.type,
+      target_entity: question.target_entity === "child" ? "child" : "household",
       text: question.text ?? "",
       description: question.description ?? "",
       created_at: question.createdAt ?? null,
@@ -377,7 +384,7 @@ export function createPublishedSurveyDefinition({ organizationId, survey, questi
   };
 
   return {
-    schema_version: 1,
+    schema_version: 2,
     organization_id: organizationId,
     id: survey.id,
     slug: survey.slug ?? "",

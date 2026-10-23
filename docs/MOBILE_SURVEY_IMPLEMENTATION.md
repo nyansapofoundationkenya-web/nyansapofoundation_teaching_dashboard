@@ -34,34 +34,102 @@ then fetch that version from the `versions` subcollection. If the survey is a
 draft, has no published version, or the version document is missing, do not
 offer it as a respondent survey.
 
-Example published document shape (abridged):
+## Complete published survey schema
+
+The published snapshot is the complete, immutable definition the mobile app
+renders. The example below shows all top-level fields and settings currently
+written by the dashboard, plus household- and child-targeted question examples.
+Question `config` varies by `type`; the supported config keys are listed in the
+question type table below.
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "organization_id": "org_123",
   "id": "survey_456",
   "slug": "household-baseline",
+  "owner_id": "user_001",
   "title": "Household baseline",
   "description": "Household survey",
   "status": "published",
   "version": 2,
-  "settings": {},
+  "created_at": "2026-10-21T07:00:00.000Z",
+  "updated_at": "2026-10-21T07:10:00.000Z",
+  "published_at": "2026-10-21T07:10:00.000Z",
+  "published_by": "user_001",
+  "settings": {
+    "access": {
+      "mode": "public",
+      "require_login": false,
+      "allowed_domains": [],
+      "password": null
+    },
+    "limits": {
+      "one_response_per_respondent": false,
+      "max_responses": null,
+      "opens_at": null,
+      "closes_at": null,
+      "time_limit_minutes": null
+    },
+    "behavior": {
+      "allow_save_and_resume": true,
+      "allow_back_navigation": true,
+      "allow_edit_after_submit": false,
+      "show_progress_bar": true,
+      "show_question_numbers": true,
+      "randomize_pages": false
+    },
+    "privacy": {
+      "anonymous": true,
+      "collect_ip": false,
+      "collect_user_agent": false,
+      "data_retention_days": 365
+    },
+    "notifications": {
+      "notify_owner_on_response": false,
+      "send_receipt_to_respondent": false
+    },
+    "appearance": {
+      "theme": "default",
+      "primary_color": "#f7cc1c",
+      "logo_url": null,
+      "language": "en"
+    }
+  },
   "welcome": {
     "title": "Household baseline",
-    "body": "Please answer the following questions."
+    "body": "Please answer the following questions.",
+    "button_label": "Start"
   },
   "thank_you": {
     "title": "Thank you",
-    "body": "Your response has been recorded."
+    "body": "Your response has been recorded.",
+    "redirect_url": null
   },
   "pages": [
     {
       "id": "page_intro",
       "survey_id": "survey_456",
       "title": "Household details",
+      "description": "",
       "position": 0,
-      "logic": null,
+      "logic": {
+        "after_submit": [
+          {
+            "if": {
+              "all": [
+                {
+                  "question_id": "q_household_size",
+                  "op": "gt",
+                  "value": 10
+                }
+              ]
+            },
+            "action": "end_survey"
+          }
+        ],
+        "default_action": "next_page"
+      },
       "randomize_questions": false
     }
   ],
@@ -73,8 +141,10 @@ Example published document shape (abridged):
       "type": "number",
       "text": "How many people live in this household?",
       "description": "",
+      "created_at": 1792566000000,
       "required": true,
       "position": 0,
+      "target_entity": "household",
       "config": {
         "min": 1,
         "max": null,
@@ -83,19 +153,113 @@ Example published document shape (abridged):
       },
       "options": [],
       "logic": null
+    },
+    {
+      "id": "q_child_first_name",
+      "survey_id": "survey_456",
+      "page_id": "page_intro",
+      "type": "short_text",
+      "text": "What is the child's first name?",
+      "description": "",
+      "created_at": 1792566000000,
+      "required": true,
+      "position": 1,
+      "target_entity": "child",
+      "config": {
+        "max_length": 120,
+        "placeholder": ""
+      },
+      "options": [],
+      "logic": null
     }
   ]
 }
 ```
 
+The survey-level `created_at`, `updated_at`, and `published_at` values are
+Firestore timestamps; ISO strings above are illustrative JSON representations.
+Question `created_at` is copied from the draft and is currently an epoch
+millisecond number (or `null`). The builder may omit optional fields such as
+`owner_id`, `created_at`, `updated_at`, `published_by`, `welcome.button_label`,
+or question `created_at` when the source draft has no value.
+
 Pages and questions are already ordered in the published snapshot. For reliable
 rendering, still sort pages by `position` and questions by `page_id`, then
 `position`. Keep IDs as strings and use stable question and option IDs; labels
-are for display, not answer keys. The published fields use `snake_case` in
-places, including `organization_id`, `page_id`, and `survey_id`.
+are for display, not answer keys. Published fields use `snake_case`, including
+`organization_id`, `page_id`, `survey_id`, `created_at`, and `target_entity`.
+Newly published snapshots use `schema_version: 2`. Version-1 snapshots predate
+`target_entity`; treat a missing value as `"household"`. Reject unsupported
+schema versions explicitly rather than guessing how to render them.
 
-The snapshot has `schema_version: 1`. Handle an unsupported schema version as an
-explicit error rather than trying to guess how to render it.
+### Question and option schema
+
+Every published question has this structure:
+
+```json
+{
+  "id": "stable-question-id",
+  "survey_id": "survey_456",
+  "page_id": "page_intro",
+  "type": "single_choice",
+  "text": "What is the child's primary language?",
+  "description": "Choose one answer.",
+  "created_at": null,
+  "required": false,
+  "position": 2,
+  "target_entity": "child",
+  "config": {
+    "randomize_options": false,
+    "layout": "vertical"
+  },
+  "options": [
+    {
+      "id": "option_english",
+      "label": "English",
+      "value": "en",
+      "position": 0,
+      "is_other": false
+    },
+    {
+      "id": "option_other",
+      "label": "Other",
+      "value": "",
+      "position": 1,
+      "is_other": true
+    }
+  ],
+  "logic": null
+}
+```
+
+`config` and `options` are empty objects/arrays when not applicable. Each option
+has a stable ID, display label, optional stored value, position, and
+`is_other` flag. Question `logic` can contain `show_if`; pages can contain
+`show_if`, `after_submit`, and `default_action` flow rules.
+
+A page route rule has this shape:
+
+```json
+{
+  "if": {
+    "all": [
+      {
+        "question_id": "q_has_children",
+        "op": "equals",
+        "value": true
+      }
+    ]
+  },
+  "action": "jump_to_page",
+  "target_page_id": "page_children"
+}
+```
+
+The route actions are `jump_to_page`, `skip_page`, `end_survey`, and
+`disqualify`. `target_page_id` is required for `jump_to_page` and `skip_page`.
+
+Each page has `id`, `survey_id`, `title`, `description`, `position`, `logic`,
+and `randomize_questions`.
 
 ## Question types and answer values
 
@@ -117,6 +281,23 @@ Render the question based on `type`, `config`, and `options`. `section` and
 | `section` | Section heading and optional subtitle | No answer |
 | `info` | Informational text block | No answer |
 
+The dashboard's default configurations are:
+
+| Type | Default `config` |
+| --- | --- |
+| `short_text` | `{ "max_length": 120, "placeholder": "" }` |
+| `long_text` | `{ "max_length": 2000, "rows": 4, "placeholder": "" }` |
+| `number` | `{ "min": null, "max": null, "step": 1, "integer_only": false }` |
+| `single_choice` | `{ "randomize_options": false, "layout": "vertical" }` |
+| `multi_choice` | `{ "min_select": 0, "max_select": null, "randomize_options": false }` |
+| `dropdown` | `{ "searchable": false, "randomize_options": false }` |
+| `boolean` | `{ "true_label": "Yes", "false_label": "No" }` |
+| `rating` | `{ "max": 5, "icon": "star" }` |
+| `scale` | `{ "min": 1, "max": 10, "labels": { "min": "", "mid": "", "max": "" } }` |
+| `date` | `{ "min_date": null, "max_date": null }` |
+| `section` | `{ "subtitle": "" }` |
+| `info` | `{ "body": "Add context or instructions here." }` |
+
 For a single choice or dropdown with an `is_other` option, include the selected
 option ID and the respondent's text:
 
@@ -135,6 +316,95 @@ For multi-choice, use:
 
 Only show the "other" text input when an `is_other` option is selected. Require
 non-blank `other_text` when that option is selected.
+
+## Household vs child/student questions
+
+The builder exposes **Question is about** on each question:
+
+- `target_entity: "household"` — answer once for the household, parent, or
+  caregiver. This is the default, including for version-1 published surveys
+  where the field is absent.
+- `target_entity: "child"` — answer separately for each child in the household.
+  The mobile app should show the question in a child-specific context, identify
+  the child by stable household-child ID, and keep each child's answer separate.
+
+`target_entity` tells the app **whose information the question describes**. It
+does not, by itself, name a Firestore destination or map a question to a student
+document field or assessment field. Until an explicit field-mapping contract is
+added, preserve all answers in the survey response and have the trusted
+integration map approved child details into student records and assessment
+flows. Do not guess mappings from question text or write arbitrary survey
+answers into those collections.
+
+Example mobile answer grouping for a household with two children:
+
+```json
+{
+  "household_answers": {
+    "q_household_size": 5
+  },
+  "child_answers": [
+    {
+      "household_child_id": "child_101",
+      "student_id": "student_abc",
+      "answers": {
+        "q_child_first_name": "Amina",
+        "q_child_language": {
+          "option_id": "option_english"
+        }
+      }
+    },
+    {
+      "household_child_id": "child_102",
+      "student_id": null,
+      "answers": {
+        "q_child_first_name": "Baraka",
+        "q_child_language": {
+          "option_id": "option_other",
+          "other_text": "Kikuyu"
+        }
+      }
+    }
+  ]
+}
+```
+
+The exact persisted response envelope is still subject to the response contract
+below. `household_child_id` must refer to a stable child record/ID, not a name or
+array index. If the child already has a student record, preserve its student
+document ID (currently exposed in household data as `linkedLearnerId`) and do
+not create a duplicate student. If no student record exists, student creation
+must be an explicit, authorized operation that returns a stable student ID and
+links it back to that household child.
+
+### Existing student and assessment locations
+
+The dashboard currently reads/writes student records under:
+
+```text
+organization/{organizationId}/projects/{projectId}/schools/{schoolId}/students/{studentId}
+```
+
+The codebase's student import uses fields such as `first_name`, `last_name`,
+`grade`, `age`, and `sex`; this is not a complete canonical student schema.
+Coordinate required fields, household linkage, duplicate matching, and
+counter updates with the owners of student registration before creating
+students from a survey.
+
+Assessment definitions and results are separate from survey responses. Existing
+assessment results use the pattern:
+
+```text
+assessments/{assessmentId}/assessments-results/{assessmentId}_{studentId}
+```
+
+Do not write generic household survey answers directly into an assessment
+result document. Assessment results have their own assessment-specific shape.
+Use the established assessment workflow (including an assessment ID, student
+ID, and required result fields), or define a reviewed mapping and trusted
+backend operation that transforms selected child answers into that shape.
+Survey response data should remain traceable to its survey ID and published
+version even when selected data is copied to student or assessment records.
 
 ## Respondent flow
 
@@ -155,7 +425,9 @@ non-blank `other_text` when that option is selected.
    a clear start action.
 5. **Render page-by-page.** Start with pages sorted by `position`. On each
    visible page, render its questions sorted by `position`, filtering questions
-   whose `logic.show_if` evaluates false.
+   whose `logic.show_if` evaluates false. Render household-targeted questions
+   once. Render child-targeted questions once per selected household child and
+   retain the child ID with every answer.
 6. **Validate before moving on.** Validate only visible answer-producing
    questions on the active page. Show an inline error next to its question and
    keep the respondent on that page until corrected.
@@ -193,6 +465,12 @@ Supported operators are `equals`, `not_equals`, `in`, `not_in`, `contains`,
 `gt`, `gte`, `lt`, `lte`, `is_empty`, and `is_not_empty`. Choice conditions
 refer to option IDs. For choice answers, read `option_id` or `option_ids` when
 evaluating a condition; do not compare a display label.
+
+For a child-targeted question, evaluate visibility and validation in the
+context of that specific child. Do not let one child's answer reveal or hide
+another child's questions. The dashboard flow editor currently does not
+configure a child context for conditions; until that support is added, avoid
+conditional rules that depend on child-targeted answers.
 
 The dashboard validates that logic refers to earlier answer questions and that
 page routes point forward. The mobile client should still handle malformed or
@@ -236,9 +514,17 @@ existing dashboard contract):
   "respondent_id": "user_001",
   "status": "submitted",
   "answers": {
-    "q_household_size": 5,
-    "q_has_children": true,
-    "q_household_type": { "option_id": "option_a" }
+    "household": {
+      "q_household_size": 5
+    },
+    "children": {
+      "child_101": {
+        "student_id": "student_abc",
+        "answers": {
+          "q_child_first_name": "Amina"
+        }
+      }
+    }
   },
   "started_at": "2026-10-21T07:00:00.000Z",
   "submitted_at": "2026-10-21T07:12:00.000Z"
@@ -249,6 +535,11 @@ Recommended properties of the final contract:
 
 - Store answers keyed by stable question ID, and choices keyed by stable option
   ID; keep `other_text` alongside the choice answer when present.
+- Keep household answers separate from child answers. Key child answers by a
+  stable household-child ID and include the linked student ID when one exists.
+- Do not treat `target_entity` as a write destination. A future mapping feature
+  should explicitly identify approved student/assessment fields and validate
+  those mappings against their respective schemas.
 - Include organization, survey, published version, and the mobile household
   context required to associate the response.
 - Define whether respondent identity is allowed/required based on the survey's
@@ -291,6 +582,8 @@ authorization behavior must be explicitly defined.
 - [ ] Load surveys under the active organization, not across organizations.
 - [ ] Offer only published surveys with a readable published version.
 - [ ] Preserve the selected household ID through launch and submission.
+- [ ] Render household questions once and child questions for each child; bind
+  each child answer set to that child's stable ID and optional student ID.
 - [ ] Render all 12 supported types, including layout-only types.
 - [ ] Use question/option IDs in saved answers, never labels as identifiers.
 - [ ] Match conditional question and page visibility and page-routing behavior.
@@ -298,6 +591,9 @@ authorization behavior must be explicitly defined.
 - [ ] Support back navigation, progress, save/resume, and randomization according
   to settings.
 - [ ] Pin the published version for the life of an in-progress response.
+- [ ] Treat missing `target_entity` in schema-version-1 surveys as `household`.
+- [ ] Keep survey answer storage distinct from student-profile and assessment
+  result writes unless a trusted, field-mapped integration is approved.
 - [ ] Agree and implement the response path/API, security, idempotency, and
   offline retry contract.
 - [ ] Cover each question type, required/optional answers, "other" choices,

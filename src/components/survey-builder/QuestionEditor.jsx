@@ -82,6 +82,21 @@ export default function QuestionEditor({
           </Field>
         )}
 
+        <Field label="Question is about">
+          <select
+            value={question.target_entity ?? "household"}
+            onChange={(event) => set({ target_entity: event.target.value })}
+            disabled={!canEdit}
+            className="input"
+          >
+            <option value="household">Household / parent / caregiver</option>
+            <option value="child">A child / student (repeat for each child)</option>
+          </select>
+          <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
+            Child questions are answered separately for each child in the household.
+          </p>
+        </Field>
+
         {!isLayout && (
           <label className="flex items-center gap-2 text-sm text-foreground">
             <input

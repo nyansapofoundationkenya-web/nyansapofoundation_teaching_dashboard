@@ -86,7 +86,7 @@ immutable snapshot to `versions/{version}` in the same Firestore batch that upda
 the survey's `status`, `version`, and `publishedVersion`. The snapshot uses the
 documented snake_case fields (`organization_id`, `page_id`, `survey_id`) and
 contains ordered `pages` and `questions`, settings, welcome content, and thank-you
-content. It also contains `schema_version: 1`.
+content. It currently contains `schema_version: 2`.
 
 The app integration should:
 
@@ -107,6 +107,12 @@ snapshot until an administrator publishes a new version.
 The dashboard's Preview route simulates welcome content, answer validation,
 conditional visibility, page routing, progress, and the thank-you/disqualification
 screen. It is a builder preview only and does not write respondent data.
+
+Each question includes `target_entity`: `household` (the default) or `child`.
+Child-targeted questions are intended to be answered separately for each child
+in the household. Newly published snapshots use `schema_version: 2`; mobile
+clients reading older version-1 snapshots should treat a missing
+`target_entity` as `household`.
 
 For the mobile respondent flow, published-version loading, question rendering,
 logic, and the response-storage gap, see
