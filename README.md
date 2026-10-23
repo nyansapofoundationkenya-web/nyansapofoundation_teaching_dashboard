@@ -110,11 +110,19 @@ FIREBASE_CLIENT_EMAIL=
 FIREBASE_PROJECT_ID=
 FIREBASE_PRIVATE_KEY=
 
+# English transcription (server-side only)
+ENGLISH_API_URL=
+ENGLISH_API_KEY=
+# Or use AZURE_SPEECH_KEY if that is the server-side key variable in your deployment
+AZURE_SPEECH_KEY=
+
 # Analytics (Optional)
 GA4_PROPERTY_ID=
 ```
 
 > **Note**: Never commit your `.env.local` file to version control. Add it to `.gitignore`.
+> Set `ENGLISH_API_KEY` (or `AZURE_SPEECH_KEY`) to the key configured on the English transcription service.
+> Add both English transcription variables to the deployment environment as well.
 
 ### Firebase Setup
 

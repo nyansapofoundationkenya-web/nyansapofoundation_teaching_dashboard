@@ -1,386 +1,553 @@
 // components/Welcome/DurationStats.js
 "use client";
 
-import { useState, useEffect } from "react";
-import { 
-  Clock, Users, TrendingUp, Calendar, Activity, 
-  AlertCircle, Download, BarChart3, School, 
-  Building2, Globe 
+import { useState, useEffect, useCallback } from "react";
+import { useSelector } from "react-redux";
+import {
+  Download,
+  School,
+  Building2,
+  Globe,
+  RefreshCw,
+  X,
+  Loader2,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
 
-export default function DurationStats({ 
-  organizationId, 
-  projectId = null, 
+const REFRESH_URL =
+  "https://us-east1-nyansapoai-v2.cloudfunctions.net/trigger_org_avg_duration_refresh";
+
+// Set NEXT_PUBLIC_REPROCESS_SECRET in .env.local (restart the dev server after changing it).
+const REPROCESS_SECRET = process.env.NEXT_PUBLIC_REPROCESS_SECRET;
+
+// Raleway uses old-style figures by default; lining + tabular keeps numbers aligned.
+const numStyle = { fontVariantNumeric: "lining-nums tabular-nums" };
+
+const SCOPES = {
+  organization: { label: "Organization", Icon: Globe },
+  project: { label: "Project", Icon: Building2 },
+  school: { label: "School", Icon: School },
+};
+
+const TYPES = {
+  literacy: {
+    label: "Literacy",
+    activeBtn: "bg-primary-2 text-primary-1",
+    text: "text-primary-2",
+    bar: "bg-primary-2",
+  },
+  numeracy: {
+    label: "Numeracy",
+    activeBtn: "bg-secondary-2 text-primary-1",
+    text: "text-secondary-2",
+    bar: "bg-secondary-2",
+  },
+};
+
+// ─── Formatting helpers ──────────────────────────────────────────────────────
+
+const isNum = (v) => typeof v === "number" && Number.isFinite(v);
+
+function formatDuration(ms) {
+  if (!isNum(ms)) return "–";
+  const totalSeconds = Math.round(ms / 1000);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m ${s}s`;
+}
+
+function formatInt(n) {
+  if (!isNum(n)) return "–";
+  return new Intl.NumberFormat().format(Math.round(n));
+}
+
+const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+
+// ─── Main component ──────────────────────────────────────────────────────────
+
+export default function DurationStats({
+  organizationId,
+  projectId = null,
   schoolId = null,
-  scope = "organization" // "organization", "project", "school"
+  scope = "organization", // "organization" | "project" | "school"
 }) {
   const [durationStats, setDurationStats] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [assessmentType, setAssessmentType] = useState("literacy");
+  const [showRecalc, setShowRecalc] = useState(false);
 
-  useEffect(() => {
-    if (organizationId) {
-      fetchDurationStats();
-    }
-  }, [organizationId, projectId, schoolId, assessmentType]);
+  // Only super admins can recalculate. Checked here so every page that
+  // renders this component (organization, project, school) is covered.
+  const { user: currentUser } = useSelector((state) => state.auth);
+  const canRecalculate =
+    currentUser?.role === "super_admin" || currentUser?.role === "superadmin";
 
-  const fetchDurationStats = async () => {
+  const scopeMeta = SCOPES[scope] || SCOPES.organization;
+  const typeMeta = TYPES[assessmentType];
+
+  const fetchDurationStats = useCallback(async () => {
+    if (!organizationId) return;
     setLoading(true);
-    setError(null);
-    
+
     try {
-      let endpoint = "";
-      
-      // Determine which endpoint to use based on scope
-      if (scope === "school" && schoolId) {
-        endpoint = `organization/${organizationId}/projects/${projectId}/schools/${schoolId}/stats/avg_duration_${assessmentType}`;
+      let path;
+      if (scope === "school" && schoolId && projectId) {
+        path = `organization/${organizationId}/projects/${projectId}/schools/${schoolId}/stats/avg_duration_${assessmentType}`;
       } else if (scope === "project" && projectId) {
-        endpoint = `organization/${organizationId}/projects/${projectId}/stats/avg_duration_${assessmentType}`;
+        path = `organization/${organizationId}/projects/${projectId}/stats/avg_duration_${assessmentType}`;
       } else {
-        endpoint = `organization/${organizationId}/stats/avg_duration_${assessmentType}`;
+        path = `organization/${organizationId}/stats/avg_duration_${assessmentType}`;
       }
-      
-      console.log('Fetching duration stats from:', endpoint);
-      
-      const statsRef = doc(db, endpoint);
-      const statsSnap = await getDoc(statsRef);
-      
-      if (statsSnap.exists()) {
-        const data = statsSnap.data();
-        const stats = data?.result?.stats;
-        
-        if (stats) {
-          setDurationStats(stats);
-          setError(null);
-        } else {
-          // Set empty stats instead of error
-          setDurationStats(null);
-          console.log('No stats data available yet');
-        }
-      } else {
-        // Set empty stats instead of error
-        setDurationStats(null);
-        console.log('No duration data available yet');
-      }
+
+      const snap = await getDoc(doc(db, path));
+      const stats = snap.exists() ? snap.data()?.result?.stats : null;
+      setDurationStats(stats || null);
     } catch (err) {
       console.error("Error fetching duration stats:", err);
-      // Don't show error to user, just set empty stats
       setDurationStats(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, [organizationId, projectId, schoolId, scope, assessmentType]);
 
-  const formatTime = (milliseconds) => {
-    if (!milliseconds && milliseconds !== 0) return "_";
-    const minutes = Math.floor(milliseconds / 60000);
-    const seconds = Math.floor((milliseconds % 60000) / 1000);
-    return `${minutes}m ${seconds}s`;
-  };
+  useEffect(() => {
+    fetchDurationStats();
+  }, [fetchDurationStats]);
 
-  const formatNumber = (num) => {
-    if (!num && num !== 0) return "_";
-    return new Intl.NumberFormat().format(Math.round(num));
-  };
+  // ─── Derived values ────────────────────────────────────────────────────────
 
-  const formatMinutes = (minutes) => {
-    if (!minutes && minutes !== 0) return "_";
-    return minutes.toFixed(1);
-  };
+  const s = durationStats;
+  const avgMs = s
+    ? isNum(s.avg_duration_ms)
+      ? s.avg_duration_ms
+      : isNum(s.avg_duration_minutes)
+      ? s.avg_duration_minutes * 60000
+      : null
+    : null;
+  const minMs = s?.min_duration_ms;
+  const maxMs = s?.max_duration_ms;
+  const hasRange = isNum(minMs) && isNum(maxMs) && isNum(avgMs);
+  const avgPct = hasRange
+    ? maxMs === minMs
+      ? 50
+      : clamp(((avgMs - minMs) / (maxMs - minMs)) * 100, 0, 100)
+    : 50;
+  const avgMinutes = isNum(s?.avg_duration_minutes)
+    ? s.avg_duration_minutes
+    : isNum(avgMs)
+    ? avgMs / 60000
+    : null;
 
-  const formatPercentage = (value) => {
-    if (!value && value !== 0) return "_";
-    return value.toFixed(1);
-  };
+  // ─── Export ────────────────────────────────────────────────────────────────
 
   const downloadStats = () => {
-    if (!durationStats) return;
-    
-    const displayType = assessmentType === 'numeracy' ? 'Numeracy' : 'Literacy';
-    const scopeText = scope === 'school' ? 'School' : scope === 'project' ? 'Project' : 'Organization';
-    
-    const content = `
-ASSESSMENT DURATION STATISTICS
-================================
+    if (!s) return;
 
-Scope: ${scopeText} Level
-Assessment Type: ${displayType}
-${scope === 'school' ? `School ID: ${schoolId}` : ''}
-${scope === 'project' ? `Project ID: ${projectId}` : ''}
-Organization ID: ${organizationId}
-Generated: ${new Date().toLocaleString()}
+    const lines = [
+      "ASSESSMENT DURATION STATISTICS",
+      "================================",
+      "",
+      `Scope: ${scopeMeta.label} level`,
+      `Assessment type: ${typeMeta.label}`,
+      `Organization ID: ${organizationId}`,
+      scope !== "organization" && projectId ? `Project ID: ${projectId}` : null,
+      scope === "school" && schoolId ? `School ID: ${schoolId}` : null,
+      `Generated: ${new Date().toLocaleString()}`,
+      "",
+      "SUMMARY",
+      "-------",
+      `Total students: ${formatInt(s.total_students)}`,
+      `Average duration: ${isNum(avgMinutes) ? avgMinutes.toFixed(2) : "–"} minutes (${formatDuration(avgMs)})`,
+      `Average duration (ms): ${formatInt(s.avg_duration_ms)}`,
+      "",
+      "RANGE",
+      "-----",
+      `Fastest: ${formatDuration(minMs)}`,
+      `Slowest: ${formatDuration(maxMs)}`,
+      `Total time (all students): ${formatDuration(s.total_duration_ms)}`,
+      "",
+      `Time taken by students to complete ${typeMeta.label.toLowerCase()} assessments at the ${scopeMeta.label.toLowerCase()} level.`,
+    ].filter((l) => l !== null);
 
-SUMMARY STATISTICS
------------------
-Total Students: ${durationStats.total_students || '_'}
-Average Duration: ${durationStats.avg_duration_minutes?.toFixed(2) || '_'} minutes (${durationStats.avg_duration_seconds?.toFixed(0) || '_'} seconds)
-Average Duration (ms): ${formatNumber(durationStats.avg_duration_ms)} ms
-
-DETAILED STATISTICS
-------------------
-Minimum Duration: ${formatTime(durationStats.min_duration_ms)}
-Maximum Duration: ${formatTime(durationStats.max_duration_ms)}
-Total Duration (all students): ${formatTime(durationStats.total_duration_ms)}
-
-This data represents the time taken by students to complete ${displayType.toLowerCase()} assessments at the ${scopeText.toLowerCase()} level.
-    `;
-    
-    const blob = new Blob([content], { type: "text/plain" });
+    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${assessmentType}_duration_stats_${scope}_${new Date().toISOString().split("T")[0]}.txt`;
+    a.download = `${assessmentType}_duration_stats_${scope}_${new Date()
+      .toISOString()
+      .split("T")[0]}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
-  const getScopeIcon = () => {
-    if (scope === 'school') return <School size={20} className="text-green-400" />;
-    if (scope === 'project') return <Building2 size={20} className="text-blue-400" />;
-    return <Globe size={20} className="text-purple-400" />;
-  };
-
-  const getScopeTitle = () => {
-    if (scope === 'school') return 'School Level Duration Stats';
-    if (scope === 'project') return 'Project Level Duration Stats';
-    return 'Organization Level Duration Stats';
-  };
-
-  const isNumeracy = assessmentType === 'numeracy';
-  
-  // Create empty stats object for placeholder
-  const emptyStats = {
-    total_students: "_",
-    avg_duration_minutes: "_",
-    avg_duration_seconds: "_",
-    avg_duration_ms: "_",
-    min_duration_ms: "_",
-    max_duration_ms: "_",
-    total_duration_ms: "_"
-  };
-  
-  const displayStats = durationStats || emptyStats;
+  // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="bg-background-lighter rounded-2xl p-6 border border-gray-700">
-      <div className="flex items-center justify-between mb-6">
+    <section className="rounded-2xl border border-white/10 bg-background-light p-5 sm:p-7">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <BarChart3 className="w-5 h-5 text-primary-3" />
-            <h2 className="text-xl font-semibold text-foreground">
-              ASSESSMENT DURATION
-            </h2>
-          </div>
-          <p className="text-xs text-gray-400 flex items-center gap-1">
-            {getScopeIcon()}
-            {getScopeTitle()}
+          <h2 className="text-xl font-semibold tracking-tight text-foreground">
+            Assessment duration
+          </h2>
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-secondary-3/70">
+            <scopeMeta.Icon size={15} className="text-primary-3" aria-hidden="true" />
+            {scopeMeta.label} level
           </p>
         </div>
-        
-        {/* Assessment Type Toggle */}
-        <div className="flex gap-2 bg-background rounded-xl p-1 border border-gray-600">
-          <button
-            onClick={() => setAssessmentType("literacy")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              assessmentType === "literacy"
-                ? "bg-blue-600 text-white"
-                : "text-gray-400 hover:text-gray-200"
-            }`}
+
+        <div className="flex flex-wrap items-center gap-3">
+          <div
+            role="group"
+            aria-label="Assessment type"
+            className="flex rounded-xl bg-background p-1"
           >
-            Literacy
-          </button>
-          <button
-            onClick={() => setAssessmentType("numeracy")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              assessmentType === "numeracy"
-                ? "bg-green-600 text-white"
-                : "text-gray-400 hover:text-gray-200"
-            }`}
-          >
-            Numeracy
-          </button>
+            {Object.entries(TYPES).map(([key, t]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setAssessmentType(key)}
+                aria-pressed={assessmentType === key}
+                className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-3 ${
+                  assessmentType === key
+                    ? t.activeBtn
+                    : "text-secondary-3/70 hover:text-foreground"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {canRecalculate && (
+            <button
+              type="button"
+              onClick={() => setShowRecalc(true)}
+              className="flex items-center gap-2 rounded-xl border border-white/15 px-3.5 py-2 text-sm font-semibold text-foreground transition-colors hover:border-primary-3 hover:text-primary-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-3"
+            >
+              <RefreshCw size={14} aria-hidden="true" />
+              Recalculate
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Content */}
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="text-foreground">Loading duration statistics...</div>
+      {/* Average + range */}
+      <div className="mt-7 rounded-xl bg-background p-5 sm:p-7">
+        <p className="text-sm font-medium text-secondary-3/70">Average time to complete</p>
+
+        <div
+          className={`mt-2 flex items-baseline gap-3 ${loading ? "animate-pulse opacity-50" : ""}`}
+        >
+          <span
+            className={`text-6xl font-light leading-none sm:text-7xl ${typeMeta.text}`}
+            style={numStyle}
+          >
+            {isNum(avgMinutes) ? avgMinutes.toFixed(1) : "–"}
+          </span>
+          <span className="text-lg text-secondary-3/70">minutes</span>
         </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Summary Card */}
-          <div className={`bg-gradient-to-r ${
-            isNumeracy ? 'from-green-600 to-teal-600' : 'from-blue-600 to-purple-600'
-          } rounded-xl p-6 text-white`}>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-lg opacity-90">Average Duration</span>
-              <Users size={24} />
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold">
-                {displayStats.avg_duration_minutes !== "_" 
-                  ? formatMinutes(displayStats.avg_duration_minutes) 
-                  : "_"}
+
+        <p className="mt-3 text-sm text-secondary-3/70" style={numStyle}>
+          {s
+            ? `${formatDuration(avgMs)} on average across ${formatInt(s.total_students)} students`
+            : loading
+            ? "Loading duration statistics…"
+            : `No ${typeMeta.label.toLowerCase()} durations yet. They appear once students complete an assessment.`}
+        </p>
+
+        {/* Range track: fastest → slowest, with the average marked on it */}
+        {hasRange && (
+          <div className="mt-9">
+            <div className="relative h-2 rounded-full bg-white/10">
+              <div
+                className={`absolute inset-y-0 left-0 rounded-full ${typeMeta.bar} opacity-40`}
+                style={{ width: `${avgPct}%` }}
+              />
+              <span
+                className="absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-background bg-primary-3"
+                style={{ left: `${avgPct}%` }}
+                aria-hidden="true"
+              />
+              <span
+                className="absolute -top-8 -translate-x-1/2 whitespace-nowrap text-xs font-semibold text-primary-3"
+                style={{ left: `${clamp(avgPct, 12, 88)}%`, ...numStyle }}
+              >
+                Average {formatDuration(avgMs)}
               </span>
-              <span className="text-lg opacity-75">minutes</span>
             </div>
-            <p className="text-sm opacity-75 mt-2">
-              Based on {displayStats.total_students !== "_" 
-                ? displayStats.total_students 
-                : "_"} students
+            <div className="mt-3 flex justify-between text-xs text-secondary-3/70" style={numStyle}>
+              <span>
+                Fastest <span className="font-semibold text-foreground">{formatDuration(minMs)}</span>
+              </span>
+              <span>
+                Slowest <span className="font-semibold text-foreground">{formatDuration(maxMs)}</span>
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Key figures */}
+      <dl className="mt-5 grid grid-cols-2 divide-x divide-white/10 rounded-xl border border-white/10 sm:grid-cols-4">
+        <Figure label="Students" value={formatInt(s?.total_students)} />
+        <Figure label="Fastest" value={formatDuration(minMs)} />
+        <Figure label="Slowest" value={formatDuration(maxMs)} />
+        <Figure label="Total time" value={formatDuration(s?.total_duration_ms)} />
+      </dl>
+
+      {/* Footer */}
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <details className="group text-sm text-secondary-3/70">
+          <summary className="cursor-pointer select-none hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-3">
+            Exact values
+          </summary>
+          <p className="mt-2 pl-1" style={numStyle}>
+            {isNum(s?.avg_duration_seconds) ? s.avg_duration_seconds.toFixed(2) : "–"} seconds ·{" "}
+            {formatInt(s?.avg_duration_ms)} ms average
+          </p>
+        </details>
+
+        <button
+          type="button"
+          onClick={downloadStats}
+          disabled={!s}
+          className="flex items-center gap-2 rounded-xl bg-primary-2 px-4 py-2 text-sm font-semibold text-primary-1 transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-3 disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          <Download size={15} aria-hidden="true" />
+          Download report
+        </button>
+      </div>
+
+      {canRecalculate && showRecalc && (
+        <RecalculateModal
+          scope={scope}
+          scopeLabel={scopeMeta.label}
+          organizationId={organizationId}
+          projectId={projectId}
+          schoolId={schoolId}
+          onClose={() => setShowRecalc(false)}
+          onFinished={fetchDurationStats}
+        />
+      )}
+    </section>
+  );
+}
+
+// ─── Small pieces ────────────────────────────────────────────────────────────
+
+function Figure({ label, value }) {
+  return (
+    <div className="px-4 py-4 [&:nth-child(n+3)]:border-t [&:nth-child(n+3)]:border-white/10 sm:[&:nth-child(n+3)]:border-t-0 sm:[&:nth-child(n+2)]:border-l-0">
+      <dt className="text-xs font-medium text-secondary-3/70">{label}</dt>
+      <dd className="mt-1 text-xl font-semibold text-foreground" style={numStyle}>
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function RecalculateModal({
+  scope,
+  scopeLabel,
+  organizationId,
+  projectId,
+  schoolId,
+  onClose,
+  onFinished,
+}) {
+  const [status, setStatus] = useState("idle"); // idle | running | success | partial | error
+  const [result, setResult] = useState(null);
+  const running = status === "running";
+  const finished = status === "success" || status === "partial" || status === "error";
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape" && !running) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [running, onClose]);
+
+  const start = async () => {
+    if (running) return;
+
+    if (!REPROCESS_SECRET) {
+      setResult({
+        httpStatus: -1,
+        data: { error: "NEXT_PUBLIC_REPROCESS_SECRET is not set. Add it to .env.local and restart the app." },
+      });
+      setStatus("error");
+      return;
+    }
+
+    setStatus("running");
+    setResult(null);
+
+    const payload = { organizationId, secret: REPROCESS_SECRET };
+    if (scope !== "organization" && projectId) payload.projectId = projectId;
+    if (scope === "school" && schoolId) payload.schoolId = schoolId;
+
+    try {
+      const res = await fetch(REFRESH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      setResult({ httpStatus: res.status, data });
+
+      if (res.status === 401) {
+        setStatus("error");
+      } else if (res.ok && data.success !== false) {
+        setStatus("success");
+        onFinished?.();
+      } else if (res.status === 207) {
+        setStatus("partial");
+        onFinished?.();
+      } else {
+        setStatus("error");
+      }
+    } catch (err) {
+      setResult({ httpStatus: 0, data: { error: err.message } });
+      setStatus("error");
+    }
+  };
+
+  const errorText = () => {
+    if (!result) return "";
+    if (result.httpStatus === 401) return "The secret was rejected. Check that it matches the one set on the Cloud Function.";
+    if (result.httpStatus === 0)
+      return "The browser lost the connection before the function replied. The run may still be going: check the function logs, and see the browser console for a CORS error.";
+    return result.data?.error || `Request failed (HTTP ${result.httpStatus}).`;
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !running) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="recalc-title"
+        className="w-full max-w-md rounded-2xl border border-white/10 bg-background-light p-6 shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 id="recalc-title" className="text-lg font-semibold text-foreground">
+              Recalculate duration stats
+            </h3>
+            <p className="mt-1 text-sm text-secondary-3/70">
+              Rebuilds averages for this {scopeLabel.toLowerCase()} from every student result.
+              This can take several minutes, so keep this window open.
             </p>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={running}
+            aria-label="Close"
+            className="rounded-lg p-1 text-secondary-3/70 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-3 disabled:opacity-30"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
-          {/* Quick Stats Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-600">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp size={16} className="text-green-400" />
-                <span className="text-sm text-gray-400">Max Duration</span>
-              </div>
-              <div className="text-xl font-bold text-foreground">
-                {formatTime(displayStats.max_duration_ms)}
-              </div>
-            </div>
-            
-            <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-600">
-              <div className="flex items-center gap-2 mb-2">
-                <Activity size={16} className="text-yellow-400" />
-                <span className="text-sm text-gray-400">Min Duration</span>
-              </div>
-              <div className="text-xl font-bold text-foreground">
-                {formatTime(displayStats.min_duration_ms)}
-              </div>
+        {scope !== "organization" && !finished && (
+          <p className="mt-4 flex gap-2 rounded-lg bg-secondary-1/15 p-3 text-xs text-secondary-1">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+            Project and organization averages may be affected when only part of the data is
+            recalculated.
+          </p>
+        )}
+
+        {running && (
+          <p className="mt-4 flex items-center gap-2 text-sm text-primary-2">
+            <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+            Recalculating…
+          </p>
+        )}
+
+        {status === "success" && (
+          <div className="mt-5 flex gap-3 rounded-lg border border-secondary-2/40 bg-secondary-2/10 p-4 text-sm text-secondary-2">
+            <CheckCircle2 size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <div style={numStyle}>
+              Stats rebuilt from {formatInt(result?.data?.totalResultsProcessed ?? 0)} results across{" "}
+              {formatInt(result?.data?.assessmentsProcessed ?? 0)} assessments.
             </div>
           </div>
+        )}
 
-          {/* Detailed Stats */}
-          <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-600">
-            <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Calendar size={18} className={isNumeracy ? "text-green-400" : "text-blue-400"} />
-              Detailed Statistics
-            </h3>
-            
-            <div className="space-y-4">
-              <div className="flex justify-between items-center pb-2 border-b border-gray-600">
-                <span className="text-gray-400">Total Students</span>
-                <span className="text-foreground font-semibold">
-                  {displayStats.total_students !== "_" 
-                    ? displayStats.total_students 
-                    : "_"}
-                </span>
-              </div>
-              
-              <div className="flex justify-between items-center pb-2 border-b border-gray-600">
-                <span className="text-gray-400">Average Duration</span>
-                <span className="text-foreground font-semibold">
-                  {displayStats.avg_duration_minutes !== "_" 
-                    ? `${displayStats.avg_duration_minutes?.toFixed(2)} minutes` 
-                    : "_"}
-                </span>
-              </div>
-              
-              <div className="flex justify-between items-center pb-2 border-b border-gray-600">
-                <span className="text-gray-400">Average (seconds)</span>
-                <span className="text-foreground font-semibold">
-                  {displayStats.avg_duration_seconds !== "_" 
-                    ? `${displayStats.avg_duration_seconds?.toFixed(2)} s` 
-                    : "_"}
-                </span>
-              </div>
-              
-              <div className="flex justify-between items-center pb-2 border-b border-gray-600">
-                <span className="text-gray-400">Average (milliseconds)</span>
-                <span className="text-foreground font-semibold">
-                  {displayStats.avg_duration_ms !== "_" 
-                    ? `${formatNumber(displayStats.avg_duration_ms)} ms` 
-                    : "_"}
-                </span>
-              </div>
-              
-              <div className="flex justify-between items-center pb-2 border-b border-gray-600">
-                <span className="text-gray-400">Total Duration</span>
-                <span className="text-foreground font-semibold">
-                  {formatTime(displayStats.total_duration_ms)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Time Range Indicator - Only show if we have actual data */}
-          {durationStats && displayStats.min_duration_ms !== "_" && displayStats.max_duration_ms !== "_" && (
-            <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-600">
-              <h3 className="text-sm font-semibold text-gray-400 mb-3">Time Range Distribution</h3>
-              <div className="relative pt-1">
-                <div className="flex mb-2 items-center justify-between">
-                  <div>
-                    <span className="text-xs font-semibold inline-block text-green-400">
-                      Fastest
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-xs font-semibold inline-block text-red-400">
-                      Slowest
-                    </span>
-                  </div>
-                </div>
-                <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-600">
-                  <div 
-                    style={{ 
-                      width: `${(displayStats.min_duration_ms / displayStats.max_duration_ms) * 100}%`,
-                      backgroundColor: '#4ade80'
-                    }}
-                    className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center"
-                  />
-                  <div 
-                    style={{ 
-                      width: `${((displayStats.max_duration_ms - displayStats.min_duration_ms) / displayStats.max_duration_ms) * 100}%`,
-                      backgroundColor: '#f87171'
-                    }}
-                    className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center"
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-gray-400">
-                  <span>{formatTime(displayStats.min_duration_ms)}</span>
-                  <span>{formatTime(displayStats.max_duration_ms)}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Additional Stats */}
-          <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-600">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Download size={16} className="text-gray-400" />
-                <span className="text-sm text-gray-400">Export Data</span>
-              </div>
-              <button
-                onClick={downloadStats}
-                disabled={!durationStats}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  durationStats 
-                    ? "bg-blue-600 hover:bg-blue-700 text-white"
-                    : "bg-gray-600 text-gray-400 cursor-not-allowed"
-                }`}
-              >
-                Download as Text
-              </button>
-            </div>
-            {!durationStats && (
-              <p className="text-xs text-gray-500 mt-3 text-center">
-                No data available yet. Stats will appear here once students complete assessments.
-              </p>
+        {status === "partial" && (
+          <div className="mt-5 rounded-lg border border-secondary-1/40 bg-secondary-1/10 p-4 text-sm text-secondary-1">
+            <p className="flex gap-3" style={numStyle}>
+              <AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+              {formatInt(result?.data?.totalResultsProcessed ?? 0)} results rebuilt,{" "}
+              {formatInt(result?.data?.totalResultsFailed ?? 0)} failed. Totals may be incomplete.
+            </p>
+            {result?.data?.errors?.length > 0 && (
+              <ul className="mt-3 max-h-28 space-y-1 overflow-y-auto pl-7 text-xs opacity-80">
+                {result.data.errors.slice(0, 5).map((e, i) => (
+                  <li key={i} className="truncate">
+                    {e.assessmentId}
+                    {e.resultId ? ` / ${e.resultId}` : ""}: {e.error}
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
+        )}
+
+        {status === "error" && (
+          <div className="mt-5 flex gap-3 rounded-lg border border-red-400/40 bg-red-400/10 p-4 text-sm text-red-300">
+            <AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <div>{errorText()}</div>
+          </div>
+        )}
+
+        <div className="mt-6 flex justify-end gap-2">
+          {status === "error" && (
+            <button
+              type="button"
+              onClick={() => {
+                setStatus("idle");
+                setResult(null);
+              }}
+              className="rounded-lg px-4 py-2 text-sm font-semibold text-primary-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-3"
+            >
+              Try again
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={running}
+            className="rounded-lg px-4 py-2 text-sm font-semibold text-secondary-3/80 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-3 disabled:opacity-30"
+          >
+            {finished ? "Close" : "Cancel"}
+          </button>
+          {!finished && (
+            <button
+              type="button"
+              onClick={start}
+              disabled={running}
+              className="rounded-lg bg-primary-3 px-4 py-2 text-sm font-bold text-primary-1 transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              Start recalculation
+            </button>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

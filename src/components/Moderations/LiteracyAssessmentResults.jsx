@@ -4,24 +4,36 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
-import { Flag } from "lucide-react";
+import { Flag, RotateCw, Loader2 } from "lucide-react";
+import { getAuth } from "firebase/auth";
+import { db } from "@/firebase/config";
+import { doc, updateDoc } from "firebase/firestore";
 import { getColoredWords } from "@/utils/wordComparison";
 import { useFlagItem } from "@/hooks/useFlagItem";
+import { determinePassedFromTranscript } from "@/utils/transcriptionUtils";
 
 export default function LiteracyAssessmentResults({
   assessmentId,
   studentId,
   organizationId,
   results: initialResults,
-  onFlaggingComplete, // ← new: called when autoFlagAll finishes
+  assessmentLanguage = "english", // passed down from assessments/{assessmentId}.language
+  onFlaggingComplete, // called when autoFlagAll finishes
 }) {
   const [results, setResults]   = useState(null);
   const autoFlaggedRef          = useRef(false);
   const router                  = useRouter();
   const { user: currentUser }   = useSelector((state) => state.auth);
   const userRole                = currentUser?.role;
+  const isSuperAdmin            = userRole === "super_admin";
 
   const { flagLiteracyReadingItem } = useFlagItem(assessmentId, studentId, "literacy");
+
+  // ── Bulk retranscription state ──────────────────────────────────────────
+  const [retranscribing, setRetranscribing]             = useState(false);
+  const [retranscribeProgress, setRetranscribeProgress] = useState({ done: 0, total: 0 });
+  const [retranscribeSummary, setRetranscribeSummary]   = useState(null);
+  // retranscribeSummary shape: { success, failed, failures, gradedPassed, gradedFailed }
 
   useEffect(() => {
     if (!initialResults || autoFlaggedRef.current) return;
@@ -62,6 +74,149 @@ export default function LiteracyAssessmentResults({
     }
   };
 
+  // ── Bulk retranscribe ──────────────────────────────────────────────────
+  // Eligible item = has an audio_url AND metadata.transcript is missing or
+  // empty. NOT restricted to unmoderated items — some rounds were moderated
+  // (pass/fail decided by ear) before a transcript ever existed, and those
+  // need backfilling too.
+  //
+  // For letter/word items, once a transcript comes back the target `content`
+  // is looked up as a contiguous token run anywhere in the transcript (so
+  // "the cat", "cat cat", and "kat cat" all count as a correct attempt for
+  // "cat"), and metadata.passed is written in the SAME update as the
+  // transcript. Paragraph/story items only ever get metadata.transcript
+  // touched — they're scored by word-diff accuracy in the UI, not a
+  // boolean, so passed is left as-is for those.
+  //
+  // Items are sent to /api/retranscription ONE AT A TIME — the backend can
+  // hit Gradio cold starts / rate limits, and concurrent requests are the
+  // most likely way to make that worse. Firestore is updated after EVERY
+  // successful item using a local `workingResults` array (not React state,
+  // which updates async and could be stale mid-loop), so an interrupted
+  // batch or a single failed item never loses earlier progress.
+  const readingResultsForActions = results?.literacy_results?.reading_results || [];
+
+  const missingTranscriptItems = readingResultsForActions
+    .map((item, idx) => ({ item, idx }))
+    .filter(({ item }) => {
+      const hasTranscript = !!(item?.metadata?.transcript && item.metadata.transcript.trim() !== "");
+      const hasAudio      = !!item?.metadata?.audio_url;
+      return hasAudio && !hasTranscript;
+    });
+
+  const handleBulkRetranscribe = async () => {
+    if (retranscribing || missingTranscriptItems.length === 0) return;
+
+    setRetranscribing(true);
+    setRetranscribeSummary(null);
+
+    const targets = missingTranscriptItems;
+    const total   = targets.length;
+    let successCount = 0;
+    let gradedPassed  = 0;
+    let gradedFailed  = 0;
+    const failures  = [];
+
+    let workingResults = [...readingResultsForActions];
+
+    try {
+      const auth  = getAuth();
+      const currentAuthUser = auth.currentUser;
+      if (!currentAuthUser) throw new Error("You must be signed in to retranscribe.");
+      const token = await currentAuthUser.getIdToken();
+      const retranscribedBy =
+        currentUser?.name ||
+        currentUser?.displayName ||
+        currentUser?.email ||
+        currentAuthUser.displayName ||
+        currentAuthUser.email ||
+        currentAuthUser.uid;
+      const docRef = doc(
+        db, "assessments", assessmentId, "assessments-results", `${assessmentId}_${studentId}`
+      );
+
+      for (let i = 0; i < targets.length; i++) {
+        const { idx, item } = targets[i];
+        setRetranscribeProgress({ done: i, total });
+
+        try {
+          const res = await fetch("/api/retranscription", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              assessmentId,
+              studentId,
+              globalIndex: idx,
+              language: assessmentLanguage,
+            }),
+          });
+
+          // Read as text first — a platform-level timeout returns an
+          // HTML/plain-text error page, not JSON, and res.json() would
+          // throw a SyntaxError instead of the actual error we want.
+          const rawText = await res.text();
+          let data;
+          try {
+            data = rawText ? JSON.parse(rawText) : {};
+          } catch {
+            throw new Error(
+              res.status === 504
+                ? "Timed out — model may be slow right now"
+                : `HTTP ${res.status}`
+            );
+          }
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          if (!data.transcript) throw new Error("No transcript returned");
+
+          const itemType = (item?.metadata?.type || item?.type || "").toLowerCase();
+          const passed = determinePassedFromTranscript(itemType, item?.content, data.transcript);
+          const retranscribedAt =
+            data.retranscribedAt || new Date().toISOString();
+          if (passed === true) gradedPassed++;
+          if (passed === false) gradedFailed++;
+
+          workingResults = [...workingResults];
+          workingResults[idx] = {
+            ...workingResults[idx],
+            metadata: {
+              ...workingResults[idx].metadata,
+              transcript: data.transcript,
+              retranscribed_by: retranscribedBy,
+              retranscribed_by_uid:
+                data.retranscribedBy || currentAuthUser.uid,
+              retranscribed_at: retranscribedAt,
+              transcription_confidence: data.confidence ?? null,
+              transcription_low_confidence: data.low_confidence ?? null,
+              transcription_chunks: Array.isArray(data.chunks) ? data.chunks : [],
+              transcription_stats: data.stats ?? null,
+              transcription_model_id: data.model_id ?? null,
+              ...(passed !== undefined ? { passed } : {}),
+            },
+          };
+
+          await updateDoc(docRef, { "literacy_results.reading_results": workingResults });
+
+          setResults(prev => ({
+            ...prev,
+            literacy_results: { ...prev.literacy_results, reading_results: workingResults },
+          }));
+
+          successCount++;
+        } catch (err) {
+          console.error(`Retranscription failed for reading_results[${idx}]:`, err);
+          failures.push({ idx, label: item?.content, error: err.message });
+        }
+      }
+    } finally {
+      setRetranscribeProgress({ done: total, total });
+      setRetranscribeSummary({ success: successCount, failed: failures.length, failures, gradedPassed, gradedFailed });
+      setRetranscribing(false);
+    }
+  };
+
   const handleResultsClick = (result, type, filteredIndex) => {
     const typeMap = { "Letter Recognition": "letter", Word: "word", Paragraph: "paragraph", Story: "story" };
     const section = typeMap[type] || type.toLowerCase();
@@ -78,6 +233,32 @@ export default function LiteracyAssessmentResults({
         hour: "numeric", minute: "2-digit", hour12: true,
       });
     } catch { return timeStr; }
+  };
+
+  const RetranscriptionAudit = ({ metadata }) => {
+    if (!metadata?.retranscribed_at) return null;
+    const retranscribedBy =
+      metadata.retranscribed_by || metadata.retranscribed_by_uid || "Unknown user";
+
+    return (
+      <div className="text-[10px] leading-tight text-gray-500 mt-1 break-words">
+        Retranscribed by {retranscribedBy}
+        <br />
+        {formatDoneTime(metadata.retranscribed_at)}
+        {typeof metadata.transcription_confidence === "number" && (
+          <>
+            <br />
+            Model confidence: {(metadata.transcription_confidence * 100).toFixed(1)}%
+          </>
+        )}
+        {metadata.transcription_low_confidence === true && (
+          <>
+            <br />
+            <span className="text-amber-400">Low model confidence</span>
+          </>
+        )}
+      </div>
+    );
   };
 
   const FlagIndicator = ({ flagged }) => {
@@ -106,6 +287,76 @@ export default function LiteracyAssessmentResults({
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-6 text-foreground">Literacy Assessment</h1>
 
+      {/* ── Bulk Retranscribe (super admin only) ─────────────────────────── */}
+      {isSuperAdmin && (
+        <div
+          className="mb-6 rounded-xl border p-4"
+          style={{ background: 'rgba(90,162,206,0.06)', borderColor: 'rgba(90,162,206,0.25)' }}
+        >
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--primary-2)' }}>Missing Transcripts</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {missingTranscriptItems.length > 0
+                  ? `${missingTranscriptItems.length} item${missingTranscriptItems.length > 1 ? 's' : ''} have audio but no transcript yet (includes already-moderated items). Letters/words will be auto-graded against the target text.`
+                  : "All items with audio already have a transcript."}
+              </p>
+            </div>
+            <button
+              onClick={handleBulkRetranscribe}
+              disabled={retranscribing || missingTranscriptItems.length === 0}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: 'rgba(90,162,206,0.15)', border: '1px solid rgba(90,162,206,0.4)', color: 'var(--primary-2)' }}
+              onMouseEnter={e => {
+                if (!retranscribing && missingTranscriptItems.length > 0) {
+                  e.currentTarget.style.background = 'rgba(90,162,206,0.22)';
+                  e.currentTarget.style.borderColor = 'rgba(90,162,206,0.6)';
+                }
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'rgba(90,162,206,0.15)';
+                e.currentTarget.style.borderColor = 'rgba(90,162,206,0.4)';
+              }}
+            >
+              {retranscribing ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Retranscribing {retranscribeProgress.done}/{retranscribeProgress.total}…
+                </>
+              ) : (
+                <>
+                  <RotateCw size={14} />
+                  Retranscribe Missing ({missingTranscriptItems.length})
+                </>
+              )}
+            </button>
+          </div>
+
+          {retranscribeSummary && (
+            <div className="mt-3 text-xs space-y-1">
+              <div style={{ color: retranscribeSummary.failed > 0 ? 'var(--secondary-1)' : 'var(--secondary-2)' }}>
+                Done: {retranscribeSummary.success} succeeded
+                {retranscribeSummary.failed > 0 && `, ${retranscribeSummary.failed} failed`}.
+              </div>
+              {(retranscribeSummary.gradedPassed > 0 || retranscribeSummary.gradedFailed > 0) && (
+                <div className="text-gray-400">
+                  Auto-graded letters/words: <span style={{ color: 'var(--secondary-2)' }}>{retranscribeSummary.gradedPassed} passed</span>
+                  {", "}
+                  <span style={{ color: '#ef4444' }}>{retranscribeSummary.gradedFailed} failed</span>
+                </div>
+              )}
+              {retranscribeSummary.failed > 0 && (
+                <ul className="mt-1 list-disc list-inside text-gray-400">
+                  {retranscribeSummary.failures.map((f, i) => (
+                    <li key={i}>Item #{f.idx + 1}: {f.error}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Letter Results ───────────────────────────────────────────────── */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-2 text-primary-3">Letter Results</h2>
@@ -133,6 +384,7 @@ export default function LiteracyAssessmentResults({
                     {formatDoneTime(result.metadata.done_time)}
                   </div>
                 )}
+                <RetranscriptionAudit metadata={result?.metadata} />
               </div>
             ))}
           </div>
@@ -168,6 +420,7 @@ export default function LiteracyAssessmentResults({
                     {formatDoneTime(result.metadata.done_time)}
                   </div>
                 )}
+                <RetranscriptionAudit metadata={result?.metadata} />
               </div>
             ))}
           </div>
@@ -198,6 +451,7 @@ export default function LiteracyAssessmentResults({
                     <span className="text-gray-500">Done: {formatDoneTime(result.metadata.done_time)}</span>
                   )}
                 </div>
+                <RetranscriptionAudit metadata={result?.metadata} />
               </div>
             );
           })
@@ -228,6 +482,7 @@ export default function LiteracyAssessmentResults({
                     <span className="text-gray-500">Done: {formatDoneTime(result.metadata.done_time)}</span>
                   )}
                 </div>
+                <RetranscriptionAudit metadata={result?.metadata} />
               </div>
             );
           })

@@ -11,6 +11,8 @@ import { useAttendanceOverview } from "@/hooks/stats/useAttendanceOverview";
 import { useAssessmentHealth } from "@/hooks/stats/useAssessmentHealth";
 import { useStudentLevels } from "@/hooks/stats/useStudentLevels";
 import { useNumeracyLevels } from "@/hooks/stats/useNumeracyLevels";
+import { useDemographicsLevels } from "@/hooks/stats/Usedemographicslevels";
+import { useAttendanceEnabled } from "@/hooks/useAttendanceEnabled";
 import {
   GraduationCap,
   School,
@@ -27,6 +29,7 @@ import InstructorModal from "@/components/ui/InstructorModal";
 import MultiSheetUploadModal from "@/components/ui/MultipleSheetUploadModal";
 import StudentLevelsChart from "@/components/Welcome/StudentLevelChart";
 import KeyBarriers from "@/components/Welcome/KeyBarriers";
+import { useTour } from "@/context/TourContext";
 import WeeklyEngagementChart from "@/components/Welcome/WeeklyEngagementChart";
 import ProgramImpact from "@/components/Welcome/ProgramImpact";
 import AssessmentHealth from "@/components/Welcome/AssessmentHealth";
@@ -38,6 +41,7 @@ import DurationStats from "@/components/Welcome/DurationStats";
 export default function ProjectDetails() {
   const { organizationId, projectId } = useParams();
   const router = useRouter();
+  const { isTourRunning, activeTour } = useTour();
 
   // Auth & Role
   const { user: currentUser, loading: userLoading } = useSelector(
@@ -45,6 +49,11 @@ export default function ProjectDetails() {
   );
   const isAdminOrSuperAdmin =
     currentUser?.role === "admin" || currentUser?.role === "super_admin";
+
+  // Attendance is only shown for organizations with takesAttendance enabled
+  // (same flag that drives the sidebar's Attendance item)
+  const attendanceEnabled = useAttendanceEnabled(organizationId);
+
   // Hooks
   const {
     project,
@@ -83,6 +92,18 @@ export default function ProjectDetails() {
     error: numeracyError,
     fetchData: fetchNumeracyLevels
   } = useNumeracyLevels({
+    organizationId,
+    projectId,
+    schoolId: null
+  });
+
+  // Demographics (grade / age / gender cross-tab) — scoped to this project
+  const {
+    data: demographicsData,
+    loading: demographicsLoading,
+    error: demographicsError,
+    fetchData: fetchDemographicsLevels
+  } = useDemographicsLevels({
     organizationId,
     projectId,
     schoolId: null
@@ -186,6 +207,8 @@ export default function ProjectDetails() {
       } else {
         await fetchNumeracyLevels();
       }
+      // Keep the Grade/Age/Gender tab in sync too
+      await fetchDemographicsLevels();
       // Also refresh the old stats for backward compatibility
       await refreshProjectStats(organizationId, projectId);
     } catch (err) {
@@ -268,11 +291,19 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
       <div className="p-4 space-y-6 overflow-auto">
         {/* Action buttons – admin/superadmin only – aligned to right */}
         {!userLoading && isAdminOrSuperAdmin && (
-          <div className="flex justify-end" ref={dropdownRef}>
+          <div className="flex justify-end items-center gap-3" ref={dropdownRef}>
+            {isTourRunning && (activeTour === "add-school-project" || activeTour === "add-multi-school-students") && !dropdownOpen && !isSchoolModalOpen && !isUploadModalOpen && (
+              <div className="flex items-center gap-2 px-3.5 py-2 bg-yellow-400 text-slate-950 font-bold rounded-xl animate-bounce shadow-xl border-2 border-yellow-300 z-50 text-xs">
+                <span className="text-base">👉</span>
+                <span>CLICK ACTIONS TO CONTINUE</span>
+              </div>
+            )}
+
             <div className="relative">
               <button
+                data-tour="project-actions-dropdown"
                 onClick={() => setDropdownOpen((p) => !p)}
-                className="flex items-center justify-center px-3 py-2 bg-primary-3 text-primary-1 rounded-xl hover:bg-yellow-400 text-base transition-colors font-medium"
+                className="flex items-center justify-center px-3 py-2 bg-primary-3 text-primary-1 rounded-xl hover:bg-yellow-400 text-base transition-colors font-medium shadow-md"
               >
                 <span>Actions</span>
                 <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
@@ -283,6 +314,7 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
                   <ul className="py-1 text-sm text-foreground">
                     <li>
                       <button
+                        data-tour="add-school-action"
                         onClick={() => {
                           setIsSchoolModalOpen(true);
                           setDropdownOpen(false);
@@ -295,6 +327,7 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
                     </li>
                     <li>
                       <button
+                        data-tour="bulk-upload-multi-schools"
                         onClick={() => {
                           setIsUploadModalOpen(true);
                           setDropdownOpen(false);
@@ -359,9 +392,29 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
               />
             </div>
 
-            {/* Key Barriers + Student Levels Distribution Chart */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-1">
+            {/* Student Levels Chart — full width, matches WelcomePage treatment */}
+            <div>
+              <StudentLevelsChart
+                levelType={levelType}
+                setLevelType={setLevelType}
+                chartData={chartData}
+                loading={combinedLevelsLoading}
+                error={combinedLevelsError}
+                onRefresh={handleRefreshLevels}
+                onDownload={() => console.log("Export student levels for project")}
+                downloadLoading={false}
+                isSuperAdmin={isAdminOrSuperAdmin}
+                organizationId={organizationId}
+                projectId={projectId}
+                demographicsData={demographicsData}
+                demographicsLoading={demographicsLoading}
+                demographicsError={demographicsError}
+              />
+            </div>
+
+            {/* Key Barriers + Program Impact — side by side, matches WelcomePage */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
                 <KeyBarriers
                   organizationId={organizationId}
                   loading={barrierLoading}
@@ -372,29 +425,7 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
                   onFetchData={refetchBarriers}
                 />
               </div>
-              <div className="lg:col-span-2">
-                <StudentLevelsChart
-                  levelType={levelType}
-                  setLevelType={setLevelType}
-                  chartData={chartData}
-                  loading={combinedLevelsLoading}
-                  error={combinedLevelsError}
-                  onRefresh={handleRefreshLevels}
-                  onDownload={() => console.log("Export student levels for project")}
-                  downloadLoading={false}
-                  isSuperAdmin={isAdminOrSuperAdmin}
-                  organizationId={organizationId}
-                  projectId={projectId}
-                />
-              </div>
-            </div>
-
-            {/* Weekly Engagement + Program Impact */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <WeeklyEngagementChart organizationId={organizationId} />
-              </div>
-              <div className="lg:col-span-1">
+              <div>
                 <ProgramImpact
                   organizationId={organizationId}
                   loading={impactLoading}
@@ -405,8 +436,13 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
               </div>
             </div>
 
+            {/* Weekly Engagement — full width */}
+            <div>
+              <WeeklyEngagementChart organizationId={organizationId} />
+            </div>
+
             {/* Assessment Health */}
-            <div className="grid grid-cols-1">
+            <div>
               <AssessmentHealth
                 organizationId={organizationId}
                 loading={healthLoading}
@@ -416,21 +452,27 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
               />
             </div>
 
-            {/* Attendance Overview */}
-            <div className="grid grid-cols-1">
-              <AttendanceOverview
+            {/* Attendance Overview — only for organizations that take attendance */}
+            {attendanceEnabled && (
+              <div>
+                <AttendanceOverview
+                  organizationId={organizationId}
+                  loading={attendanceLoading}
+                  error={attendanceError}
+                  data={attendanceData}
+                  onFetchData={refetchAttendance}
+                />
+              </div>
+            )}
+
+            {/* Duration Statistics — Recalculate button is super-admin only (handled inside the component) */}
+            <div>
+              <DurationStats
                 organizationId={organizationId}
-                loading={attendanceLoading}
-                error={attendanceError}
-                data={attendanceData}
-                onFetchData={refetchAttendance}
+                projectId={projectId}
+                scope="project"
               />
             </div>
-            <DurationStats
-            organizationId={organizationId}
-            projectId={projectId}
-            scope="project"
-          />
           </div>
         )}
       </div>
@@ -474,6 +516,7 @@ const combinedLevelsError = levelsError || literacyError || numeracyError;
           } else {
             fetchNumeracyLevels();
           }
+          fetchDemographicsLevels();
           refetchBarriers();
           refetchHealth();
           refetchAttendance();
