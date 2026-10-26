@@ -2,6 +2,11 @@
 import { Copy, Plus, Trash2 } from "lucide-react";
 import FlowLogicEditor from "./FlowLogicEditor";
 import { newId } from "@/utils/survey/surveyDefaults";
+import {
+  PERSON_QUESTION_TARGETS,
+  QUESTION_PROFILE_FIELDS,
+  QUESTION_TARGET_ENTITIES,
+} from "@/utils/survey/questionTypes";
 
 export default function QuestionEditor({
   question,
@@ -82,20 +87,85 @@ export default function QuestionEditor({
           </Field>
         )}
 
-        <Field label="Question is about">
+        <Field label="Who is this question about?">
           <select
             value={question.target_entity ?? "household"}
-            onChange={(event) => set({ target_entity: event.target.value })}
+            onChange={(event) => {
+              const targetEntity = event.target.value;
+              set({
+                target_entity: targetEntity,
+                ...(!PERSON_QUESTION_TARGETS.has(targetEntity) ? { profile_field: null } : {}),
+              });
+            }}
             disabled={!canEdit}
-            className="input"
+            className="input bg-background-lighter text-foreground"
+            style={{
+              backgroundColor: "var(--background-lighter)",
+              color: "var(--foreground)",
+            }}
           >
-            <option value="household">Household / parent / caregiver</option>
-            <option value="child">A child / student (repeat for each child)</option>
+            {Object.entries(QUESTION_TARGET_ENTITIES).map(([value, label]) => (
+              <option
+                key={value}
+                value={value}
+                className="bg-background-light text-foreground"
+                style={{
+                  backgroundColor: "var(--background-light)",
+                  color: "var(--foreground)",
+                }}
+              >
+                {label}
+              </option>
+            ))}
           </select>
           <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
-            Child questions are answered separately for each child in the household.
+            Child and parent/guardian questions are answered separately for each person.
           </p>
         </Field>
+
+        {PERSON_QUESTION_TARGETS.has(question.target_entity ?? "household") && (
+          <Field label="Profile field">
+            <select
+              value={question.profile_field ?? ""}
+              onChange={(event) => set({ profile_field: event.target.value || null })}
+              disabled={!canEdit}
+              required
+              className="input bg-background-lighter text-foreground"
+              style={{
+                backgroundColor: "var(--background-lighter)",
+                color: "var(--foreground)",
+              }}
+            >
+              <option
+                value=""
+                disabled
+                className="bg-background-light text-foreground"
+                style={{
+                  backgroundColor: "var(--background-light)",
+                  color: "var(--foreground)",
+                }}
+              >
+                Select a profile field
+              </option>
+              {Object.entries(QUESTION_PROFILE_FIELDS).map(([value, label]) => (
+                <option
+                  key={value}
+                  value={value}
+                  className="bg-background-light text-foreground"
+                  style={{
+                    backgroundColor: "var(--background-light)",
+                    color: "var(--foreground)",
+                  }}
+                >
+                  {label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
+              Required for child and parent/guardian questions.
+            </p>
+          </Field>
+        )}
 
         {!isLayout && (
           <label className="flex items-center gap-2 text-sm text-foreground">

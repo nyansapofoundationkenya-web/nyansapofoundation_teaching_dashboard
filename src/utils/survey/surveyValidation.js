@@ -1,4 +1,9 @@
-import { QUESTION_TYPES } from "./questionTypes";
+import {
+  PERSON_QUESTION_TARGETS,
+  QUESTION_PROFILE_FIELDS,
+  QUESTION_TARGET_ENTITIES,
+  QUESTION_TYPES,
+} from "./questionTypes";
 
 const CONDITION_OPERATORS = new Set([
   "equals",
@@ -220,11 +225,24 @@ export function validateSurveyDefinition(survey, questions) {
     if (!QUESTION_TYPES[question.type]) {
       errors.push(`Question ${index + 1} has an unsupported type.`);
     }
-    if (
-      question.target_entity != null &&
-      !["household", "child"].includes(question.target_entity)
-    ) {
+    const targetEntity = question.target_entity ?? "household";
+    if (!Object.prototype.hasOwnProperty.call(QUESTION_TARGET_ENTITIES, targetEntity)) {
       errors.push(`Question ${index + 1} has an unsupported target entity.`);
+    }
+    if (
+      PERSON_QUESTION_TARGETS.has(targetEntity) &&
+      !question.profile_field
+    ) {
+      errors.push(`Question ${index + 1} needs a profile field for its person target.`);
+    }
+    if (
+      question.profile_field != null &&
+      (
+        !Object.prototype.hasOwnProperty.call(QUESTION_PROFILE_FIELDS, question.profile_field) ||
+        !PERSON_QUESTION_TARGETS.has(targetEntity)
+      )
+    ) {
+      errors.push(`Question ${index + 1} has an unsupported profile field for its target entity.`);
     }
     if (!pagePositions.has(question.pageId)) {
       errors.push(`Question ${index + 1} is not assigned to a survey page.`);
@@ -356,7 +374,13 @@ export function createPublishedSurveyDefinition({ organizationId, survey, questi
       survey_id: survey.id,
       page_id: question.pageId,
       type: question.type,
-      target_entity: question.target_entity === "child" ? "child" : "household",
+      target_entity: Object.prototype.hasOwnProperty.call(
+        QUESTION_TARGET_ENTITIES,
+        question.target_entity
+      )
+        ? question.target_entity
+        : "household",
+      profile_field: question.profile_field ?? null,
       text: question.text ?? "",
       description: question.description ?? "",
       created_at: question.createdAt ?? null,
@@ -384,7 +408,7 @@ export function createPublishedSurveyDefinition({ organizationId, survey, questi
   };
 
   return {
-    schema_version: 2,
+    schema_version: 3,
     organization_id: organizationId,
     id: survey.id,
     slug: survey.slug ?? "",

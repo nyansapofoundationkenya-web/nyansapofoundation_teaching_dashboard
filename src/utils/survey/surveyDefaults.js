@@ -100,6 +100,7 @@ export function createNewQuestion({ type = "short_text", pageId, position = 0 } 
     description: "",
     required: false,
     target_entity: "household",
+    profile_field: null,
     config: { ...meta.defaultConfig },
     logic: null,
     options: meta.hasOptions ? [createNewOption(0), createNewOption(1)] : [],

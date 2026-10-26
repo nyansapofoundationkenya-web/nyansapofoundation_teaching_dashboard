@@ -128,6 +128,23 @@ export const QUESTION_TYPES = {
   },
 };
 
+export const QUESTION_TARGET_ENTITIES = {
+  household: "Household",
+  child: "Child (repeat for each child)",
+  parent_guardian: "Parent / guardian (repeat for each person)",
+  other: "Other",
+};
+
+export const QUESTION_PROFILE_FIELDS = {
+  first_name: "First name",
+  last_name: "Last name",
+  age: "Age",
+  gender: "Gender",
+  grade: "Grade",
+};
+
+export const PERSON_QUESTION_TARGETS = new Set(["child", "parent_guardian"]);
+
 export const QUESTION_TYPE_GROUPS = ["Text", "Numeric", "Choice", "Rating", "Date", "Layout"];
 
 export function getTypeMeta(type) {

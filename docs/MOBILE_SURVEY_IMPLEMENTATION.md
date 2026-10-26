@@ -34,7 +34,7 @@ dashboard:
 | Path | Created/updated when | Contents | Mobile use |
 | --- | --- | --- | --- |
 | `organization/{organizationId}/surveys/{surveyId}` | Created as a draft; updated while editing and when publishing | Draft survey metadata, settings, welcome/thank-you content, and embedded `pages`; publish pointer such as `publishedVersion` | List/select published surveys and find the current published version. Not the respondent definition. |
-| `organization/{organizationId}/surveys/{surveyId}/questions/{questionId}` | Added, edited, moved, reordered, or removed in the builder | One editable question, including `pageId`, `target_entity`, type/config/options/logic | Not read by the respondent flow. |
+| `organization/{organizationId}/surveys/{surveyId}/questions/{questionId}` | Added, edited, moved, reordered, or removed in the builder | One editable question, including `pageId`, `target_entity`, `profile_field`, type/config/options/logic | Not read by the respondent flow. |
 | `organization/{organizationId}/surveys/{surveyId}/versions/{version}` | Written on publish | One immutable, complete survey snapshot with embedded ordered `pages` and `questions` | Fetch this snapshot and render it. |
 
 There is **no `pages` subcollection**: page definitions are embedded in the
@@ -190,6 +190,7 @@ camelCase where shown here; publishing converts selected fields to snake_case:
   "position": 0,
   "type": "short_text",
   "target_entity": "child",
+  "profile_field": "first_name",
   "text": "What is the child's first name?",
   "description": "",
   "required": true,
@@ -204,9 +205,10 @@ camelCase where shown here; publishing converts selected fields to snake_case:
 }
 ```
 
-`target_entity` is `household` or `child`; new questions default to
-`household`. Questions may additionally contain an `updatedAt` Firestore server
-timestamp after an edit. Option objects are embedded in the question's
+`target_entity` is `household`, `child`, `parent_guardian`, or `other`; new
+questions default to `household`. Person questions may also have a nullable
+`profile_field`. Questions may additionally contain an `updatedAt` Firestore
+server timestamp after an edit. Option objects are embedded in the question's
 `options` array; options are **not** a subcollection. Option shape:
 
 ```json
@@ -242,7 +244,7 @@ question type table below.
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "organization_id": "org_123",
   "id": "survey_456",
   "slug": "household-baseline",
@@ -343,6 +345,7 @@ question type table below.
       "required": true,
       "position": 0,
       "target_entity": "household",
+      "profile_field": null,
       "config": {
         "min": 1,
         "max": null,
@@ -363,6 +366,7 @@ question type table below.
       "required": true,
       "position": 1,
       "target_entity": "child",
+      "profile_field": "first_name",
       "config": {
         "max_length": 120,
         "placeholder": ""
@@ -385,10 +389,13 @@ Pages and questions are already ordered in the published snapshot. For reliable
 rendering, still sort pages by `position` and questions by `page_id`, then
 `position`. Keep IDs as strings and use stable question and option IDs; labels
 are for display, not answer keys. Published fields use `snake_case`, including
-`organization_id`, `page_id`, `survey_id`, `created_at`, and `target_entity`.
-Newly published snapshots use `schema_version: 2`. Version-1 snapshots predate
-`target_entity`; treat a missing value as `"household"`. Reject unsupported
-schema versions explicitly rather than guessing how to render them.
+`organization_id`, `page_id`, `survey_id`, `created_at`, `target_entity`, and
+`profile_field`. Newly published snapshots use `schema_version: 3`. Version-1
+snapshots predate `target_entity`; version-2 snapshots support only the earlier
+`household` and `child` target values and do not include `profile_field`. For
+older versions, treat a missing `target_entity` as `"household"` and a missing
+`profile_field` as `null`. Reject unsupported schema versions explicitly rather
+than guessing how to render them.
 
 ### Question and option schema
 
@@ -406,6 +413,7 @@ Every published question has this structure:
   "required": false,
   "position": 2,
   "target_entity": "child",
+  "profile_field": "gender",
   "config": {
     "randomize_options": false,
     "layout": "vertical"
@@ -515,21 +523,43 @@ For multi-choice, use:
 Only show the "other" text input when an `is_other` option is selected. Require
 non-blank `other_text` when that option is selected.
 
-## Household vs child/student questions
+## Question target and profile tags
 
-The builder exposes **Question is about** on each question:
+The builder exposes **Who is this question about?** on each question:
 
-- `target_entity: "household"` — answer once for the household, parent, or
-  caregiver. This is the default, including for version-1 published surveys
-  where the field is absent.
+- `target_entity: "household"` — answer once about the household or household
+  conditions. This is the default, including for older published surveys where
+  the field is absent.
 - `target_entity: "child"` — answer separately for each child in the household.
   The mobile app should show the question in a child-specific context, identify
   the child by stable household-child ID, and keep each child's answer separate.
+- `target_entity: "parent_guardian"` — answer separately for each relevant
+  parent or guardian. Keep answers distinct for each person using a stable
+  person ID where the mobile data model provides one.
+- `target_entity: "other"` — the question is about another subject that is not
+  the household, a child, or a parent/guardian. The question text should
+  identify the subject.
 
-`target_entity` tells the app **whose information the question describes**. It
-does not name a storage destination. This dashboard change only publishes the
-household/child marker; the mobile app owns any later association or writes to
-its student and assessment workflows.
+For child and parent/guardian questions, `profile_field` is required and
+identifies the standard person field:
+
+| `profile_field` | Meaning |
+| --- | --- |
+| `first_name` | Person's first name |
+| `last_name` | Person's last name |
+| `age` | Person's age |
+| `gender` | Person's gender |
+| `grade` | Child's school grade |
+| `null` | Not applicable; used for household/other questions and older survey versions |
+
+`profile_field` must be one of the listed fields when `target_entity` is
+`"child"` or `"parent_guardian"`; it must be `null` for `household` and `other`.
+The builder blocks publishing a person-targeted question without a profile
+field. It helps mobile recognize standard personal details; it does not specify
+a storage destination or cause this dashboard to write to student or
+assessment collections. The respondent may be a caregiver even when the
+question targets a child: the target indicates whose information the answer
+describes, not who is answering.
 
 Example mobile answer grouping for a household with two children:
 
@@ -558,15 +588,23 @@ Example mobile answer grouping for a household with two children:
         }
       }
     }
+  ],
+  "parent_guardian_answers": [
+    {
+      "person_id": "parent_201",
+      "answers": {
+        "q_parent_first_name": "Grace"
+      }
+    }
   ]
 }
 ```
 
 The exact persisted response envelope is still subject to the response contract
-below. `household_child_id` must refer to a stable child record/ID, not a name or
-array index. The mobile app can use that child context when associating answers
-with a student or assessment; those collection schemas and writes are outside
-this dashboard survey definition.
+below. Child and parent/guardian IDs must be stable person IDs, not names or
+array indexes. The mobile app owns any later association or writes to its
+student and assessment workflows; those destinations are outside this dashboard
+survey definition.
 
 ## Respondent flow
 
@@ -698,8 +736,10 @@ Recommended properties of the final contract:
   ID; keep `other_text` alongside the choice answer when present.
 - Keep household answers separate from child answers. Key child answers by a
   stable household-child ID.
-- Use `target_entity` only to distinguish household-level from child-level
-  questions. It does not configure student or assessment field mappings.
+- Use `target_entity` to select household, child, parent/guardian, or other
+  answer context. Use `profile_field` to identify standard fields on child or
+  parent/guardian questions. Neither tag configures student or assessment
+  write destinations.
 - Include organization, survey, published version, and the mobile household
   context required to associate the response.
 - Define whether respondent identity is allowed/required based on the survey's
@@ -742,8 +782,10 @@ authorization behavior must be explicitly defined.
 - [ ] Load surveys under the active organization, not across organizations.
 - [ ] Offer only published surveys with a readable published version.
 - [ ] Preserve the selected household ID through launch and submission.
-- [ ] Render household questions once and child questions for each child; bind
-  each child answer set to that child's stable ID.
+- [ ] Render household questions once; render child and parent/guardian
+  questions in their respective per-person contexts using stable person IDs.
+- [ ] Read the required `profile_field` on child and parent/guardian questions
+  to recognize first name, last name, age, gender, or grade.
 - [ ] Render all 12 supported types, including layout-only types.
 - [ ] Use question/option IDs in saved answers, never labels as identifiers.
 - [ ] Match conditional question and page visibility and page-routing behavior.
@@ -751,7 +793,8 @@ authorization behavior must be explicitly defined.
 - [ ] Support back navigation, progress, save/resume, and randomization according
   to settings.
 - [ ] Pin the published version for the life of an in-progress response.
-- [ ] Treat missing `target_entity` in schema-version-1 surveys as `household`.
+- [ ] Treat missing `target_entity` in schema versions 1 and 2 as `household`
+  and missing `profile_field` as `null`.
 - [ ] Use the question's `target_entity` to determine whether answers describe
   the household or each child; handle any student/assessment integration in
   the mobile app's own workflow.
