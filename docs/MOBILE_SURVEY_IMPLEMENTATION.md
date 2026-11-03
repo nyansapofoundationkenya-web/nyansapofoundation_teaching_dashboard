@@ -523,6 +523,12 @@ For multi-choice, use:
 Only show the "other" text input when an `is_other` option is selected. Require
 non-blank `other_text` when that option is selected.
 
+In the builder, edit the option label (usually to **Other**) and enable **Mark
+as "Other" and let respondent enter text** for that option. The respondent UI
+shows a text field only after the option is selected. This is supported for
+`single_choice`, `dropdown`, and `multi_choice`; the free text is stored in
+`other_text` alongside the selected option ID(s).
+
 ## Question target and profile tags
 
 The builder exposes **Who is this question about?** on each question:
@@ -550,10 +556,12 @@ identifies the standard person field:
 | `age` | Person's age |
 | `gender` | Person's gender |
 | `grade` | Child's school grade |
+| `other` | Another person detail; interpret using the question prompt |
 | `null` | Not applicable; used for household/other questions and older survey versions |
 
-`profile_field` must be one of the listed fields when `target_entity` is
-`"child"` or `"parent_guardian"`; it must be `null` for `household` and `other`.
+`profile_field` must be one of the listed fields (including `other`) when
+`target_entity` is `"child"` or `"parent_guardian"`; it must be `null` for
+`household` and `other`.
 The builder blocks publishing a person-targeted question without a profile
 field. It helps mobile recognize standard personal details; it does not specify
 a storage destination or cause this dashboard to write to student or
@@ -785,7 +793,10 @@ authorization behavior must be explicitly defined.
 - [ ] Render household questions once; render child and parent/guardian
   questions in their respective per-person contexts using stable person IDs.
 - [ ] Read the required `profile_field` on child and parent/guardian questions
-  to recognize first name, last name, age, gender, or grade.
+  to recognize first name, last name, age, gender, grade, or another person
+  detail (`other`); use the question prompt to interpret `other`.
+- [ ] For choice questions, show a text input when the selected option has
+  `is_other: true` and save its value in `other_text`.
 - [ ] Render all 12 supported types, including layout-only types.
 - [ ] Use question/option IDs in saved answers, never labels as identifiers.
 - [ ] Match conditional question and page visibility and page-routing behavior.

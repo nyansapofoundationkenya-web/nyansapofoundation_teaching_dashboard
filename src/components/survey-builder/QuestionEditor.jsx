@@ -1,4 +1,5 @@
 "use client";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Copy, Plus, Trash2 } from "lucide-react";
 import FlowLogicEditor from "./FlowLogicEditor";
 import { newId } from "@/utils/survey/surveyDefaults";
@@ -56,11 +57,11 @@ export default function QuestionEditor({
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         <Field label={question.type === "section" ? "Heading" : "Prompt"}>
-          <input
+          <DraftTextField
+            key={`${question.id}-prompt`}
             value={question.text || ""}
-            onChange={(e) => set({ text: e.target.value })}
+            onSave={(text) => set({ text })}
             disabled={!canEdit}
-            className="input"
           />
         </Field>
 
@@ -77,12 +78,13 @@ export default function QuestionEditor({
 
         {question.type !== "section" && (
           <Field label="Description / helper text">
-            <textarea
+            <DraftTextField
+              key={`${question.id}-description`}
+              multiline
               rows={2}
               value={question.description || ""}
-              onChange={(e) => set({ description: e.target.value })}
+              onSave={(description) => set({ description })}
               disabled={!canEdit}
-              className="input"
             />
           </Field>
         )}
@@ -571,6 +573,76 @@ function Field({ label, children }) {
   );
 }
 
+function DraftTextField({
+  value,
+  onSave,
+  disabled,
+  className,
+  multiline = false,
+  rows,
+}) {
+  const [draft, setDraft] = useState(value);
+  const draftRef = useRef(value);
+  const saveRef = useRef(onSave);
+  const timerRef = useRef(null);
+  const pendingRef = useRef(false);
+  const focusedRef = useRef(false);
+
+  saveRef.current = onSave;
+
+  const flush = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (!pendingRef.current) return;
+    pendingRef.current = false;
+    saveRef.current(draftRef.current);
+  }, []);
+
+  useEffect(() => {
+    if (focusedRef.current || pendingRef.current) return;
+    draftRef.current = value;
+    setDraft(value);
+  }, [value]);
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (pendingRef.current) {
+      pendingRef.current = false;
+      saveRef.current(draftRef.current);
+    }
+  }, []);
+
+  const handleChange = (event) => {
+    const nextValue = event.target.value;
+    draftRef.current = nextValue;
+    setDraft(nextValue);
+    pendingRef.current = true;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(flush, 400);
+  };
+
+  const props = {
+    value: draft,
+    onChange: handleChange,
+    onFocus: () => { focusedRef.current = true; },
+    onBlur: () => {
+      focusedRef.current = false;
+      flush();
+    },
+    disabled,
+    className: [
+      "w-full rounded-[10px] border border-white/10 bg-white/[0.03] px-3 py-2",
+      "text-[13px] text-foreground outline-none focus:border-primary-3",
+      "focus:ring-2 focus:ring-primary-3/15",
+      className,
+    ].filter(Boolean).join(" "),
+  };
+
+  return multiline ? <textarea {...props} rows={rows} /> : <input {...props} />;
+}
+
 function Check({ label, checked, onChange, disabled }) {
   return (
     <label className="flex items-center gap-2 text-xs text-foreground">
@@ -642,11 +714,16 @@ function OptionsEditor({ options, onChange, disabled }) {
               aria-label={`Choice ${i + 1} stored value`}
             />
             <Check
-              label="Allow respondent to enter another answer"
+              label={'Mark as "Other" and let respondent enter text'}
               checked={!!o.is_other}
               onChange={(value) => update(i, { is_other: value })}
               disabled={disabled}
             />
+            {o.is_other && (
+              <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
+                Respondents selecting this option will see a text field.
+              </p>
+            )}
           </div>
         ))}
         {!disabled && (

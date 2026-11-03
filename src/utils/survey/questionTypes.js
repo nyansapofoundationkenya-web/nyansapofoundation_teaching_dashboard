@@ -141,6 +141,7 @@ export const QUESTION_PROFILE_FIELDS = {
   age: "Age",
   gender: "Gender",
   grade: "Grade",
+  other: "Other (custom detail)",
 };
 
 export const PERSON_QUESTION_TARGETS = new Set(["child", "parent_guardian"]);

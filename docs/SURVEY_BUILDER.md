@@ -111,11 +111,16 @@ screen. It is a builder preview only and does not write respondent data.
 
 Each question includes `target_entity`: `household` (the default), `child`,
 `parent_guardian`, or `other`. Child and parent/guardian questions require
-`profile_field` (`first_name`, `last_name`, `age`, `gender`, or `grade`).
-Household and other questions use `profile_field: null`. These tags describe
-the subject and standard personal field, not a storage destination. Newly
+`profile_field` (`first_name`, `last_name`, `age`, `gender`, `grade`, or
+`other` for another person detail). Household and other-subject questions use
+`profile_field: null`. These tags describe the subject and standard personal
+field, not a storage destination. Newly
 published snapshots use `schema_version: 3`; older snapshots should treat a
 missing `target_entity` as `household` and a missing `profile_field` as `null`.
+
+For choice questions, an option can be marked to show a respondent text input
+when selected. The answer stores the selected option ID(s) and the text in
+`other_text`.
 
 For the mobile respondent flow, published-version loading, question rendering,
 logic, and the response-storage gap, see
