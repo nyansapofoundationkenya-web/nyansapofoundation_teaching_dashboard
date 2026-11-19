@@ -96,6 +96,7 @@ export default function QuestionEditor({
               const targetEntity = event.target.value;
               set({
                 target_entity: targetEntity,
+                required: PERSON_QUESTION_TARGETS.has(targetEntity) ? true : question.required,
                 ...(!PERSON_QUESTION_TARGETS.has(targetEntity) ? { profile_field: null } : {}),
               });
             }}
@@ -173,9 +174,16 @@ export default function QuestionEditor({
           <label className="flex items-center gap-2 text-sm text-foreground">
             <input
               type="checkbox"
-              checked={!!question.required}
+              checked={
+                PERSON_QUESTION_TARGETS.has(question.target_entity ?? "household")
+                  ? true
+                  : !!question.required
+              }
               onChange={(e) => set({ required: e.target.checked })}
-              disabled={!canEdit}
+              disabled={
+                !canEdit ||
+                PERSON_QUESTION_TARGETS.has(question.target_entity ?? "household")
+              }
               className="accent-primary-3"
             />
             Required

@@ -223,17 +223,17 @@ export function validateSurveyDefinition(survey, questions) {
 
   orderedQuestions.forEach((question, index) => {
     if (!QUESTION_TYPES[question.type]) {
-      errors.push(`Question ${index + 1} has an unsupported type.`);
+      errors.push(`Question ${index + 1} on page "${pages.find((p) => p.id === question.pageId)?.title || "Untitled"}" has an unsupported type.`);
     }
     const targetEntity = question.target_entity ?? "household";
     if (!Object.prototype.hasOwnProperty.call(QUESTION_TARGET_ENTITIES, targetEntity)) {
-      errors.push(`Question ${index + 1} has an unsupported target entity.`);
+      errors.push(`Question ${index + 1} on page "${pages.find((p) => p.id === question.pageId)?.title || "Untitled"}" has an unsupported target entity.`);
     }
     if (
       PERSON_QUESTION_TARGETS.has(targetEntity) &&
       !question.profile_field
     ) {
-      errors.push(`Question ${index + 1} needs a profile field for its person target.`);
+      errors.push(`Question ${index + 1} on page "${pages.find((p) => p.id === question.pageId)?.title || "Untitled"}" needs a profile field for its person target.`);
     }
     if (
       question.profile_field != null &&
@@ -242,21 +242,21 @@ export function validateSurveyDefinition(survey, questions) {
         !PERSON_QUESTION_TARGETS.has(targetEntity)
       )
     ) {
-      errors.push(`Question ${index + 1} has an unsupported profile field for its target entity.`);
+      errors.push(`Question ${index + 1} on page "${pages.find((p) => p.id === question.pageId)?.title || "Untitled"}" has an unsupported profile field for its target entity.`);
     }
     if (!pagePositions.has(question.pageId)) {
-      errors.push(`Question ${index + 1} is not assigned to a survey page.`);
+      errors.push(`Question ${index + 1} on page "${pages.find((p) => p.id === question.pageId)?.title || "Untitled"}" is not assigned to a survey page.`);
     }
     if (!["section", "info"].includes(question.type) && !question.text?.trim()) {
-      errors.push(`Question ${index + 1} needs a prompt.`);
+      errors.push(`Question ${index + 1} on page "${pages.find((p) => p.id === question.pageId)?.title || "Untitled"}" needs a prompt.`);
     }
     if (QUESTION_TYPES[question.type]?.hasOptions) {
       const options = question.options ?? [];
       if (options.length === 0 || options.some((option) => !option.label?.trim())) {
-        errors.push(`Question ${index + 1} needs at least one option with a label.`);
+        errors.push(`Question ${index + 1} on page "${pages.find((p) => p.id === question.pageId)?.title || "Untitled"}" needs at least one option with a label.`);
       }
       if (new Set(options.map((option) => option.id)).size !== options.length) {
-        errors.push(`Question ${index + 1} has duplicate option IDs.`);
+        errors.push(`Question ${index + 1} on page "${pages.find((p) => p.id === question.pageId)?.title || "Untitled"}" has duplicate option IDs.`);
       }
     }
     if (
@@ -270,7 +270,7 @@ export function validateSurveyDefinition(survey, questions) {
           ))
       )
     ) {
-      errors.push(`Question ${index + 1} selection limits are invalid.`);
+      errors.push(`Question ${index + 1} on page "${pages.find((p) => p.id === question.pageId)?.title || "Untitled"}" selection limits are invalid.`);
     }
     if (
       ["number", "scale"].includes(question.type) &&
@@ -278,13 +278,13 @@ export function validateSurveyDefinition(survey, questions) {
       question.config?.max != null &&
       Number(question.config.min) > Number(question.config.max)
     ) {
-      errors.push(`Question ${index + 1} minimum cannot be greater than its maximum.`);
+      errors.push(`Question ${index + 1} on page "${pages.find((p) => p.id === question.pageId)?.title || "Untitled"}" minimum cannot be greater than its maximum.`);
     }
     if (
       question.logic?.show_if &&
       pages.find((page) => page.id === question.pageId)?.randomize_questions
     ) {
-      errors.push(`Question ${index + 1} cannot depend on earlier answers while its page is randomized.`);
+      errors.push(`Question ${index + 1} on page "${pages.find((p) => p.id === question.pageId)?.title || "Untitled"}" cannot depend on earlier answers while its page is randomized.`);
     }
     if (question.logic?.show_if) {
       validateConditions(
@@ -292,7 +292,7 @@ export function validateSurveyDefinition(survey, questions) {
         questionMap,
         questionOrder,
         errors,
-        `Question ${index + 1}`,
+        `Question ${index + 1} on page "${pages.find((p) => p.id === question.pageId)?.title || "Untitled"}"`,
         index
       );
     }
@@ -300,6 +300,9 @@ export function validateSurveyDefinition(survey, questions) {
 
   pages.forEach((page, index) => {
     const pageQuestions = orderedQuestions.filter((question) => question.pageId === page.id);
+    if (pageQuestions.length === 0) {
+      errors.push(`Page "${page.title || index + 1}" must contain at least one question.`);
+    }
     const eligibleQuestions = new Map(
       orderedQuestions
         .filter((question) => pagePositions.get(question.pageId) < index)
