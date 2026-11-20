@@ -344,6 +344,7 @@ export default function StudentsTable({
             </div>
             <div className="flex gap-2">
               <button
+                data-tour="guide-modal-btn"
                 onClick={() => setIsGuideOpen(true)}
                 className="flex items-center gap-2 px-4 py-2 border border-gray-500 hover:bg-gray-700/30 text-foreground rounded-xl transition-colors"
                 title="How to read this table"
@@ -352,6 +353,7 @@ export default function StudentsTable({
                 <span className="hidden sm:inline">Guide</span>
               </button>
               <button
+                data-tour="add-student-btn"
                 onClick={handleAddClick}
                 className="flex items-center gap-2 px-4 py-2 bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold rounded-xl transition-colors shadow-md hover:shadow-lg"
               >

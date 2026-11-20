@@ -152,6 +152,7 @@ export default function AssessmentList({
         return (
           <div
             key={assessment.id}
+            data-tour="assessment-card"
             onClick={() => goTo(assessment.id)}
             className="bg-background-light rounded-2xl shadow-lg border border-gray-600 overflow-hidden hover:shadow-xl transition-all cursor-pointer group relative"
           >

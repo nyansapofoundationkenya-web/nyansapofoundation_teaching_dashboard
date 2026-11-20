@@ -6,11 +6,14 @@ import { FaChalkboardTeacher } from "react-icons/fa";
 import { useProjects } from "@/hooks/UseProjects";
 import { useState } from "react";
 
+import { useTour } from "@/context/TourContext";
+
 export default function ProjectCard({ project, organizationId, userRole }) {
   const router = useRouter();
   const { deleteProject } = useProjects(organizationId);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const { isTourRunning, activeTour } = useTour();
 
   const handleViewDashboard = () => {
     router.push(`/dashboard/${organizationId}/projectDetails/${project.id}`);
@@ -41,7 +44,7 @@ export default function ProjectCard({ project, organizationId, userRole }) {
   };
 
   return (
-    <div className="rounded-2xl p-4 bg-background-light text-foreground shadow-lg w-full transition-all hover:shadow-xl duration-200 relative border border-gray-600">
+    <div data-tour="project-card" className="rounded-2xl p-4 bg-background-light text-foreground shadow-lg w-full transition-all hover:shadow-xl duration-200 relative border border-gray-600">
       {/* Delete Button - Only for Admin */}
       {/* {userRole === 'admin' && !showDeleteConfirm && (
         <button
@@ -139,7 +142,14 @@ export default function ProjectCard({ project, organizationId, userRole }) {
       </div>
 
       {/* Dashboard Button */}
+      {isTourRunning && (activeTour === "add-school-project" || activeTour === "add-multi-school-students") && (
+        <div className="mt-3 mb-1 flex items-center justify-center gap-2 px-3 py-1.5 bg-yellow-400 text-slate-950 font-bold rounded-xl animate-bounce shadow-xl border-2 border-yellow-300 z-50 text-xs">
+          <span>👉 CLICK VIEW DASHBOARD TO CONTINUE</span>
+        </div>
+      )}
+
       <button
+        data-tour="view-project-dashboard-btn"
         onClick={handleViewDashboard}
         className="mt-4 w-full bg-primary-3 hover:bg-yellow-400 text-primary-1 font-semibold py-2 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors duration-200 text-base shadow-md hover:shadow-lg"
       >
