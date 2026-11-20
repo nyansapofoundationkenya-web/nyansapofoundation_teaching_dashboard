@@ -4,6 +4,7 @@ import { ref, listAll, getDownloadURL } from "firebase/storage";
 import { storage } from "@/firebase/config";
 
 const WORKOUT_IMAGES_FOLDER = "Nyansapo_Teaching_Numeracy_Assessment_test_workout_Images";
+const ASSESSMENT_WORKOUT_IMAGES_FOLDER = "Nao_Assessment_Numeracy_Workout_Images";
 
 const esc = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -73,5 +74,21 @@ export const getWorkoutUrlFinder = (section) => {
     case "number_operations": return findNumberOperationsWorkoutUrl;
     case "word_problem":      return findWordProblemWorkoutUrl;
     default:                  return null;
+  }
+};
+
+/**
+ * Scan the per-assessment workout images folder
+ * (Nao_Assessment_Numeracy_Workout_Images/<assessmentId>/) for any file and
+ * return its download URL. Used when the workout screenshot is stored under
+ * the assessment-scoped folder rather than the legacy flat folder.
+ */
+export const findAssessmentWorkoutUrl = async (assessmentId) => {
+  try {
+    const listResult = await listAll(ref(storage, `${ASSESSMENT_WORKOUT_IMAGES_FOLDER}/${assessmentId}`));
+    if (listResult.items.length === 0) return null;
+    return await getDownloadURL(listResult.items[0]);
+  } catch {
+    return null;
   }
 };

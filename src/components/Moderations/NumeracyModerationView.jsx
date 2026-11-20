@@ -5,7 +5,7 @@ import { CheckCircle, XCircle, Volume2, TrendingUp, AlertCircle } from "lucide-r
 import AudioPlayer from "./numeracy/AudioPlayer";
 import LazyImagePanel from "./numeracy/LazyImagePanel";
 import NumeracyModerationActions from "./NumeracyModerationActions";
-import { findNumberOperationsWorkoutUrl, findWordProblemWorkoutUrl } from "@/utils/numeracyStorageUtils";
+import { findNumberOperationsWorkoutUrl, findWordProblemWorkoutUrl, findAssessmentWorkoutUrl } from "@/utils/numeracyStorageUtils";
 
 export default function NumeracyModerationView({
   currentResult,
@@ -45,6 +45,15 @@ export default function NumeracyModerationView({
 
   const handleWorkoutUrlResolved = (url) => {
     updateNumeracyResult({ metadata: { workout_screenshot_url: url } });
+  };
+
+  // Build a workout-URL finder that falls back to the assessment-scoped folder
+  // (Nao_Assessment_Numeracy_Workout_Images/<assessmentId>/) when the legacy
+  // pattern scan does not find a match.
+  const makeWorkoutUrlFinder = (legacyFinder) => async () => {
+    const url = await legacyFinder();
+    if (url) return url;
+    return findAssessmentWorkoutUrl(assessmentId);
   };
 
   // Handle reopen moderation
@@ -368,7 +377,7 @@ const renderNumberOperationsCard = () => {
             <LazyImagePanel
               label="Workout Screenshot"
               savedUrl={savedWorkoutUrl}
-              findUrl={() => findNumberOperationsWorkoutUrl(assessmentId, studentId, currentResult)}
+              findUrl={() => makeWorkoutUrlFinder(() => findNumberOperationsWorkoutUrl(assessmentId, studentId, currentResult))()}
               onUrlResolved={handleWorkoutUrlResolved}
             />
           </div>
@@ -441,7 +450,7 @@ const renderNumberOperationsCard = () => {
               <LazyImagePanel
                 label="Workout Screenshot"
                 savedUrl={savedWorkoutUrl}
-                findUrl={() => findWordProblemWorkoutUrl(assessmentId, studentId, currentResult, currentIndex)}
+                findUrl={() => makeWorkoutUrlFinder(() => findWordProblemWorkoutUrl(assessmentId, studentId, currentResult, currentIndex))()}
                 onUrlResolved={handleWorkoutUrlResolved}
               />
             </div>
